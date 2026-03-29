@@ -1,0 +1,544 @@
+import React, { useState } from 'react';
+import { 
+  Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
+  Stethoscope, Palette, Brush, User, Heart, Activity, Car, Smartphone, Zap, Star, 
+  Smile, Wind, Droplets, Briefcase, ShoppingBag
+} from 'lucide-react';
+
+const availableIcons = [
+  { name: 'Scissors', Icon: Scissors },
+  { name: 'Stethoscope', Icon: Stethoscope },
+  { name: 'Palette', Icon: Palette },
+  { name: 'Brush', Icon: Brush },
+  { name: 'User', Icon: User },
+  { name: 'Heart', Icon: Heart },
+  { name: 'Activity', Icon: Activity },
+  { name: 'Coffee', Icon: Coffee },
+  { name: 'Car', Icon: Car },
+  { name: 'Smartphone', Icon: Smartphone },
+  { name: 'Zap', Icon: Zap },
+  { name: 'Star', Icon: Star },
+  { name: 'Smile', Icon: Smile },
+  { name: 'Wind', Icon: Wind },
+  { name: 'Droplets', Icon: Droplets },
+  { name: 'Briefcase', Icon: Briefcase },
+  { name: 'ShoppingBag', Icon: ShoppingBag },
+];
+
+interface Service {
+  name: string;
+  price: number;
+  duration: number;
+  icon: string; // Icon name from lucide
+}
+
+interface DaySchedule {
+  day: string;
+  isOpen: boolean;
+  hours: string;
+}
+
+export const BarberManagement: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand'>('brand');
+  const [weeksSchedule, setWeeksSchedule] = useState<DaySchedule[]>([
+    { day: 'Lunes', isOpen: true, hours: '09:00 - 18:00' },
+    { day: 'Martes', isOpen: true, hours: '09:00 - 18:00' },
+    { day: 'Miércoles', isOpen: true, hours: '09:00 - 18:00' },
+    { day: 'Jueves', isOpen: true, hours: '09:00 - 18:00' },
+    { day: 'Viernes', isOpen: true, hours: '09:00 - 18:00' },
+    { day: 'Sábado', isOpen: false, hours: '09:00 - 14:00' },
+    { day: 'Domingo', isOpen: false, hours: '09:00 - 14:00' },
+  ]);
+  const [lunchBreak, setLunchBreak] = useState({ start: '13:00', end: '14:00', enabled: true });
+  const [brand, setBrand] = useState({
+    name: 'Legacy Business',
+    professionalName: 'Alex "The Blade"',
+    professionalTitle: 'Master Barber & Educator',
+    logo: 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+    color: '#f59e0b',
+    slogan: 'Donde el estilo se encuentra con la tradición',
+    showReviews: true,
+    bookingMode: 'online' as 'online' | 'manual' | 'hybrid'
+  });
+
+  const [services, setServices] = useState<Service[]>([
+    { name: 'Corte Clásico', price: 25, duration: 30, icon: 'Scissors' },
+    { name: 'Barba Completa', price: 15, duration: 20, icon: 'Scissors' },
+    { name: 'Corte + Barba', price: 35, duration: 50, icon: 'Scissors' },
+  ]);
+  const [showSaved, setShowSaved] = useState(false);
+
+  const addService = () => {
+    setServices([...services, { name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
+  };
+
+  const removeService = (index: number) => {
+    setServices(services.filter((_, i) => i !== index));
+  };
+
+  const updateService = (index: number, field: keyof Service, value: any) => {
+    const newServices = [...services];
+    newServices[index] = { ...newServices[index], [field]: value };
+    setServices(newServices);
+  };
+
+  const handleSave = () => {
+    // Simulate updating global CSS variables for the color
+    document.documentElement.style.setProperty('--primary', brand.color);
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 3000);
+  };
+
+  return (
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+        <button 
+          onClick={() => setActiveTab('brand')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'brand' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'brand' ? '2px solid var(--primary)' : 'none'
+          }}
+        >
+          Mi Marca
+        </button>
+        <button 
+          onClick={() => setActiveTab('services')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'services' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'services' ? '2px solid var(--primary)' : 'none'
+          }}
+        >
+          Servicios y Precios
+        </button>
+        <button 
+          onClick={() => setActiveTab('schedule')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'schedule' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'schedule' ? '2px solid var(--primary)' : 'none'
+          }}
+        >
+          Horarios y Descansos
+        </button>
+      </div>
+
+      <div className="card">
+        {activeTab === 'brand' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Personalización de Marca</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '1.5rem', alignItems: 'start' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{ 
+                  width: '120px', 
+                  height: '120px', 
+                  borderRadius: 'var(--radius-lg)', 
+                  background: `url(${brand.logo}) center/cover`,
+                  border: '2px solid var(--border)',
+                  overflow: 'hidden'
+                }} />
+                <label style={{ 
+                  position: 'absolute', 
+                  bottom: '-5px', 
+                  right: '-5px', 
+                  background: 'var(--primary)', 
+                  color: 'black',
+                  padding: '8px', 
+                  borderRadius: '50%', 
+                  border: '2px solid var(--surface)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <Scissors size={16} />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    style={{ display: 'none' }} 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setBrand({...brand, logo: url});
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>NOMBRE DEL NEGOCIO</label>
+                  <input 
+                    type="text" 
+                    value={brand.name}
+                    onChange={(e) => setBrand({...brand, name: e.target.value})}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontWeight: 600 }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>NOMBRE PROFESIONAL</label>
+                    <input 
+                      type="text" 
+                      value={brand.professionalName}
+                      onChange={(e) => setBrand({...brand, professionalName: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TÍTULO / ESPECIALIDAD</label>
+                    <input 
+                      type="text" 
+                      value={brand.professionalTitle}
+                      onChange={(e) => setBrand({...brand, professionalTitle: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SLOGAN / FRASE</label>
+                  <input 
+                    type="text" 
+                    value={brand.slogan}
+                    onChange={(e) => setBrand({...brand, slogan: e.target.value})}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>COLOR DE MARCA (PRIMARY)</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="color" 
+                    value={brand.color}
+                    onChange={(e) => setBrand({...brand, color: e.target.value})}
+                    style={{ padding: '0', width: '48px', height: '42px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  />
+                  <input 
+                    type="text" 
+                    value={brand.color}
+                    onChange={(e) => setBrand({...brand, color: e.target.value})}
+                    style={{ flex: 1, padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem', textTransform: 'uppercase' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '1rem', background: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Habilitar Reseñas Públicas</h4>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Permite que los clientes vean tu calificación y reseñas en su perfil.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={brand.showReviews}
+                onChange={(e) => setBrand({...brand, showReviews: e.target.checked})}
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+              />
+            </div>
+
+            <div style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Modo de Agendamiento</h4>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Define cómo los clientes pueden interactuar con tu cola.</p>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                {[
+                  { id: 'online', label: '🌐 SOLO ONLINE', desc: 'Solo citas por app' },
+                  { id: 'manual', label: '📍 SOLO MANUAL', desc: 'Orden de llegada' },
+                  { id: 'hybrid', label: '⚖️ HÍBRIDO', desc: 'Citas + Presencial' }
+                ].map(mode => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setBrand({...brand, bookingMode: mode.id as any})}
+                    style={{
+                      padding: '0.75rem 0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: brand.bookingMode === mode.id ? 'var(--primary)' : 'var(--background)',
+                      color: brand.bookingMode === mode.id ? 'black' : 'var(--text)',
+                      border: brand.bookingMode === mode.id ? 'none' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>{mode.label}</span>
+                    <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>{mode.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'services' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Catálogo de Servicios</h3>
+              <button className="btn btn-primary" onClick={addService} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                <Plus size={16} /> Añadir Servicio
+              </button>
+            </div>
+            
+            {services.map((s, idx) => (
+              <div key={idx} style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: '1rem',
+                padding: '1.25rem', 
+                background: 'var(--background)', 
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)' 
+              }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div 
+                      style={{ 
+                        width: '44px', 
+                        height: '44px', 
+                        borderRadius: 'var(--radius-sm)', 
+                        background: 'var(--surface-hover)', 
+                        color: 'var(--primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer'
+                      }}
+                      title="Cambiar Icono"
+                    >
+                      {React.createElement(availableIcons.find(i => i.name === s.icon)?.Icon || Star, { size: 24 })}
+                    </div>
+                  </div>
+                <div style={{ flex: 2 }}>
+                  <input 
+                    type="text" 
+                    value={s.name}
+                    onChange={(e) => updateService(idx, 'name', e.target.value)}
+                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 600, width: '100%' }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>$</span>
+                  <input 
+                    type="number" 
+                    value={s.price}
+                    onChange={(e) => updateService(idx, 'price', parseFloat(e.target.value))}
+                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', width: '60px' }}
+                  />
+                </div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <input 
+                      type="number" 
+                      value={s.duration}
+                      onChange={(e) => updateService(idx, 'duration', parseInt(e.target.value))}
+                      style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', width: '40px' }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>min</span>
+                  </div>
+                  <button 
+                    onClick={() => removeService(idx)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer' }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                
+                {/* Icon Picker Strip */}
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '0.4rem', 
+                  overflowX: 'auto', 
+                  padding: '0.5rem', 
+                  background: 'var(--surface)', 
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                  scrollbarWidth: 'none'
+                }}>
+                  {availableIcons.map(({ name, Icon }) => (
+                    <button
+                      key={name}
+                      onClick={() => updateService(idx, 'icon', name)}
+                      style={{
+                        padding: '0.4rem',
+                        background: s.icon === name ? 'var(--primary)' : 'transparent',
+                        color: s.icon === name ? 'black' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Disponibilidad Semanal</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {weeksSchedule.map((item, idx) => (
+                <div key={item.day} style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '0.75rem 1rem', 
+                  background: !item.isOpen ? 'rgba(239,68,68,0.05)' : 'var(--background)', 
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                  opacity: item.isOpen ? 1 : 0.8
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={item.isOpen} 
+                      onChange={(e) => {
+                        const newSchedule = [...weeksSchedule];
+                        newSchedule[idx].isOpen = e.target.checked;
+                        setWeeksSchedule(newSchedule);
+                      }}
+                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                    />
+                    <span style={{ fontWeight: 600, width: '100px' }}>{item.day}</span>
+                  </div>
+                  
+                  {!item.isOpen ? (
+                    <span style={{ color: 'var(--accent)', fontSize: '0.875rem', fontWeight: 600 }}>Cerrado</span>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <input 
+                        type="text" 
+                        value={item.hours}
+                        onChange={(e) => {
+                          const newSchedule = [...weeksSchedule];
+                          newSchedule[idx].hours = e.target.value;
+                          setWeeksSchedule(newSchedule);
+                        }}
+                        style={{ background: 'var(--surface-hover)', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', textAlign: 'center', width: '120px', color: 'var(--text)' }}
+                      />
+                      <button style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}><Clock size={16} /></button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ 
+              padding: '1rem', 
+              background: lunchBreak.enabled ? 'rgba(245,158,11,0.05)' : 'var(--background)', 
+              borderRadius: 'var(--radius-md)', 
+              border: `1px solid ${lunchBreak.enabled ? 'var(--primary)' : 'var(--border)'}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Coffee size={18} color={lunchBreak.enabled ? "var(--primary)" : "var(--text-muted)"} />
+                  <span style={{ fontWeight: 700, fontSize: '0.875rem', textTransform: 'uppercase' }}>Descanso Almuerzo</span>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={lunchBreak.enabled}
+                  onChange={(e) => setLunchBreak({...lunchBreak, enabled: e.target.checked})}
+                  style={{ cursor: 'pointer' }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>INICIO</label>
+                  <input 
+                    type="time" 
+                    disabled={!lunchBreak.enabled}
+                    value={lunchBreak.start}
+                    onChange={(e) => setLunchBreak({...lunchBreak, start: e.target.value})}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>FIN</label>
+                  <input 
+                    type="time" 
+                    disabled={!lunchBreak.enabled}
+                    value={lunchBreak.end}
+                    onChange={(e) => setLunchBreak({...lunchBreak, end: e.target.value})}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                {lunchBreak.enabled 
+                  ? `Bloqueo automático de ${lunchBreak.start} a ${lunchBreak.end} todos los días laborables.`
+                  : 'Descanso de almuerzo desactivado.'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <button 
+          className="btn btn-primary" 
+          onClick={handleSave}
+          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', padding: '1rem', width: '100%' }}
+        >
+          <Save size={18} /> Guardar Cambios
+        </button>
+        {showSaved && (
+          <div style={{ 
+            position: 'absolute', 
+            top: '-50px', 
+            left: '50%', 
+            transform: 'translateX(-50%)',
+            background: 'var(--success)',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            borderRadius: 'var(--radius-full)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+            animation: 'fade-in-up 0.3s ease-out'
+          }}>
+            <CheckCircle2 size={16} /> ¡Configuración Guardada!
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

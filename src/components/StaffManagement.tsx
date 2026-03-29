@@ -1,0 +1,152 @@
+import React, { useState } from 'react';
+import { Users, Plus, X, Briefcase, Trash2 } from 'lucide-react';
+import { StaffMember } from './FinanceManagement';
+
+interface StaffProps {
+  staff: StaffMember[];
+  setStaff: React.Dispatch<React.SetStateAction<StaffMember[]>>;
+  plan: string;
+}
+
+const getPlanCapabilities = (planName: string) => {
+  try {
+    const saved = localStorage.getItem('myturn_saas_plans');
+    if (saved) {
+      const plans = JSON.parse(saved);
+      const plan = plans.find((p: any) => p.name.includes(planName));
+      if (plan?.capabilities) return plan.capabilities;
+    }
+  } catch (e) {}
+  return { maxStaff: planName === 'Free' ? 1 : (planName === 'Professional' ? 3 : 'Unlimited') };
+};
+
+export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan }) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newStaff, setNewStaff] = useState<Partial<StaffMember>>({ name: '', role: 'Barbero', commission: 50 });
+
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaff.name) return;
+
+    // SaaS Team Limitations check (Dynamic via LocalStorage)
+    const caps = getPlanCapabilities(plan);
+    const maxStaff = caps.maxStaff === 'Unlimited' ? Infinity : Number(caps.maxStaff);
+    
+    if (staff.length >= maxStaff) {
+      alert(`⚠️ Límite de Equipo Alcanzado\n\nTu plan ${plan} permite un máximo de ${caps.maxStaff} profesional(es). Mejora tu plan para crecer tu equipo.`);
+      setShowAddModal(false);
+      return;
+    }
+    
+    const s: StaffMember = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newStaff.name,
+      role: newStaff.role || 'Barbero',
+      commission: newStaff.commission || 50
+    };
+    
+    setStaff([...staff, s]);
+    setShowAddModal(false);
+    setNewStaff({ name: '', role: 'Barbero', commission: 50 });
+  };
+
+  const removeStaff = (id: string) => {
+    if (window.confirm('¿Eliminar este profesional? (Se conservará su historial financiero)')) {
+      setStaff(staff.filter(s => s.id !== id));
+    }
+  };
+
+  return (
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Users size={24} color="var(--primary)" /> Equipo de Trabajo
+        </h3>
+        <button className="btn btn-primary" onClick={() => setShowAddModal(true)} style={{ display: 'flex', gap: '0.5rem', fontWeight: 800 }}>
+          <Plus size={18} /> Añadir Profesional
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+        {staff.map(s => (
+          <div key={s.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem' }}>
+                  {s.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>{s.name}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{s.role}</p>
+                </div>
+              </div>
+              <button onClick={() => removeStaff(s.id)} style={{ background: 'none', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer', padding: '0.25rem' }} title="Eliminar">
+                <Trash2 size={16} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <div style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)' }}>COMISIÓN</span>
+                <p style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>{s.commission}%</p>
+              </div>
+              <div style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>ACTIVO</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAddModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <form onSubmit={handleAddStaff} className="card animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nuevo Profesional</h3>
+              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>NOMBRE COMPLETO</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newStaff.name}
+                  onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  placeholder="Ej: David Ruiz"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>ROL O ESPECIALIDAD</label>
+                <input 
+                  type="text" 
+                  value={newStaff.role}
+                  onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  placeholder="Ej: Barbero Senior"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>COMISIÓN (%)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  max="100"
+                  value={newStaff.commission}
+                  onChange={e => setNewStaff({ ...newStaff, commission: Number(e.target.value) })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', padding: '1rem' }}>Registrar en Equipo</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
