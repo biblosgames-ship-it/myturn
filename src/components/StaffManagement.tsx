@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Users, Plus, X, Briefcase, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { StaffMember } from './FinanceManagement';
 
 interface StaffProps {
@@ -24,11 +25,10 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStaff, setNewStaff] = useState<Partial<StaffMember>>({ name: '', role: 'Barbero', commission: 50 });
 
-  const handleAddStaff = (e: React.FormEvent) => {
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaff.name) return;
 
-    // SaaS Team Limitations check (Dynamic via LocalStorage)
     const caps = getPlanCapabilities(plan);
     const maxStaff = caps.maxStaff === 'Unlimited' ? Infinity : Number(caps.maxStaff);
     
@@ -38,21 +38,40 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
       return;
     }
     
-    const s: StaffMember = {
-      id: Math.random().toString(36).substr(2, 9),
+    const dbPayload = {
       name: newStaff.name,
       role: newStaff.role || 'Barbero',
-      commission: newStaff.commission || 50
+      commission_rate: newStaff.commission || 50
     };
-    
-    setStaff([...staff, s]);
+
+    const { data, error } = await supabase.from('staff_members').insert(dbPayload).select().single();
+
+    if (data && !error) {
+      const s: StaffMember = {
+        id: data.id,
+        name: data.name,
+        role: data.role,
+        commission: data.commission_rate
+      };
+      setStaff([...staff, s]);
+    } else {
+      console.error(error);
+      alert('Error al añadir personal. Revisa tu consola.');
+    }
+
     setShowAddModal(false);
     setNewStaff({ name: '', role: 'Barbero', commission: 50 });
   };
 
-  const removeStaff = (id: string) => {
-    if (window.confirm('¿Eliminar este profesional? (Se conservará su historial financiero)')) {
-      setStaff(staff.filter(s => s.id !== id));
+  const removeStaff = async (id: string) => {
+    if (window.confirm('¿Eliminar este profesional? (Se conservarán sus registros en Supabase si están atados a transacciones pasadas, pero se ocultará la vista)')) {
+      const { error } = await supabase.from('staff_members').delete().eq('id', id);
+      if (!error) {
+        setStaff(staff.filter(s => s.id !== id));
+      } else {
+        console.error(error);
+        alert('Error al intentar eliminar de la nube. Contacta a soporte.');
+      }
     }
   };
 

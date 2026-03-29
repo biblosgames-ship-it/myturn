@@ -1,5 +1,6 @@
 import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface SavedBusiness {
   id: string;
@@ -15,66 +16,11 @@ interface ClientUserHubProps {
   onSelectBusiness: (id: string | null) => void;
 }
 
-const GLOBAL_DIRECTORY: SavedBusiness[] = [
-  { 
-    id: 'legacy-barber', 
-    name: 'Legacy Barber Shop', 
-    professional: 'Alex "The Blade"', 
-    title: 'Master Barber & Educator', 
-    logo: 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-    rating: 4.8,
-    lastVisit: 'Hace 2 semanas'
-  },
-  { 
-    id: 'stella-salon', 
-    name: 'Stella Beauty Studio', 
-    professional: 'Stella Maris', 
-    title: 'Expert Colorist & Stylist', 
-    logo: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=128&h=128&fit=crop',
-    rating: 4.9,
-    lastVisit: 'Hace 1 mes'
-  },
-  { 
-    id: 'clinic-center', 
-    name: 'Centro Dental Plus', 
-    professional: 'Dr. Roberto Gomez', 
-    title: 'Odontólogo Especialista', 
-    logo: 'https://images.unsplash.com/photo-1629909613654-28705fe93abe?w=128&h=128&fit=crop',
-    rating: 4.7,
-    lastVisit: 'Nuevo'
-  },
-  { 
-    id: 'spa-zen', 
-    name: 'Zen Wellness Spa', 
-    professional: 'Elena Mistral', 
-    title: 'Therapeutic Massage Specialist', 
-    logo: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=128&h=128&fit=crop',
-    rating: 5.0,
-    lastVisit: 'Descubierto'
-  },
-  { 
-    id: 'auto-repair', 
-    name: 'Precision Auto Tech', 
-    professional: 'Mec. Carlos Ruiz', 
-    title: 'Master Mechanic', 
-    logo: 'https://images.unsplash.com/photo-1625047509168-a7026f36ae05?w=128&h=128&fit=crop',
-    rating: 4.5,
-    lastVisit: 'Descubierto'
-  }
-];
+// GLOBAL_DIRECTORY is now empty, will fetch from Supabase
+const GLOBAL_DIRECTORY: SavedBusiness[] = [];
 
 export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }) => {
-  const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([
-    { 
-      id: 'legacy-barber', 
-      name: 'Legacy Barber Shop', 
-      professional: 'Alex "The Blade"', 
-      title: 'Master Barber & Educator', 
-      logo: 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-      rating: 4.8,
-      lastVisit: 'Hace 2 semanas'
-    }
-  ]);
+  const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SavedBusiness[]>([]);
@@ -82,15 +28,54 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [scanStep, setScanStep] = useState<'idle' | 'scanning' | 'success'>('idle');
 
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setSearchResults([]);
-      return;
-    }
-    const filtered = GLOBAL_DIRECTORY.filter(b => 
-      b.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      b.professional.toLowerCase().includes(searchTerm.toLowerCase())
-    ).filter(b => !savedBusinesses.find(s => s.id === b.id));
-    setSearchResults(filtered);
+    const fetchRealBusinesses = async () => {
+      const { data } = await supabase.from('tenants').select('*');
+      if (data) {
+        setSavedBusinesses(data.map(t => ({
+          id: t.slug || t.id,
+          name: t.name,
+          professional: 'Staff Profesional',
+          title: 'Servicios',
+          logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+          rating: 5.0,
+          lastVisit: 'Descubierto'
+        })));
+      }
+    };
+    fetchRealBusinesses();
+  }, []);
+
+  useEffect(() => {
+    const searchBusinesses = async () => {
+      if (searchTerm.trim() === '') {
+        setSearchResults([]);
+        return;
+      }
+      
+      const { data } = await supabase
+        .from('tenants')
+        .select('*')
+        .ilike('name', `%${searchTerm}%`)
+        .limit(10);
+        
+      if (data) {
+        setSearchResults(data
+          .filter(t => !savedBusinesses.find(s => s.id === (t.slug || t.id)))
+          .map(t => ({
+            id: t.slug || t.id,
+            name: t.name,
+            professional: 'Staff Profesional',
+            title: 'Servicios',
+            logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            rating: 5.0,
+            lastVisit: 'Descubierto'
+          }))
+        );
+      }
+    };
+
+    const timeoutId = setTimeout(searchBusinesses, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchTerm, savedBusinesses]);
 
   const linkBusiness = (biz: SavedBusiness) => {

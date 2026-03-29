@@ -12,11 +12,17 @@ function App() {
   const [tenant, setTenant] = useState<{ id: string, name: string } | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const barberId = params.get('barber');
-    if (barberId === 'legacy-barber') {
-      setTenant({ id: 'legacy-barber', name: 'Legacy Barber' });
+    const path = window.location.pathname.replace(/^\/|\/$/g, '');
+    if (path && path !== '') {
+      setTenant({ id: path, name: '' });
       setView('client');
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      const barberId = params.get('barber');
+      if (barberId) {
+        setTenant({ id: barberId, name: '' });
+        setView('client');
+      }
     }
   }, []);
 
@@ -33,7 +39,7 @@ function App() {
       case 'barber': 
         return <BarberDashboard />;
       case 'client': 
-        return <ClientView />;
+        return <ClientView initialSlug={tenant?.id} />;
       default: return (
         <main className="animate-fade-in" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
           <h1 style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1.5rem', lineHeight: 1.1 }}>
@@ -65,8 +71,8 @@ function App() {
         </div>
         
         <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div className="badge badge-warning" style={{ cursor: 'pointer' }} onClick={() => setView(view === 'landing' ? 'client' : 'landing')}>
-            {view === 'landing' ? 'Demo Live' : 'Volver'}
+          <div className="badge badge-success" style={{ cursor: 'pointer', background: 'var(--primary)', color: 'black' }} onClick={() => setView(view === 'landing' ? 'client' : 'landing')}>
+            {view === 'landing' ? 'Agendar Turno' : 'Volver al Inicio'}
           </div>
           <button className="btn btn-outline" style={{ padding: '0.5rem', borderRadius: 'var(--radius-full)' }} onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X size={20} /> : <Menu size={20} />}

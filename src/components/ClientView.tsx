@@ -79,20 +79,59 @@ const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isG
   );
 };
 
-export const ClientView: React.FC = () => {
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) => {
+  const [selectedBusinessSlug, setSelectedBusinessSlug] = useState<string | null>(initialSlug || null);
+  const [dbBusiness, setDbBusiness] = useState<BusinessData | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [hasAppointment, setHasAppointment] = useState(false);
   const [isGlobalPaused, setIsGlobalPaused] = useState(false);
   const [queueItems, setQueueItems] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!selectedBusinessId) return;
+    if (!selectedBusinessSlug) {
+      setDbBusiness(null);
+      return;
+    }
+
+    // Dynamic SaaS fetch by Slug
+    const fetchSaaSInfo = async () => {
+      const { data: tenant } = await supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
+      
+      if (tenant) {
+        // Fetch services for this tenant
+        const { data: sData } = await supabase.from('services').select('name').eq('tenant_id', tenant.id);
+        const serviceNames = sData ? sData.map(s => s.name) : ['Servicio General'];
+
+        setDbBusiness({
+          id: tenant.id,
+          name: tenant.name,
+          professional: tenant.owner || 'Profesional Principal',
+          title: tenant.industry || 'Servicios Profesionales',
+          awards: [],
+          services: serviceNames,
+          logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+          rating: 5.0,
+          reviews: 1,
+          address: tenant.address || 'Ubicación local',
+          mapUrl: '#',
+          showReviews: false,
+          bookingMode: 'online'
+        });
+      } else {
+        setDbBusiness(null);
+      }
+    };
+    fetchSaaSInfo();
+  }, [selectedBusinessSlug]);
+
+  useEffect(() => {
+    if (!dbBusiness) return;
 
     const fetchQueue = async () => {
       const { data, error } = await supabase
         .from('appointments')
         .select('*')
+        .eq('tenant_id', dbBusiness.id)
         .in('status', ['waiting', 'attending', 'arrived'])
         .order('date_time', { ascending: true });
 
@@ -121,65 +160,18 @@ export const ClientView: React.FC = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedBusinessId]);
+  }, [dbBusiness?.id]);
 
-  // Mock data for businesses
-  const businesses: Record<string, BusinessData> = {
-    'legacy-barber': {
-      id: 'legacy-barber',
-      name: 'Legacy Barber Shop',
-      professional: "Alex 'The Legend'",
-      title: 'Master Barber & Educator',
-      awards: ['Best Barber 2025', 'Certified Educator'],
-      services: ['Corte Clásico', 'Barba VIP', 'Colorimetría', 'Facial'],
-      logo: 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-      rating: 4.8,
-      reviews: 120,
-      address: 'Ave. Winston Churchill #45, SD',
-      mapUrl: 'https://maps.google.com/?q=Ave.+Winston+Churchill+%2345,+Santo+Domingo',
-      showReviews: true,
-      bookingMode: 'online'
-    },
-    'stella-salon': {
-      id: 'stella-salon',
-      name: 'Stella Beauty Studio',
-      professional: 'Stella Maris',
-      title: 'Expert Colorist & Stylist',
-      awards: ['Gold Stylist Award', 'Loreal Certified'],
-      services: ['Corte y Peinado', 'Tinte Completo', 'Balayage', 'Tratamiento'],
-      logo: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=128&h=128&fit=crop',
-      rating: 4.9,
-      reviews: 85,
-      address: 'Calle Gustavo Mejía Ricart #12, SD',
-      mapUrl: 'https://maps.google.com/?q=Calle+Gustavo+Mejia+Ricart+%2312,+Santo+Domingo',
-      showReviews: true,
-      bookingMode: 'hybrid'
-    },
-    'clinic-center': {
-      id: 'clinic-center',
-      name: 'Centro Dental Plus',
-      professional: 'Dr. Roberto Gomez',
-      title: 'Odontólogo Especialista',
-      awards: ['Member of ADA', 'Oral Surgery Spec.'],
-      services: ['Limpieza Dental', 'Blanqueamiento', 'Ortodoncia', 'Consulta'],
-      logo: 'https://images.unsplash.com/photo-1629909613654-28705fe93abe?w=128&h=128&fit=crop',
-      rating: 4.7,
-      reviews: 45,
-      address: 'Ave. Abraham Lincoln #100, SD',
-      mapUrl: 'https://maps.google.com/?q=Ave.+Abraham+Lincoln+%23100,+Santo+Domingo',
-      showReviews: false,
-      bookingMode: 'manual'
-    }
-  };
 
-  const business = selectedBusinessId ? businesses[selectedBusinessId] : null;
-  const isDemoLegacy = selectedBusinessId === 'legacy-barber';
+
+  const business = dbBusiness;
+
 
   if (!business) {
     return (
       <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', textAlign: 'center' }}>Selecciona un Negocio</h2>
-        <ClientUserHub onSelectBusiness={setSelectedBusinessId} />
+        <ClientUserHub onSelectBusiness={setSelectedBusinessSlug} />
       </div>
     );
   }
@@ -188,6 +180,7 @@ export const ClientView: React.FC = () => {
     <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
       {showBooking && (
         <BookingFlow 
+          tenantId={business.id}
           onClose={() => { 
             setShowBooking(false); 
             setHasAppointment(true); 
@@ -197,7 +190,7 @@ export const ClientView: React.FC = () => {
       
       {/* Header Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setSelectedBusinessId(null)}>
+        <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setSelectedBusinessSlug(null)}>
           <ChevronLeft size={20} />
         </button>
         <div style={{ display: 'flex', gap: '0.5rem' }}>

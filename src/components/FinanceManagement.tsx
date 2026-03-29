@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Wallet, TrendingUp, TrendingDown, CreditCard, DollarSign, Landmark, FileText, Image as ImageIcon, Printer, Share2, Calendar, Plus, X, ArrowDownRight, ArrowUpRight, HelpCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export interface Transaction {
   id: string;
@@ -49,24 +50,49 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
     return acc;
   }, {} as Record<string, number>);
 
-  const addTransaction = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const addTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTx.amount || !newTx.description) return;
+    setIsSaving(true);
 
-    const tx: Transaction = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: newTx.type as 'income' | 'expense',
-      amount: Number(newTx.amount),
-      method: (newTx.type === 'expense' && newTx.method === 'credit') ? 'cash' : (newTx.method as any),
-      category: newTx.category || 'Varios',
-      description: newTx.description,
-      date: new Date().toISOString().split('T')[0],
-      staffId: newTx.staffId || undefined
-    };
+    try {
+      const dbPayload = {
+        amount: Number(newTx.amount),
+        type: newTx.type === 'income' ? 'ingreso' : 'egreso',
+        payment_method: (newTx.type === 'expense' && newTx.method === 'credit') ? 'cash' : (newTx.method as any),
+        category: newTx.category || 'Varios',
+        description: newTx.description,
+        staff_id: newTx.staffId || null
+      };
 
-    setTransactions([tx, ...transactions]);
-    setShowAddModal(false);
-    setNewTx({ type: 'income', method: 'cash', amount: 0, category: 'Varios', description: '', staffId: '' });
+      const { data, error } = await supabase.from('transactions').insert(dbPayload).select().single();
+
+      if (data && !error) {
+        const tx: Transaction = {
+          id: data.id,
+          type: newTx.type as 'income' | 'expense',
+          amount: data.amount,
+          method: newTx.method as any,
+          category: data.category,
+          description: data.description,
+          date: new Date(data.created_at).toISOString().split('T')[0],
+          staffId: data.staff_id || undefined
+        };
+
+        setTransactions([tx, ...transactions]);
+        setShowAddModal(false);
+        setNewTx({ type: 'income', method: 'cash', amount: 0, category: 'Varios', description: '', staffId: '' });
+      } else {
+        console.error(error);
+        alert('Error al guardar la transacción. Revisa tu conexión.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

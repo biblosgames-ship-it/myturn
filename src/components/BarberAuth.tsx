@@ -6,6 +6,7 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
   const [mode, setMode] = useState<'login' | 'register' | 'admin'>(isSuperAdmin ? 'admin' : 'login');
   const [inviteValid, setInviteValid] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteTenantId, setInviteTenantId] = useState<string | null>(null);
   
   // Real Auth States
   const [email, setEmail] = useState('');
@@ -14,13 +15,38 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleInviteValidate = () => {
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  };
+
+  const handleInviteValidate = async () => {
+    setLoading(true);
     if (inviteCode.toUpperCase() === 'MYTURN-99X-2026') {
       setInviteValid(true);
       setErrorMsg('');
-    } else {
-      setErrorMsg('Código inválido. Contacta al soporte.');
+      setInviteTenantId(null);
+      setLoading(false);
+      return;
     }
+    
+    try {
+      const { data, error } = await supabase.from('tenants').select('id').eq('name', `Invitación: ${inviteCode.toUpperCase()}`).single();
+      if (data) {
+        setInviteValid(true);
+        setErrorMsg('');
+        setInviteTenantId(data.id);
+      } else {
+        setErrorMsg('Código no encontrado o ya utilizado.');
+      }
+    } catch (err: any) {
+      setErrorMsg('Error al verificar el código.');
+    }
+    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +56,9 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
 
     try {
       if (mode === 'admin') {
-        if (email === 'admin@myturn.app' && password === 'admin123') onSuccess();
+        const adminEmails = ['admin@myturn.app', 'alexpalacio29@gmail.com'];
+        const isAdmin = adminEmails.includes(email.toLowerCase().trim()) && password === 'admin123';
+        if (isAdmin) onSuccess();
         else setErrorMsg('Credenciales de Super Admin inválidas.');
         setLoading(false);
         return;
@@ -46,20 +74,34 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
         if (authError) throw authError;
 
         if (authData.user) {
-          // 2. Create the Tenant (Business)
-          const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
-            name: businessName || 'Mi Negocio',
-            industry: 'General',
-            plan_id: 'Free'
-          }).select().single();
-
-          if (tenantError) throw tenantError;
+          const slug = slugify(businessName || 'Mi Negocio');
+          // 2. Create or Update the Tenant (Business)
+          let tenantId;
+          if (inviteTenantId) {
+            const { data: tenantData, error: tenantError } = await supabase.from('tenants').update({
+              name: businessName || 'Mi Negocio',
+              slug: slug,
+              industry: 'General',
+              plan_id: 'Free'
+            }).eq('id', inviteTenantId).select().single();
+            if (tenantError) throw tenantError;
+            tenantId = tenantData.id;
+          } else {
+            const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
+              name: businessName || 'Mi Negocio',
+              slug: slug,
+              industry: 'General',
+              plan_id: 'Free'
+            }).select().single();
+            if (tenantError) throw tenantError;
+            tenantId = tenantData.id;
+          }
 
           // 3. Link the User to the Tenant
-          if (tenantData) {
+          if (tenantId) {
             const { error: userError } = await supabase.from('users').insert({
               id: authData.user.id,
-              tenant_id: tenantData.id,
+              tenant_id: tenantId,
               full_name: 'Propietario',
               role: 'owner'
             });
@@ -249,6 +291,27 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
               <button disabled={loading} type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '0.5rem', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Redirigiendo...' : (mode === 'admin' ? 'Entrar como Admin' : (mode === 'login' ? 'Iniciar Sesión' : 'Registrar Negocio'))}
               </button>
+
+              {/* Guest/Bypass Login for quick testing */}
+              {!isSuperAdmin && mode === 'login' && (
+                <button 
+                  type="button" 
+                  onClick={() => onSuccess()}
+                  style={{ 
+                    width: '100%', 
+                    background: 'rgba(255,255,255,0.03)', 
+                    border: '1px dashed var(--border)', 
+                    color: 'var(--text-muted)', 
+                    padding: '0.75rem', 
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Entrar como Invitado (Modo Demo)
+                </button>
+              )}
             </>
           )}
         </form>

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
   Stethoscope, Palette, Brush, User, Heart, Activity, Car, Smartphone, Zap, Star, 
   Smile, Wind, Droplets, Briefcase, ShoppingBag
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const availableIcons = [
   { name: 'Scissors', Icon: Scissors },
@@ -26,10 +27,11 @@ const availableIcons = [
 ];
 
 interface Service {
+  id?: string;
   name: string;
   price: number;
   duration: number;
-  icon: string; // Icon name from lucide
+  icon: string;
 }
 
 interface DaySchedule {
@@ -61,12 +63,41 @@ export const BarberManagement: React.FC = () => {
     bookingMode: 'online' as 'online' | 'manual' | 'hybrid'
   });
 
-  const [services, setServices] = useState<Service[]>([
-    { name: 'Corte Clásico', price: 25, duration: 30, icon: 'Scissors' },
-    { name: 'Barba Completa', price: 15, duration: 20, icon: 'Scissors' },
-    { name: 'Corte + Barba', price: 35, duration: 50, icon: 'Scissors' },
-  ]);
+  const [services, setServices] = useState<Service[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      // 1. Load Business Name
+      const { data: tenant } = await supabase.from('tenants').select('*').single();
+      if (tenant) {
+        setBrand(prev => ({ ...prev, name: tenant.name }));
+      }
+
+      // 2. Load Services from DB
+      const { data: dbServices } = await supabase.from('services').select('*').order('created_at', { ascending: true });
+      if (dbServices && dbServices.length > 0) {
+        setServices(dbServices.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          duration: s.duration_minutes,
+          icon: 'Scissors'
+        })));
+      } else {
+        // Fallback default UI
+        setServices([
+          { name: 'Corte Clásico', price: 25, duration: 30, icon: 'Scissors' },
+          { name: 'Barba Completa', price: 15, duration: 20, icon: 'Scissors' }
+        ]);
+      }
+      setIsLoading(false);
+    };
+
+    loadCatalog();
+  }, []);
 
   const addService = () => {
     setServices([...services, { name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
@@ -82,11 +113,43 @@ export const BarberManagement: React.FC = () => {
     setServices(newServices);
   };
 
-  const handleSave = () => {
-    // Simulate updating global CSS variables for the color
-    document.documentElement.style.setProperty('--primary', brand.color);
-    setShowSaved(true);
-    setTimeout(() => setShowSaved(false), 3000);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // 1. Update Tenant Name (We update where name is not null as a dummy generic filter to pass the DB rules)
+      await supabase.from('tenants').update({ name: brand.name }).not('name', 'is', null);
+
+      // 2. Sync Services
+      const currentIds = services.filter(s => s.id).map(s => s.id);
+      const { data: existing } = await supabase.from('services').select('id');
+      
+      if (existing) {
+        const toDelete = existing.filter(e => !currentIds.includes(e.id)).map(e => e.id);
+        if (toDelete.length > 0) {
+          await supabase.from('services').delete().in('id', toDelete);
+        }
+      }
+
+      const toUpsert = services.map(s => ({
+        ...(s.id ? { id: s.id } : {}),
+        name: s.name,
+        price: s.price,
+        duration_minutes: s.duration
+      }));
+
+      if (toUpsert.length > 0) {
+        await supabase.from('services').upsert(toUpsert);
+      }
+
+      document.documentElement.style.setProperty('--primary', brand.color);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 3000);
+    } catch (err) {
+      console.error(err);
+      alert('Hubo un error al guardar. Revisa tu conexión.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -513,9 +576,10 @@ export const BarberManagement: React.FC = () => {
         <button 
           className="btn btn-primary" 
           onClick={handleSave}
-          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', padding: '1rem', width: '100%' }}
+          disabled={isSaving}
+          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', padding: '1rem', width: '100%', opacity: isSaving ? 0.7 : 1 }}
         >
-          <Save size={18} /> Guardar Cambios
+          <Save size={18} /> {isSaving ? 'Guardando...' : 'Guardar Cambios'}
         </button>
         {showSaved && (
           <div style={{ 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Package, Plus, Minus, AlertTriangle, RefreshCcw, History, Tag, Box } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Plus, Minus, AlertTriangle, RefreshCcw, History, Tag, Box, X, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Product {
   id: string;
@@ -12,23 +13,96 @@ interface Product {
 }
 
 export const InventoryManagement: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([
-    { id: '1', name: 'Rollos de Cuello', category: 'Desechables', currentStock: 85, maxStock: 100, unit: 'unidades', minAlert: 20 },
-    { id: '2', name: 'Gel de Afeitar (500ml)', category: 'Químicos', currentStock: 42, maxStock: 100, unit: '%', minAlert: 15 },
-    { id: '3', name: 'After Shave', category: 'Químicos', currentStock: 12, maxStock: 100, unit: '%', minAlert: 20 },
-    { id: '4', name: 'Cuchillas (Caja 50)', category: 'Herramientas', currentStock: 35, maxStock: 50, unit: 'cajas', minAlert: 10 },
-  ]);
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({ 
+    name: '', 
+    category: 'Desechables', 
+    currentStock: 0, 
+    maxStock: 100, 
+    unit: 'unidades', 
+    minAlert: 10 
+  });
 
-  const updateStock = (id: string, delta: number) => {
-    setProducts(prev => prev.map(p => {
-      if (p.id === id) {
-        const newStock = Math.max(0, Math.min(p.maxStock, p.currentStock + delta));
-        return { ...p, currentStock: newStock };
-      }
-      return p;
-    }));
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('inventory')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (data) {
+      setProducts(data.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        currentStock: Number(p.current_stock),
+        maxStock: Number(p.max_stock),
+        unit: p.unit,
+        minAlert: Number(p.min_alert)
+      })));
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const updateStock = async (id: string, delta: number) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+
+    const newStock = Math.max(0, Math.min(product.maxStock, product.currentStock + delta));
+    
+    // Optimistic Update
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, currentStock: newStock } : p));
+
+    // DB Update
+    const { error } = await supabase
+      .from('inventory')
+      .update({ current_stock: newStock })
+      .eq('id', id);
+
+    if (error) {
+      console.error("Error updating stock:", error);
+      fetchProducts(); // Rollback
+    }
+  };
+
+  const addProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProduct.name) return;
+
+    const { data, error } = await supabase
+      .from('inventory')
+      .insert({
+        name: newProduct.name,
+        category: newProduct.category,
+        current_stock: newProduct.currentStock,
+        max_stock: newProduct.maxStock,
+        unit: newProduct.unit,
+        min_alert: newProduct.minAlert
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setProducts(prev => [...prev, {
+        id: data.id,
+        name: data.name,
+        category: data.category,
+        currentStock: Number(data.current_stock),
+        maxStock: Number(data.max_stock),
+        unit: data.unit,
+        minAlert: Number(data.min_alert)
+      }].sort((a,b) => a.name.localeCompare(b.name)));
+      setShowAdd(false);
+      setNewProduct({ name: '', category: 'Desechables', currentStock: 0, maxStock: 100, unit: 'unidades', minAlert: 10 });
+    } else {
+      alert("Error al guardar producto");
+    }
   };
 
   const getStockColor = (p: Product) => {
@@ -37,6 +111,14 @@ export const InventoryManagement: React.FC = () => {
     if (pct <= 40) return 'var(--primary)';
     return 'var(--success)';
   };
+
+  if (isLoading && products.length === 0) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+        <Loader2 className="animate-spin" size={32} color="var(--primary)" />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -67,7 +149,12 @@ export const InventoryManagement: React.FC = () => {
           <div style={{ textAlign: 'right' }}>Acciones</div>
         </div>
 
-        {products.map(p => {
+        {products.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5, border: '2px dashed var(--border)' }}>
+            <Box size={48} style={{ marginBottom: '1rem' }} />
+            <p>No tienes productos registrados aún.</p>
+          </div>
+        ) : products.map(p => {
           const pct = Math.round((p.currentStock / p.maxStock) * 100);
           const lowStock = (p.currentStock / p.maxStock) * 100 <= p.minAlert;
 
@@ -111,6 +198,7 @@ export const InventoryManagement: React.FC = () => {
                   <Plus size={14} />
                 </button>
                 <button 
+                  onClick={fetchProducts}
                   style={{ padding: '0.4rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--primary)', cursor: 'pointer' }}
                 >
                   <RefreshCcw size={14} />
@@ -130,6 +218,90 @@ export const InventoryManagement: React.FC = () => {
           Los productos marcados como <strong>Desechables</strong> se descontarán automáticamente (1 unidad) al completar cualquier servicio. Los <strong>Químicos</strong> se descuentan un 2% por servicio de barba/cabello.
         </p>
       </div>
+
+      {showAdd && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <form onSubmit={addProduct} className="card animate-fade-in" style={{ width: '100%', maxWidth: '450px', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nuevo Producto</h3>
+              <button type="button" onClick={() => setShowAdd(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>NOMBRE DEL PRODUCTO</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newProduct.name}
+                  onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  placeholder="Ej: Alcohol Isopropílico"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>CATEGORÍA</label>
+                  <select 
+                    value={newProduct.category}
+                    onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  >
+                    <option value="Desechables">Desechables</option>
+                    <option value="Químicos">Químicos</option>
+                    <option value="Herramientas">Herramientas</option>
+                    <option value="Accesorios">Accesorios</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>UNIDAD</label>
+                  <input 
+                    type="text" 
+                    value={newProduct.unit}
+                    onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                    placeholder="Ej: unidades, %, litros"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>STOCK ACTUAL</label>
+                  <input 
+                    type="number" 
+                    value={newProduct.currentStock}
+                    onChange={e => setNewProduct({ ...newProduct, currentStock: Number(e.target.value) })}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>CAPACIDAD MÁX.</label>
+                  <input 
+                    type="number" 
+                    value={newProduct.maxStock}
+                    onChange={e => setNewProduct({ ...newProduct, maxStock: Number(e.target.value) })}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>ALERTA MIN.</label>
+                  <input 
+                    type="number" 
+                    value={newProduct.minAlert}
+                    onChange={e => setNewProduct({ ...newProduct, minAlert: Number(e.target.value) })}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', padding: '1rem' }}>Añadir al Inventario</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
+

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { 
   Users, Key, BarChart3, Settings, Plus, Copy, CheckCircle, 
   Shield, Building2, CreditCard, LayoutDashboard, Search, 
   Filter, MoreVertical, ExternalLink, AlertCircle, TrendingUp, 
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
-  CheckCircle2
+  CheckCircle2, Loader2
 } from 'lucide-react';
 
 interface Tenant {
@@ -42,32 +43,8 @@ const GLOBAL_STATS = {
   growthRate: 15.4
 };
 
-const initialTenants: Tenant[] = [
-  { 
-    id: '1', name: 'Legacy Barber Shop', owner: 'Alex Blade', industry: 'Barbería', 
-    status: 'active', plan: 'Professional', appointmentsToday: 24, revenue: 450,
-    logo: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
-    expiryDate: '2026-03-27'
-  },
-  { 
-    id: '2', name: 'Stella Beauty Studio', owner: 'Stella Maris', industry: 'Salón', 
-    status: 'active', plan: 'Professional', appointmentsToday: 18, revenue: 320,
-    logo: 'https://images.unsplash.com/photo-1522337360788-8b13df7726de?w=100&h=100&fit=crop',
-    expiryDate: '2026-04-28'
-  },
-  { 
-    id: '3', name: 'Centro Dental Plus', owner: 'Dr. Roberto Gomez', industry: 'Salud', 
-    status: 'active', plan: 'Enterprise', appointmentsToday: 12, revenue: 850,
-    logo: 'https://images.unsplash.com/photo-1629909613654-28705fe93abe?w=100&h=100&fit=crop',
-    expiryDate: '2026-05-15'
-  },
-  { 
-    id: '4', name: 'Taller Mecánico Ruiz', owner: 'Carlos Ruiz', industry: 'Taller', 
-    status: 'pending', plan: 'Free', appointmentsToday: 0, revenue: 0,
-    logo: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=100&h=100&fit=crop',
-    expiryDate: '2026-04-01'
-  },
-];
+// No initial mock data anymore
+const initialTenants: Tenant[] = [];
 
 const initialSaasPlans: SaasPlan[] = [
   { id: 'free', name: 'Plan Free', price: '$0', priceAnnual: '$0', features: ['Hasta 50 turnos/mes', 'Soporte básico', '1 profesional', 'Estéticas básicas'], capabilities: { advancedFinance: false, multipleStaff: false, whiteLabel: false, maxAppointments: 50, maxStaff: 1 } },
@@ -78,7 +55,44 @@ const initialSaasPlans: SaasPlan[] = [
 export const SuperAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'settings'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [lastInviteCode, setLastInviteCode] = useState<string | null>(null);
+
+
+  // Fetch real tenants from Supabase
+  const fetchTenants = async () => {
+    try {
+      setLoading(true);
+      const { data: tData, error } = await supabase.from('tenants').select('*').order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      if (tData) {
+        setTenants(tData.map(t => ({
+          id: t.id || Math.random().toString(),
+          name: t.name || 'Sin Nombre',
+          owner: t.owner || 'SaaS Business',
+          industry: (t.industry as any) || 'Otro',
+          status: (t.plan_id === 'Suspended' ? 'suspended' : 'active'),
+          plan: (t.plan_id as any) || 'Free',
+          appointmentsToday: 0,
+          revenue: 0,
+          logo: t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
+          expiryDate: t.expiry_date || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        })));
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTenants();
+  }, []);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [selectedTenantForPayment, setSelectedTenantForPayment] = useState<Tenant | null>(null);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -151,14 +165,17 @@ export const SuperAdminDashboard: React.FC = () => {
     setTimeout(() => setShowSuccessToast(false), 3000);
   };
 
-  const handleDeleteTenant = (id: string) => {
-    setTenants((prev: Tenant[]) => prev.map((t: Tenant) => {
-        if (t.id === id) return { ...t, status: 'suspended' }; // Mark as suspended instead of hard delete for demo
-        return t;
-    }));
-    setDeletingTenant(null);
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 3000);
+  const handleDeleteTenant = async (id: string) => {
+    const { error } = await supabase.from('tenants').delete().eq('id', id);
+    if (!error) {
+      setTenants((prev: Tenant[]) => prev.filter((t: Tenant) => t.id !== id));
+      setDeletingTenant(null);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+      fetchTenants();
+    } else {
+      alert('Error al eliminar el negocio: ' + error.message);
+    }
   };
 
   return (
@@ -235,7 +252,20 @@ export const SuperAdminDashboard: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ padding: '2rem 3rem', height: '100vh', overflowY: 'auto' }}>
+      <main style={{ padding: '2rem 3rem', height: '100vh', overflowY: 'auto', position: 'relative' }}>
+        {loading && (
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(9,9,11,0.8)', 
+            zIndex: 50, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
+            <Loader2 className="animate-spin" size={48} color="var(--primary)" />
+          </div>
+        )}
         
         {activeTab === 'overview' && (
           <div className="animate-fade-in">
@@ -311,13 +341,68 @@ export const SuperAdminDashboard: React.FC = () => {
                     style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', width: '300px' }}
                   />
                 </div>
-                <button className="btn btn-primary">
-                  <Plus size={18} /> Invitación Directa
+                <button 
+                  className="btn btn-primary"
+                  disabled={loading}
+                  onClick={async () => {
+                    try {
+                      setInviteError(null);
+                      setLastInviteCode(null);
+                      const code = `MYTURN-${Math.random().toString(36).substring(7).toUpperCase()}-2026`;
+                      const slug = `invite-${code.toLowerCase()}`;
+                      
+                      const { data, error } = await supabase.from('tenants').insert({
+                        name: `Invitación: ${code}`,
+                        slug: slug,
+                        industry: 'SaaS',
+                        plan_id: 'Suspended',
+                        owner: 'Pendiente',
+                        logo: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'
+                      }).select().single();
+                      
+                      if (error) {
+                        setInviteError(error.message);
+                        console.error('Database Error:', error);
+                        return;
+                      }
+
+                      if (data) {
+                        setLastInviteCode(code);
+                        try {
+                           await navigator.clipboard.writeText(code);
+                        } catch (clipErr) {
+                           console.warn('Clipboard failed');
+                        }
+                        setShowSuccessToast(true);
+                        setTimeout(() => setShowSuccessToast(false), 3000);
+                        fetchTenants();
+                      }
+                    } catch (err: any) {
+                      setInviteError(err.message || 'Error desconocido');
+                      console.error('Runtime error:', err);
+                    }
+                  }}
+                >
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />} Invitación Directa
                 </button>
+
+
               </div>
             </header>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
+              {inviteError && (
+                <div className="animate-fade-in" style={{ margin: '1rem', padding: '1rem', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <ShieldAlert size={18} /> Error de Sistema: {inviteError}
+                </div>
+              )}
+              {lastInviteCode && (
+                <div className="animate-fade-in" style={{ margin: '1rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <CheckCircle2 size={18} /> ¡Invitación Generada!: <code style={{ background: 'var(--surface)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border)', marginLeft: '0.5rem' }}>{lastInviteCode}</code>
+                </div>
+              )}
+
+
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
@@ -330,33 +415,49 @@ export const SuperAdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {tenants.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase())).map(t => (
+                  {tenants.filter(t => (t.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(t => {
+                    const isInvite = t.name && t.name.startsWith('Invitación:');
+                    const inviteCode = isInvite ? t.name.replace('Invitación:', '').trim() : '';
+
+                    return (
                     <tr key={t.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem 1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <img src={t.logo} style={{ width: '40px', height: '40px', borderRadius: '10px' }} alt="" />
+                          {isInvite ? (
+                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                               <Key size={20} />
+                            </div>
+                          ) : (
+                            <img src={t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} style={{ width: '40px', height: '40px', borderRadius: '10px' }} alt="" />
+                          )}
                           <div>
-                            <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{t.name}</p>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{t.owner}</p>
+                            <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Código Generado' : (t.name || 'Sin Nombre')}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{isInvite ? inviteCode : (t.owner || 'SaaS Business')}</p>
                           </div>
                         </div>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{t.industry}</span>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{isInvite ? 'Esperando Registro' : t.industry}</span>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.plan === 'Enterprise' ? 'var(--primary)' : 'var(--text-muted)' }} />
-                            <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{t.plan}</span>
+                        {isInvite ? (
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Pendiente de uso</span>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.plan === 'Enterprise' ? 'var(--primary)' : 'var(--text-muted)' }} />
+                              <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{t.plan}</span>
+                            </div>
+                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Clock size={10} /> Exp: {t.expiryDate}
+                            </p>
                           </div>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <Clock size={10} /> Exp: {t.expiryDate}
-                          </p>
-                        </div>
+                        )}
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        {(() => {
+                        {isInvite ? (
+                          <span className="badge badge-warning">ESPERANDO</span>
+                        ) : (() => {
                           if (t.status === 'suspended') return <span className="badge badge-danger">SUSPENDIDO</span>;
                           const today = new Date('2026-03-28');
                           const expiry = new Date(t.expiryDate);
@@ -368,32 +469,40 @@ export const SuperAdminDashboard: React.FC = () => {
                         })()}
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <span style={{ fontWeight: 800, fontSize: '0.875rem' }}>${t.revenue.toLocaleString()}</span>
+                        <span style={{ fontWeight: 800, fontSize: '0.875rem' }}>${isInvite ? '0' : t.revenue.toLocaleString()}</span>
                       </td>
                       <td style={{ padding: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button 
-                            className="btn btn-outline" 
-                            onClick={() => handleOpenPaymentModal(t)}
-                            style={{ 
-                              padding: '0.4rem', 
-                              border: t.id === '1' ? '1.5px solid var(--primary)' : '1px solid var(--border)',
-                              background: t.id === '1' ? 'rgba(245,158,11,0.1)' : 'transparent'
-                            }} 
-                            title="Registrar Pago Manual"
-                          >
-                            <CreditCard size={14} color={t.id === '1' ? 'var(--primary)' : 'currentColor'} />
-                          </button>
-                          <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setEditingTenant(t)} title="Configuración Avanzada">
-                            <Settings size={14} />
-                          </button>
-                          <button className="btn btn-outline" style={{ padding: '0.4rem', color: '#ef4444' }} onClick={() => setDeletingTenant(t)} title="Acciones Críticas / Auditoría">
+                          {isInvite ? (
+                            <button className="btn btn-outline" style={{ padding: '0.4rem', color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }} onClick={() => { navigator.clipboard.writeText(inviteCode); alert('Copiado'); }} title="Copiar Código">
+                              <Copy size={16} />
+                            </button>
+                          ) : (
+                            <button 
+                              className="btn btn-outline" 
+                              onClick={() => handleOpenPaymentModal(t)}
+                              style={{ 
+                                padding: '0.4rem', 
+                                border: t.id === '1' ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                                background: t.id === '1' ? 'rgba(245,158,11,0.1)' : 'transparent'
+                              }} 
+                              title="Registrar Pago Manual"
+                            >
+                              <CreditCard size={14} color={t.id === '1' ? 'var(--primary)' : 'currentColor'} />
+                            </button>
+                          )}
+                          {!isInvite && (
+                            <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setEditingTenant(t)} title="Configuración Avanzada">
+                              <Settings size={14} />
+                            </button>
+                          )}
+                          <button className="btn btn-outline" style={{ padding: '0.4rem', color: '#ef4444' }} onClick={() => setDeletingTenant(t)} title="Eliminar / Auditoría">
                             <AlertCircle size={14} />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -486,6 +595,45 @@ export const SuperAdminDashboard: React.FC = () => {
                         style={{ flex: 1, padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }} 
                       />
                       <button className="btn btn-outline"><Copy size={18} /></button>
+                    </div>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '1rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>CAMBIAR CONTRASEÑA DE ADMINISTRADOR</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <input 
+                        type="password" 
+                        placeholder="Nueva Contraseña"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)' }} 
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Confirmar Nueva Contraseña"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)' }} 
+                      />
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ width: '100%' }}
+                        onClick={async () => {
+                          if (!newPassword || newPassword !== confirmPassword) {
+                            alert('Las contraseñas no coinciden o están vacías.');
+                            return;
+                          }
+                          const { error } = await supabase.auth.updateUser({ password: newPassword });
+                          if (error) {
+                            alert('Error al actualizar: ' + error.message);
+                          } else {
+                            alert('¡Contraseña actualizada con éxito!');
+                            setNewPassword('');
+                            setConfirmPassword('');
+                          }
+                        }}
+                      >
+                        Actualizar Credenciales
+                      </button>
                     </div>
                   </div>
                   <div style={{ padding: '1rem', background: 'rgba(59,130,246,0.05)', borderRadius: '8px', border: '1px solid #3b82f6' }}>
@@ -738,9 +886,9 @@ export const SuperAdminDashboard: React.FC = () => {
               <AlertCircle size={32} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Acciones de Auditoría</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Eliminar Negocio Permanente</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                Estás a punto de intervenir sobre <span style={{ fontWeight: 800, color: 'var(--text)' }}>{deletingTenant.name}</span>.
+                Estás a punto de **BORRAR DEFINITIVAMENTE** a <span style={{ fontWeight: 800, color: 'var(--text)' }}>{deletingTenant.name}</span>.
               </p>
             </div>
             
@@ -748,12 +896,12 @@ export const SuperAdminDashboard: React.FC = () => {
                 <button 
                   onClick={() => handleDeleteTenant(deletingTenant.id)}
                   className="btn" 
-                  style={{ width: '100%', padding: '1rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', fontWeight: 800 }}
+                  style={{ width: '100%', padding: '1rem', background: '#ef4444', color: 'white', border: 'none', fontWeight: 800 }}
                 >
-                  Confirmar Suspensión por Auditoría
+                  BORRAR DEFINITIVAMENTE
                 </button>
-                <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Esta acción forzará el cierre de sesión y suspenderá todos los servicios del cliente inmediatamente.
+                <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', fontSize: '0.75rem', color: '#ef4444', fontWeight: 700 }}>
+                    ADVERTENCIA: Esta acción es irreversible. Se eliminarán todos los servicios, profesionales y citas asociados.
                 </div>
             </div>
 

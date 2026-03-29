@@ -9,31 +9,47 @@ interface Service {
   duration: number;
 }
 
-const services: Service[] = [
-  { id: '1', name: 'Corte Clásico', price: 25, duration: 30 },
-  { id: '2', name: 'Barba Completa', price: 15, duration: 20 },
-  { id: '3', name: 'Corte + Barba', price: 35, duration: 50 },
-  { id: '4', name: 'Tintado', price: 40, duration: 60 },
-];
-
-const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00'];
-
-const professionals = [
-  { id: 'any', name: 'Alguien disponible', role: 'El primero que se desocupe' },
-  { id: '1', name: 'Legacy Barber', role: 'Dueño / Master' },
-  { id: '2', name: 'Carlos Barber', role: 'Barbero Senior' },
-];
-
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string }> = ({ onClose, tenantId }) => {
   const [step, setStep] = useState(1);
+  const [dbServices, setDbServices] = useState<Service[]>([]);
+  const [dbStaff, setDbStaff] = useState<any[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedPro, setSelectedPro] = useState<{id: string, name: string} | null>(null);
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+
+  const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'];
+
+  React.useEffect(() => {
+    const loadCatalog = async () => {
+      // 1. Fetch Services
+      const { data: sData } = await supabase.from('services').select('*').eq('tenant_id', tenantId);
+      if (sData) {
+        setDbServices(sData.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          duration: s.duration_minutes
+        })));
+      }
+
+      // 2. Fetch Staff
+      const { data: stData } = await supabase.from('staff_members').select('*').eq('tenant_id', tenantId);
+      if (stData) {
+        setDbStaff([
+          { id: 'any', name: 'Alguien disponible', role: 'El primero que se desocupe' },
+          ...stData.map(st => ({ id: st.id, name: st.name, role: st.role || 'Profesional' }))
+        ]);
+      }
+      setIsCatalogLoading(false);
+    };
+    loadCatalog();
+  }, [tenantId]);
 
   const handleConfirm = async () => {
     if (!clientName.trim()) {
@@ -42,17 +58,14 @@ export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
     setIsLoading(true);
     try {
-      // 1. Get the first tenant (Demo workaround since we don't have slugs yet)
-      const { data: tenant } = await supabase.from('tenants').select('id').limit(1).single();
-      
-      if (tenant && selectedService && selectedTime) {
+      if (selectedService && selectedTime) {
         const aptDate = new Date(selectedDate);
         const [hh, mm] = selectedTime.split(':');
         aptDate.setHours(parseInt(hh), parseInt(mm), 0, 0);
 
         // 2. Insert the appointment as an anonymous client
         await supabase.from('appointments').insert({
-          tenant_id: tenant.id,
+          tenant_id: tenantId,
           client_name: `${clientName} (${selectedService.name})`,
           date_time: aptDate.toISOString(),
           status: 'waiting',
@@ -109,9 +122,11 @@ export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         {/* Content */}
         <div style={{ padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto' }}>
-          {step === 1 && (
+          {isCatalogLoading ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando catálogo...</div>
+          ) : step === 1 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {services.map(s => (
+              {dbServices.map((s: Service) => (
                 <div 
                   key={s.id} 
                   onClick={() => { setSelectedService(s); setStep(2); }}
@@ -135,11 +150,11 @@ export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
-          {step === 2 && (
+          {step === 2 && !isCatalogLoading && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {professionals.map(p => (
+              {dbStaff.map((p: any) => (
                 <div 
                   key={p.id} 
                   onClick={() => { setSelectedPro(p); setStep(3); }}
@@ -167,7 +182,7 @@ export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
              </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && !isCatalogLoading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Date Selector */}
               <div>
@@ -209,7 +224,7 @@ export const BookingFlow: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <div>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Horarios disponibles</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                  {timeSlots.map(t => (
+                  {timeSlots.map((t: string) => (
                     <button 
                       key={t}
                       onClick={() => { setSelectedTime(t); setStep(4); }}

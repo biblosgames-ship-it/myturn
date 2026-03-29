@@ -38,7 +38,11 @@ const initialAppointments: Appointment[] = [
 export const BarberDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff'>('queue');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [businessName, setBusinessName] = useState('Cargando...');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [shareUrl, setShareUrl] = useState('');
+
 
   // Supabase Real-time Sync for Appointments
   useEffect(() => {
@@ -75,6 +79,48 @@ export const BarberDashboard: React.FC = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [dbServices, setDbServices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load Staff and Services
+  useEffect(() => {
+    const loadMetadata = async () => {
+      // 1. Fetch Staff
+      const { data: staffData } = await supabase.from('staff_members').select('*');
+      if (staffData) {
+        setStaff(staffData.map(s => ({
+          id: s.id,
+          name: s.name,
+          role: s.role || 'Barbero',
+          commission: s.commission_rate || 50
+        })));
+      }
+
+      // 2. Fetch Services
+      const { data: servicesData } = await supabase.from('services').select('*');
+      if (servicesData) {
+        setDbServices(servicesData);
+      }
+
+      // 3. Fetch Tenant/Business Info (SaaS Branding)
+      const { data: tenant } = await supabase.from('tenants').select('*').single();
+      if (tenant) {
+        setBusinessName(tenant.name);
+        setLogoUrl(tenant.logo || '');
+        setShareUrl(`https://myturn.app/${tenant.slug || tenant.id}`);
+        setSubscription({
+          plan: (tenant.plan_id as any) || 'Free',
+          expiryDate: tenant.expiry_date || '2026-12-31',
+          status: 'active'
+        });
+      }
+      setIsLoading(false);
+    };
+
+    loadMetadata();
+  }, []);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '' });
@@ -85,10 +131,27 @@ export const BarberDashboard: React.FC = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAptForComplete, setSelectedAptForComplete] = useState<Appointment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'deposit' | 'credit'>('cash');
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: '1', type: 'income', amount: 35, method: 'cash', category: 'Recorte + Barba', description: 'Cliente: Juan Pérez', date: getTodayStr() },
-    { id: '2', type: 'income', amount: 25, method: 'card', category: 'Caja Fuerte', description: 'Cliente: María García', date: getTodayStr() },
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // Load Transactions
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+      if (data) {
+        setTransactions(data.map(t => ({
+          id: t.id,
+          type: t.type,
+          amount: t.amount,
+          method: t.payment_method,
+          category: t.category,
+          description: t.description,
+          date: new Date(t.created_at).toISOString().split('T')[0],
+          staffId: t.staff_id
+        })));
+      }
+    };
+    fetchTransactions();
+  }, []);
 
   const [subscription, setSubscription] = useState<Subscription>({
     plan: 'Free', // Set to Free for testing locks
@@ -98,9 +161,7 @@ export const BarberDashboard: React.FC = () => {
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const [staff, setStaff] = useState<StaffMember[]>([
-    { id: '1', name: 'Legacy Barber', role: 'Dueño / Master', commission: 100 }
-  ]);
+
 
   const [daysRemaining, setDaysRemaining] = useState(0);
 
@@ -155,7 +216,7 @@ export const BarberDashboard: React.FC = () => {
     return `${min}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const shareUrl = "https://myturn.app?barber=legacy-barber";
+
 
 // Helper to fetch live limits from SuperAdmin's overrides
 const getPlanCapabilities = (planName: string) => {
@@ -205,8 +266,11 @@ const getPlanCapabilities = (planName: string) => {
     const aptDate = new Date(selectedDate);
     aptDate.setHours(hourForDb, minForDb, 0, 0);
 
+    const selectedService = dbServices.find(s => s.name === newClient.service);
+    const serviceName = selectedService ? selectedService.name : newClient.service;
+
     const dbPayload = {
-      client_name: `${newClient.name} (${newClient.service})`, // Compound string hack for missing service_id
+      client_name: `${newClient.name} (${serviceName})`, // Compound string hack
       date_time: aptDate.toISOString(),
       status: 'waiting',
       staff_id: newClient.staffId || null
@@ -268,9 +332,11 @@ const getPlanCapabilities = (planName: string) => {
   const finalizeService = async () => {
     if (!selectedAptForComplete) return;
     
-    const amount = selectedAptForComplete.service.includes('+') ? 35 : 25;
+    // 1. Dynamic Pricing from DB Services
+    const serviceObj = dbServices.find(s => s.name === selectedAptForComplete.service);
+    const amount = serviceObj ? Number(serviceObj.price) : (selectedAptForComplete.service.includes('+') ? 35 : 25);
     
-    // Insert Transaction
+    // 2. Insert Transaction
     const { data: tx, error: txError } = await supabase.from('transactions').insert({
       appointment_id: selectedAptForComplete.id,
       amount,
@@ -280,6 +346,30 @@ const getPlanCapabilities = (planName: string) => {
     }).select().single();
 
     if (!txError) {
+      // 3. Automatic Inventory Deduction
+      try {
+        const { data: invItems } = await supabase.from('inventory').select('*');
+        if (invItems) {
+          for (const item of invItems) {
+            let deduction = 0;
+            if (item.category === 'Desechables') deduction = 1;
+            if (item.category === 'Químicos' && (selectedAptForComplete.service.toLowerCase().includes('barba') || selectedAptForComplete.service.toLowerCase().includes('cabello'))) {
+              deduction = Number(item.max_stock) * 0.02;
+            }
+            
+            if (deduction > 0) {
+              await supabase.from('inventory')
+                .update({ current_stock: Math.max(0, Number(item.current_stock) - deduction) })
+                .eq('id', item.id);
+            }
+          }
+        }
+      } catch (invErr) {
+        console.warn("Inventory deduction failed, but proceeding:", invErr);
+      }
+
+      // 4. Mark Appointment as Finished
+
       // Mark Appointment as Finished
       await supabase.from('appointments').update({ status: 'finished' }).eq('id', selectedAptForComplete.id);
       
@@ -538,9 +628,15 @@ const getPlanCapabilities = (planName: string) => {
                       onChange={(e) => setNewClient({...newClient, service: e.target.value})}
                       style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
                     >
-                      <option>Corte Clásico</option>
-                      <option>Barba Completa</option>
-                      <option>Corte + Barba</option>
+                      {dbServices.length > 0 ? (
+                        dbServices.map(s => <option key={s.id} value={s.name}>{s.name}</option>)
+                      ) : (
+                        <>
+                          <option>Corte Clásico</option>
+                          <option>Barba Completa</option>
+                          <option>Corte + Barba</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div style={{ flex: 1 }}>
@@ -763,10 +859,16 @@ const getPlanCapabilities = (planName: string) => {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 800 }}>LB</div>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 800 }}>
+                  {businessName.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Legacy Business</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: #B-9982</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{businessName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SaaS {subscription.plan}</div>
               </div>
             </div>
             
