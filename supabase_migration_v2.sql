@@ -12,17 +12,19 @@ ADD COLUMN IF NOT EXISTS expiry_date TIMESTAMP WITH TIME ZONE DEFAULT (now() + i
 
 
 -- 2. Actualizar Políticas RLS para la tabla 'tenants'
--- Primero eliminamos las antiguas si existen para evitar conflictos
+-- Eliminamos todas las posibles versiones previas para evitar conflictos
 DROP POLICY IF EXISTS "Public read access for Tenants" ON public.tenants;
 DROP POLICY IF EXISTS "Users can read own tenant" ON public.tenants;
 DROP POLICY IF EXISTS "SuperAdmin insert access" ON public.tenants;
 DROP POLICY IF EXISTS "SuperAdmin all access" ON public.tenants;
+DROP POLICY IF EXISTS "Allow system inserts for Tenants" ON public.tenants;
+DROP POLICY IF EXISTS "Allow system updates for Tenants" ON public.tenants;
+DROP POLICY IF EXISTS "Allow system deletes for Tenants" ON public.tenants;
 
 -- Permitir que CUALQUIERA pueda ver los negocios (necesario para el Hub y las páginas públicas)
 CREATE POLICY "Public read access for Tenants" ON public.tenants FOR SELECT USING (true);
 
--- Permitir que el SuperAdmin e Invitaciones puedan INSERTARE 
--- (Nota: En un entorno real, esto se filtraría por rol de Superadmin en auth.users)
+-- Permitir que el SuperAdmin e Invitaciones puedan INSERTAR
 CREATE POLICY "Allow system inserts for Tenants" ON public.tenants FOR INSERT WITH CHECK (true);
 
 -- Permitir que el sistema ACTUALICE los negocios (necesario para el registro con invitación)
@@ -30,6 +32,7 @@ CREATE POLICY "Allow system updates for Tenants" ON public.tenants FOR UPDATE US
 
 -- Permitir BORRAR (necesario para la funcionalidad de 'Eliminar Negocio' del SuperAdmin)
 CREATE POLICY "Allow system deletes for Tenants" ON public.tenants FOR DELETE USING (true);
+
 
 -- 3. Crear tabla de Inventario (Suministros)
 CREATE TABLE IF NOT EXISTS public.inventory (
@@ -48,6 +51,22 @@ CREATE TABLE IF NOT EXISTS public.inventory (
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 
 -- Política de aislamiento por Negocio (Suelo)
+DROP POLICY IF EXISTS "Inventory isolation" ON public.inventory;
 CREATE POLICY "Inventory isolation" ON public.inventory 
 FOR ALL USING (tenant_id = public.tenant_id());
+
+
+-- 4. Políticas para la tabla 'users' (Perfil de Usuario)
+-- Permitir que un usuario cree su propio perfil tras registrarse
+DROP POLICY IF EXISTS "Allow individual insert" ON public.users;
+CREATE POLICY "Allow individual insert" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Permitir que un usuario vea su propio perfil
+DROP POLICY IF EXISTS "Allow individual read" ON public.users;
+CREATE POLICY "Allow individual read" ON public.users FOR SELECT USING (auth.uid() = id);
+
+-- Permitir que un usuario actualice su propio perfil
+DROP POLICY IF EXISTS "Allow individual update" ON public.users;
+CREATE POLICY "Allow individual update" ON public.users FOR UPDATE USING (auth.uid() = id);
+
 
