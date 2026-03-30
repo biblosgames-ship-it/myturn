@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock } from 'lucide-react';
+import { Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { BarberManagement } from './BarberManagement';
 import { InventoryManagement } from './InventoryManagement';
@@ -25,18 +25,14 @@ interface Subscription {
 
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-const initialAppointments: Appointment[] = [
-  { id: '1', clientName: 'Juan Pérez', service: 'Recorte + Barba', time: '14:30', date: getTodayStr(), status: 'attending', arrived: true },
-  { id: '2', clientName: 'Carlos Gómez', service: 'Sombreado', time: '15:15', date: getTodayStr(), status: 'waiting', arrived: false },
-  { id: '3', clientName: 'Mateo Ruiz', service: 'Corte Clásico', time: '16:00', date: getTodayStr(), status: 'waiting', arrived: false },
-  { id: '4', clientName: 'Luis Hernán', service: 'Barba King', time: '16:45', date: getTodayStr(), status: 'waiting', arrived: false },
-  // Future appointments
-  { id: '5', clientName: 'Roberto Díaz', service: 'Corte Moderno', time: '10:00', date: '2026-03-28', status: 'waiting', arrived: false },
-  { id: '6', clientName: 'Andrés Sosa', service: 'Afeitado Naval', time: '11:30', date: '2026-03-29', status: 'waiting', arrived: false },
-];
+// All appointments are now strictly database-driven.
 
 export const BarberDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile'>('queue');
+  const [userEmail, setUserEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [businessName, setBusinessName] = useState('Cargando...');
@@ -105,16 +101,24 @@ export const BarberDashboard: React.FC = () => {
       }
 
       // 3. Fetch Tenant/Business Info (SaaS Branding)
-      const { data: tenant } = await supabase.from('tenants').select('*').single();
-      if (tenant) {
-        setBusinessName(tenant.name);
-        setLogoUrl(tenant.logo || '');
-        setShareUrl(`https://myturn.app/${tenant.slug || tenant.id}`);
-        setSubscription({
-          plan: (tenant.plan_id as any) || 'Free',
-          expiryDate: tenant.expiry_date || '2026-12-31',
-          status: 'active'
-        });
+      // First, get the current user's tenant_id to ensure privacy
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || '');
+        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+        if (userData?.tenant_id) {
+          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
+          if (tenant) {
+            setBusinessName(tenant.name);
+            setLogoUrl(tenant.logo || '');
+            setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
+            setSubscription({
+              plan: (tenant.plan_id as any) || 'Free',
+              expiryDate: tenant.expiry_date || '2026-12-31',
+              status: 'active'
+            });
+          }
+        }
       }
       setIsLoading(false);
     };
@@ -153,11 +157,7 @@ export const BarberDashboard: React.FC = () => {
     fetchTransactions();
   }, []);
 
-  const [subscription, setSubscription] = useState<Subscription>({
-    plan: 'Free', // Set to Free for testing locks
-    expiryDate: '2026-03-27', 
-    status: 'active' 
-  });
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -166,14 +166,14 @@ export const BarberDashboard: React.FC = () => {
   const [daysRemaining, setDaysRemaining] = useState(0);
 
   const handleTabClick = (tabId: string) => {
-    if (subscription.status === 'suspended') return;
+    if (subscription?.status === 'suspended') return;
     
-    if (tabId === 'finance' && subscription.plan === 'Free') {
+    if (tabId === 'finance' && subscription?.plan === 'Free') {
       setShowUpgradeModal(true);
       return;
     }
     
-    if (tabId === 'staff' && subscription.plan !== 'Enterprise') {
+    if (tabId === 'staff' && subscription?.plan !== 'Enterprise') {
       setShowUpgradeModal(true);
       return;
     }
@@ -182,6 +182,7 @@ export const BarberDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!subscription) return;
     const today = new Date('2026-03-28'); // Using current system date from metadata
     const expiry = new Date(subscription.expiryDate);
     const diffTime = expiry.getTime() - today.getTime();
@@ -197,9 +198,9 @@ export const BarberDashboard: React.FC = () => {
     }
     
     if (newStatus !== subscription.status) {
-      setSubscription(prev => ({ ...prev, status: newStatus }));
+      setSubscription(prev => prev ? ({ ...prev, status: newStatus }) : null);
     }
-  }, [subscription.expiryDate, subscription.status]);
+  }, [subscription?.expiryDate, subscription?.status]);
 
   // Live timer effect for the attending client
   React.useEffect(() => {
@@ -236,12 +237,12 @@ const getPlanCapabilities = (planName: string) => {
     if (!newClient.name) return;
 
     // SaaS Plan Limits Validation (Dynamic Fetch)
-    const caps = getPlanCapabilities(subscription.plan);
+    const caps = getPlanCapabilities(subscription?.plan || 'Free');
     const monthlyLimit = caps.maxAppointments === 'Unlimited' ? Infinity : Number(caps.maxAppointments);
     
     // Check against real length
     if (appointments.length >= monthlyLimit) {
-      alert(`⚠️ Límite de Plan Alcanzado\n\nTu plan ${subscription.plan} permite un máximo de ${caps.maxAppointments} citas por mes. Has llegado al tope.`);
+      alert(`⚠️ Límite de Plan Alcanzado\n\nTu plan ${subscription?.plan || 'Free'} permite un máximo de ${caps.maxAppointments} citas por mes. Has llegado al tope.`);
       setShowAddForm(false);
       setShowUpgradeModal(true);
       return;
@@ -443,9 +444,9 @@ const getPlanCapabilities = (planName: string) => {
             <button 
               className={`btn ${activeTab === 'finance' ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => handleTabClick('finance')}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'finance' ? 'var(--primary)' : 'transparent', color: subscription.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'finance' ? 'black' : 'var(--text)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'finance' ? 'var(--primary)' : 'transparent', color: subscription?.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'finance' ? 'black' : 'var(--text)' }}
             >
-              <Wallet size={16} /> Finanzas {subscription.plan === 'Free' && <Lock size={12} style={{marginLeft: '0.2rem'}}/>}
+              <Wallet size={16} /> Finanzas {subscription?.plan === 'Free' && <Lock size={12} style={{marginLeft: '0.2rem'}}/>}
             </button>
             <button 
               className={`btn ${activeTab === 'management' ? 'btn-primary' : 'btn-outline'}`}
@@ -461,7 +462,7 @@ const getPlanCapabilities = (planName: string) => {
       <main style={{ flex: 1, padding: '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative' }}>
         
         {/* Subscription Grace Banner */}
-        {subscription.status === 'grace' && (
+        {subscription?.status === 'grace' && (
           <div className="animate-fade-in" style={{ 
             background: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)', 
             borderRadius: 'var(--radius-md)', 
@@ -485,7 +486,7 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
         {/* Global Suspension Overlay */}
-        {subscription.status === 'suspended' && (
+        {subscription?.status === 'suspended' && (
           <div style={{
             position: 'absolute',
             inset: 0,
@@ -797,7 +798,38 @@ const getPlanCapabilities = (planName: string) => {
         ) : activeTab === 'finance' ? (
           <FinanceManagement transactions={transactions} setTransactions={setTransactions} staff={staff} />
         ) : activeTab === 'staff' ? (
-          <StaffManagement staff={staff} setStaff={setStaff} plan={subscription.plan} />
+          <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} />
+        ) : activeTab === 'profile' ? (
+          <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
+             <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
+                <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', color: 'var(--primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                  <User size={40} />
+                </div>
+                <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Mi Cuenta SaaS</h1>
+                <p style={{ color: 'var(--text-muted)' }}>Gestiona tu perfil y seguridad.</p>
+             </header>
+
+             <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <section>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>CORREO ELECTRÓNICO</label>
+                  <input type="text" value={userEmail} readOnly style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+                </section>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '1rem' }}>Cambiar Contraseña</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <input type="password" placeholder="Nueva Contraseña" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)' }} />
+                    <input type="password" placeholder="Confirmar Nueva Contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)' }} />
+                    <button className="btn btn-primary" style={{ padding: '1rem' }} onClick={async () => {
+                      if (newPassword !== confirmPassword) { alert('Las contraseñas no coinciden'); return; }
+                      const { error } = await supabase.auth.updateUser({ password: newPassword });
+                      if (error) alert('Error: ' + error.message);
+                      else { alert('Contraseña actualizada'); setNewPassword(''); setConfirmPassword(''); }
+                    }}>Actualizar Credenciales</button>
+                  </div>
+                </div>
+             </div>
+          </div>
         ) : (
           <BarberManagement />
         )}
@@ -806,7 +838,7 @@ const getPlanCapabilities = (planName: string) => {
 
       <aside style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {/* Sidebar Nav */}
-        <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: subscription.status === 'suspended' ? 0.3 : 1 }}>
+        <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: subscription?.status === 'suspended' ? 0.3 : 1 }}>
           <button 
             onClick={() => handleTabClick('queue')}
             className={`btn ${activeTab === 'queue' ? 'btn-primary' : 'btn-outline'}`}
@@ -831,10 +863,10 @@ const getPlanCapabilities = (planName: string) => {
           <button 
             onClick={() => handleTabClick('finance')}
             className={`btn ${activeTab === 'finance' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'finance' ? 'black' : 'var(--text)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'finance' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><CreditCard size={20} /> Finanzas</div>
-            {subscription.plan === 'Free' && <Lock size={16} />}
+            {subscription?.plan === 'Free' && <Lock size={16} />}
           </button>
           <button 
             onClick={() => handleTabClick('management')}
@@ -846,10 +878,17 @@ const getPlanCapabilities = (planName: string) => {
           <button 
             onClick={() => handleTabClick('staff')}
             className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Users size={20} /> Equipo</div>
-            {subscription.plan !== 'Enterprise' && <Lock size={16} />}
+            {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
+          >
+            <User size={20} /> Mi Perfil
           </button>
         </nav>
 
@@ -868,7 +907,7 @@ const getPlanCapabilities = (planName: string) => {
               )}
               <div>
                 <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{businessName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SaaS {subscription.plan}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SaaS {subscription?.plan || 'Free'}</div>
               </div>
             </div>
             
@@ -1049,7 +1088,7 @@ const getPlanCapabilities = (planName: string) => {
             </h3>
             
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.5', fontSize: '0.875rem' }}>
-              Estás limitado por tu <strong style={{ color: 'var(--text)' }}>Plan {subscription.plan}</strong>. <br/>
+              Estás limitado por tu <strong style={{ color: 'var(--text)' }}>Plan {subscription?.plan || 'Free'}</strong>. <br/>
               Asciende tu plan para desbloquear reportes vitales y escalar tu negocio al siguiente nivel.
             </p>
             
@@ -1119,7 +1158,7 @@ const getPlanCapabilities = (planName: string) => {
                 <CreditCard size={32} />
               </div>
               <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Opciones de Pago Manual</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Tu plan actual: <span style={{ fontWeight: 800, color: 'var(--text)' }}>Plan {subscription.plan} ($29.99 USD)</span></p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Tu plan actual: <span style={{ fontWeight: 800, color: 'var(--text)' }}>Plan {subscription?.plan || 'Free'} ($29.99 USD)</span></p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

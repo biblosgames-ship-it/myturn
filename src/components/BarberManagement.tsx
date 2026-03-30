@@ -53,12 +53,12 @@ export const BarberManagement: React.FC = () => {
   ]);
   const [lunchBreak, setLunchBreak] = useState({ start: '13:00', end: '14:00', enabled: true });
   const [brand, setBrand] = useState({
-    name: 'Legacy Business',
-    professionalName: 'Alex "The Blade"',
-    professionalTitle: 'Master Barber & Educator',
-    logo: 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+    name: '',
+    professionalName: '',
+    professionalTitle: '',
+    logo: '',
     color: '#f59e0b',
-    slogan: 'Donde el estilo se encuentra con la tradición',
+    slogan: '',
     showReviews: true,
     bookingMode: 'online' as 'online' | 'manual' | 'hybrid'
   });
@@ -70,10 +70,21 @@ export const BarberManagement: React.FC = () => {
 
   useEffect(() => {
     const loadCatalog = async () => {
-      // 1. Load Business Name
+      // 1. Load Business Branding & Schedule
       const { data: tenant } = await supabase.from('tenants').select('*').single();
       if (tenant) {
-        setBrand(prev => ({ ...prev, name: tenant.name }));
+        setBrand({
+          name: tenant.name || '',
+          professionalName: tenant.professional_name || '',
+          professionalTitle: tenant.professional_title || '',
+          logo: tenant.logo || '',
+          color: tenant.color || '#f59e0b',
+          slogan: tenant.slogan || '',
+          showReviews: tenant.show_reviews ?? true,
+          bookingMode: (tenant.booking_mode as any) || 'online'
+        });
+        if (tenant.schedule) setWeeksSchedule(tenant.schedule);
+        if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
       }
 
       // 2. Load Services from DB
@@ -116,8 +127,25 @@ export const BarberManagement: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 1. Update Tenant Name (We update where name is not null as a dummy generic filter to pass the DB rules)
-      await supabase.from('tenants').update({ name: brand.name }).not('name', 'is', null);
+      // 1. Update Tenant Branding & Settings
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+        if (userData?.tenant_id) {
+          await supabase.from('tenants').update({ 
+            name: brand.name,
+            professional_name: brand.professionalName,
+            professional_title: brand.professionalTitle,
+            logo: brand.logo,
+            slogan: brand.slogan,
+            color: brand.color,
+            show_reviews: brand.showReviews,
+            booking_mode: brand.bookingMode,
+            schedule: weeksSchedule,
+            lunch_break: lunchBreak
+          }).eq('id', userData.tenant_id);
+        }
+      }
 
       // 2. Sync Services
       const currentIds = services.filter(s => s.id).map(s => s.id);

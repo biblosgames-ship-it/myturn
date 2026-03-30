@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -86,6 +86,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [hasAppointment, setHasAppointment] = useState(false);
   const [isGlobalPaused, setIsGlobalPaused] = useState(false);
   const [queueItems, setQueueItems] = useState<any[]>([]);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!selectedBusinessSlug) {
@@ -95,30 +96,36 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
     // Dynamic SaaS fetch by Slug
     const fetchSaaSInfo = async () => {
-      const { data: tenant } = await supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
-      
-      if (tenant) {
-        // Fetch services for this tenant
-        const { data: sData } = await supabase.from('services').select('name').eq('tenant_id', tenant.id);
-        const serviceNames = sData ? sData.map(s => s.name) : ['Servicio General'];
+      try {
+        const { data: tenant, error } = await supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
+        
+        if (tenant && !error) {
+          // Fetch services for this tenant
+          const { data: sData } = await supabase.from('services').select('name').eq('tenant_id', tenant.id);
+          const serviceNames = sData ? sData.map(s => s.name) : ['Servicio General'];
 
-        setDbBusiness({
-          id: tenant.id,
-          name: tenant.name,
-          professional: tenant.owner || 'Profesional Principal',
-          title: tenant.industry || 'Servicios Profesionales',
-          awards: [],
-          services: serviceNames,
-          logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-          rating: 5.0,
-          reviews: 1,
-          address: tenant.address || 'Ubicación local',
-          mapUrl: '#',
-          showReviews: false,
-          bookingMode: 'online'
-        });
-      } else {
-        setDbBusiness(null);
+          setDbBusiness({
+            id: tenant.id,
+            name: tenant.name,
+            professional: tenant.owner || 'Profesional Principal',
+            title: tenant.industry || 'Servicios Profesionales',
+            awards: [],
+            services: serviceNames,
+            logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            rating: 5.0,
+            reviews: 1,
+            address: tenant.address || 'Ubicación local',
+            mapUrl: '#',
+            showReviews: false,
+            bookingMode: 'online'
+          });
+          setNotFound(false);
+        } else {
+          setDbBusiness(null);
+          setNotFound(true);
+        }
+      } catch (err) {
+        setNotFound(true);
       }
     };
     fetchSaaSInfo();
@@ -166,6 +173,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
   const business = dbBusiness;
 
+
+  if (notFound) {
+    return (
+      <div className="animate-fade-in card" style={{ maxWidth: '400px', margin: '4rem auto', textAlign: 'center', padding: '3rem' }}>
+        <X size={48} color="var(--accent)" style={{ marginBottom: '1.5rem' }} />
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem' }}>Negocio no encontrado</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>El enlace que seguiste podría estar roto o el negocio ha cambiado su dirección.</p>
+        <button className="btn btn-primary" onClick={() => setSelectedBusinessSlug(null)}>
+          Ver Directorio de Negocios
+        </button>
+      </div>
+    );
+  }
 
   if (!business) {
     return (

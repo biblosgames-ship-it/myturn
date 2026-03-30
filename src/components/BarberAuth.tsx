@@ -82,20 +82,46 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             const { data: tenantData, error: tenantError } = await supabase.from('tenants').update({
               name: businessName || 'Mi Negocio',
               slug: slug,
-              owner: email // This fixes the 'Pendiente' issue in SuperAdmin
+              owner: email 
             }).eq('id', inviteTenantId).select().single();
-            if (tenantError) throw tenantError;
-            tenantId = tenantData.id;
+            
+            if (tenantError) {
+              // Fallback if slug is taken
+              const uniqueSlug = `${slug}-${Math.random().toString(36).substring(7)}`;
+              const { data: retryData, error: retryError } = await supabase.from('tenants').update({
+                name: businessName || 'Mi Negocio',
+                slug: uniqueSlug,
+                owner: email 
+              }).eq('id', inviteTenantId).select().single();
+              if (retryError) throw retryError;
+              tenantId = retryData.id;
+            } else {
+              tenantId = tenantData.id;
+            }
           } else {
-
             const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
               name: businessName || 'Mi Negocio',
               slug: slug,
               industry: 'General',
-              plan_id: 'Free'
+              plan_id: 'Free',
+              owner: email
             }).select().single();
-            if (tenantError) throw tenantError;
-            tenantId = tenantData.id;
+
+            if (tenantError) {
+              // Fallback if slug is taken
+              const uniqueSlug = `${slug}-${Math.random().toString(36).substring(7)}`;
+              const { data: retryData, error: retryError } = await supabase.from('tenants').insert({
+                name: businessName || 'Mi Negocio',
+                slug: uniqueSlug,
+                industry: 'General',
+                plan_id: 'Free',
+                owner: email
+              }).select().single();
+              if (retryError) throw retryError;
+              tenantId = retryData.id;
+            } else {
+              tenantId = tenantData.id;
+            }
           }
 
           // 3. Link the User to the Tenant
