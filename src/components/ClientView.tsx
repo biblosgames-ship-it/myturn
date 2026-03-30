@@ -470,12 +470,23 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           <SmartTimer 
             remainingMinutes={(() => {
               const myId = localStorage.getItem('myturn_active_appointment_id');
+              const apt = queueItems.find(q => q.id === myId);
               const myIdx = queueItems.findIndex(q => q.id === myId);
-              if (myIdx !== -1) {
-                return queueItems.slice(0, myIdx).reduce((acc, item) => {
+              
+              if (apt && myIdx !== -1) {
+                // 1. Wait based on people ahead
+                const queueWait = queueItems.slice(0, myIdx).reduce((acc, item) => {
                   const svc = dbBusiness?.services.find(s => s.id === item.service_id);
                   return acc + (svc?.duration || 25);
                 }, 0);
+                
+                // 2. Wait based on scheduled time
+                const scheduledDate = new Date(apt.date_time);
+                const now = new Date();
+                const timeUntilScheduled = Math.max(0, Math.floor((scheduledDate.getTime() - now.getTime()) / 60000));
+                
+                // Return whichever is longer (ensures timer doesn't go to 0 if I am next but it is too early)
+                return Math.max(queueWait, timeUntilScheduled);
               }
               return queueInfo.wait;
             })()} 

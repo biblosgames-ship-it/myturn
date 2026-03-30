@@ -96,6 +96,23 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // NEW: Guard against duplicate active appointments
+      if (session?.user) {
+        const { data: existing } = await supabase
+          .from('appointments')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .in('status', ['waiting', 'attending', 'arrived'])
+          .maybeSingle();
+        
+        if (existing) {
+          alert("Ya tienes un turno activo vigente. Por favor, cancela el actual si deseas agendar uno nuevo.");
+          setIsLoading(false);
+          return;
+        }
+      }
+
       if (selectedService && selectedTime) {
         // Use local ISO format: YYYY-MM-DDTHH:mm:00
         const aptDate = new Date(`${selectedDate}T${selectedTime}:00`);
