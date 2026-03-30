@@ -711,7 +711,7 @@ const getPlanCapabilities = (planName: string) => {
                 <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div className="pulse-success" style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
                   <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--success)', margin: 0 }}>
-                    {selectedDate === getTodayStr() ? 'En Vivo' : `📅 Citas para el ${new Date(selectedDate).toLocaleDateString('es-ES')}`}
+                    {selectedDate === getTodayStr() ? 'En Vivo' : `📅 Citas para el ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
                   </p>
                 </div>
               </div>
@@ -732,18 +732,6 @@ const getPlanCapabilities = (planName: string) => {
                   style={{ fontSize: '0.75rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', fontWeight: 700 }}
                 >
                   Limpiar Cola
-                </button>
-                <button 
-                  className="btn btn-outline" 
-                  onClick={() => {
-                    if (window.confirm('¿Estás SEGURO de cancelar TODAS las citas? Se enviará una disculpa y tendrán prioridad mañana.')) {
-                      alert('Aviso enviado: "Lamentamos los inconvenientes. Su cita ha sido cancelada por imprevistos del profesional. Tendrá PRIORIDAD TOTAL para agendar mañana."');
-                      setAppointments(appointments.filter((a: Appointment) => a.date !== selectedDate));
-                    }
-                  }}
-                  style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', borderColor: 'rgba(239,68,68,0.4)', color: '#ef4444' }}
-                >
-                  Cancelar Todas
                 </button>
                 <button 
                   className="btn btn-primary" 
@@ -806,149 +794,71 @@ const getPlanCapabilities = (planName: string) => {
             {isPaused && (
               <div className="animate-fade-in" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div className="pulse-danger" style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }} />
-                <p style={{ margin: 0, color: '#ef4444', fontWeight: 800, fontSize: '0.875rem' }}>
-                  EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE.
-                </p>
+                <p style={{ margin: 0, color: '#ef4444', fontWeight: 800, fontSize: '0.875rem' }}>PROFESIONAL EN PAUSA</p>
               </div>
             )}
 
             {appointments.filter((a: Appointment) => {
-               // If viewing 'Today', show all active (waiting/attending/arrived)
-               if (selectedDate === getTodayStr()) {
-                 return a.status !== 'finished';
-               }
-               // For other dates, strict date match
-               return a.date === selectedDate;
+                if (selectedDate === getTodayStr()) return a.status !== 'finished';
+                return a.date === selectedDate;
             }).length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5, border: '2px dashed var(--border)' }}>
                 <Calendar size={48} style={{ marginBottom: '1rem' }} />
                 <p>No hay turnos {selectedDate === getTodayStr() ? 'activos' : 'para este día'}.</p>
               </div>
-            ) : appointments.filter((a: Appointment) => {
-                if (selectedDate === getTodayStr()) return a.status !== 'finished';
-                return a.date === selectedDate;
-            }).map((apt: Appointment, idx: number) => (
-              <div key={apt.id} className="card" style={{ 
-                border: apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
-                background: apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
-                position: 'relative'
-              }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <div style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: 'var(--radius-full)', 
-                    background: apt.status === 'attending' ? 'var(--primary)' : 'var(--surface-hover)', 
-                    color: apt.status === 'attending' ? 'black' : 'var(--text)',
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '0.875rem'
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {appointments.filter((a: Appointment) => {
+                    if (selectedDate === getTodayStr()) return a.status !== 'finished';
+                    return a.date === selectedDate;
+                }).map((apt: Appointment, idx: number) => (
+                  <div key={apt.id} className="card" style={{ 
+                    border: apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
+                    position: 'relative',
+                    opacity: (selectedDate === getTodayStr() && apt.date !== getTodayStr()) ? 0.7 : 1
                   }}>
-                    {idx + 1}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>{apt.clientName}</h4>
-                      {apt.status === 'attending' && (
-                        <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: 'black', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>SIENDO ATENDIDO</span>
-                      )}
-                      {apt.staffId && staff.find(s => s.id === apt.staffId) && (
-                        <span style={{ fontSize: '0.65rem', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 700, border: '1px solid rgba(59,130,246,0.2)' }}>
-                          👤 {staff.find(s => s.id === apt.staffId)?.name}
-                        </span>
-                      )}
+                    {apt.date !== selectedDate && (
+                      <div style={{ position: 'absolute', top: '-10px', right: '20px', background: 'var(--accent)', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 900, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 10 }}>
+                        📌 PROGRAMADA: {new Date(apt.date + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: apt.status === 'attending' ? 'var(--primary)' : 'var(--surface-hover)', color: apt.status === 'attending' ? 'black' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                        {idx + 1}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>{apt.clientName}</h4>
+                          {apt.status === 'attending' && <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: 'black', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>SIENDO ATENDIDO</span>}
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {apt.service} • <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{apt.time}</span>
+                          {apt.status === 'attending' && apt.date === getTodayStr() && (
+                            <span style={{ marginLeft: '1rem', color: 'var(--success)', fontWeight: 800 }}>⏳ {formatTime(activeTimer)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn btn-outline" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                          const newStatus = apt.arrived ? 'waiting' : 'arrived';
+                          await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
+                        }}>{apt.arrived ? '📍 LLEGÓ' : 'LLEGADA'}</button>
+                        {apt.status === 'waiting' ? (
+                          <button className="btn btn-primary" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                            await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
+                            await supabase.from('appointments').update({ status: 'attending' }).eq('id', apt.id);
+                          }}>Atender</button>
+                        ) : (
+                          <button className="btn btn-success" style={{ fontSize: '0.7rem' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
+                        )}
+                        <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)' }}><X size={14} /></button>
+                      </div>
                     </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {apt.service} • <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{apt.time}</span>
-                      {apt.status === 'attending' && (
-                        <span style={{ marginLeft: '1rem', color: 'var(--success)', fontWeight: 800, fontSize: '0.75rem' }}>
-                          ⏳ {formatTime(activeTimer)} restantes
-                        </span>
-                      )}
-                    </p>
                   </div>
-                  
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      className="btn btn-outline" 
-                      style={{ 
-                        padding: '0.4rem 0.8rem', 
-                        fontSize: '0.7rem', 
-                        fontWeight: 800,
-                        borderColor: apt.arrived ? 'var(--success)' : 'var(--border)',
-                        color: apt.arrived ? 'var(--success)' : 'var(--text-muted)',
-                        background: apt.arrived ? 'rgba(16,185,129,0.1)' : 'transparent'
-                      }}
-                      onClick={async () => {
-                        // Quick Optimistic UI
-                        const newApts = appointments.map(a => a.id === apt.id ? {...a, arrived: !a.arrived} : a);
-                        setAppointments(newApts);
-                        // Push to DB
-                        const newStatus = apt.arrived ? 'waiting' : 'arrived';
-                        await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
-                      }}
-                    >
-                      {apt.arrived ? '📍 LLEGÓ AL LOCAL' : 'MARCAR LLEGADA'}
-                    </button>
-                    
-                    {idx > 1 && (
-                      <button 
-                        onClick={() => moveUp(idx)}
-                        className="btn btn-outline" 
-                        title="Subir Prioridad"
-                        style={{ padding: '0.4rem', border: '1px solid var(--border)', opacity: 0.8 }}
-                      >
-                        <TrendingUp size={14} />
-                      </button>
-                    )}
-                    
-                    {apt.status === 'waiting' ? (
-                      <button 
-                        className="btn btn-primary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', gap: '0.3rem', fontWeight: 700 }}
-                        onClick={async () => {
-                          const isAttending = apt.status === 'attending';
-                          // Optimistic
-                          const newApts = appointments.map((a: Appointment) => a.id === apt.id ? { ...a, status: (isAttending ? 'waiting' : 'attending') as any } : a.status === 'attending' ? { ...a, status: 'waiting' as any } : a);
-                          setAppointments(newApts as Appointment[]);
-                          
-                          // Push to DB
-                          if (!isAttending) {
-                             await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending');
-                             await supabase.from('appointments').update({ status: 'attending' }).eq('id', apt.id);
-                          } else {
-                             await supabase.from('appointments').update({ status: 'waiting' }).eq('id', apt.id);
-                          }
-                        }}
-                      >
-                        <Play size={12} fill="currentColor" /> Atender
-                      </button>
-                    ) : (
-                      <button 
-                        className="btn btn-success" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', gap: '0.3rem', fontWeight: 700 }}
-                        onClick={() => {
-                          setSelectedAptForComplete(apt);
-                          setShowCompleteModal(true);
-                        }}
-                      >
-                        <Check size={12} /> Listo
-                      </button>
-                    )}
-                    
-                    <button 
-                      onClick={() => removeApt(apt.id)}
-                      className="btn btn-outline" 
-                      style={{ padding: '0.4rem', color: 'var(--accent)', borderColor: 'rgba(239,68,68,0.2)', opacity: 0.6 }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
