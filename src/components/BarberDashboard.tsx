@@ -12,7 +12,7 @@ interface Appointment {
   service: string;
   time: string;
   date: string; // YYYY-MM-DD
-  status: 'waiting' | 'attending' | 'finished';
+  status: 'waiting' | 'attending' | 'finished' | 'cancelled';
   arrived?: boolean;
   staffId?: string;
 }
@@ -848,13 +848,26 @@ const getPlanCapabilities = (planName: string) => {
                 {appointments.filter((a: Appointment) => {
                     if (selectedDate === getTodayStr()) return a.status !== 'finished';
                     return a.date === selectedDate;
-                }).map((apt: Appointment, idx: number) => (
-                  <div key={apt.id} className="card" style={{ 
-                    border: apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
-                    background: apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
-                    position: 'relative',
-                    opacity: (selectedDate === getTodayStr() && apt.date !== getTodayStr()) ? 0.7 : 1
-                  }}>
+                }).map((apt: Appointment, idx: number) => {
+                  const isToday = selectedDate === getTodayStr();
+                  const isCancelled = apt.status === 'cancelled';
+                  
+                  // For numbering, only count active ones (#1, #2...)
+                  // We find the index among NON-cancelled and NON-finished appointments for today
+                  const activeItems = appointments.filter(a => 
+                    a.date === selectedDate && 
+                    a.status !== 'finished' && 
+                    a.status !== 'cancelled'
+                  );
+                  const activeIdx = activeItems.findIndex(a => a.id === apt.id);
+
+                  return (
+                    <div key={apt.id} className="card" style={{ 
+                      border: isCancelled ? '2px solid #ef4444' : apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                      background: isCancelled ? 'rgba(239,68,68,0.05)' : apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
+                      position: 'relative',
+                      opacity: (isToday && apt.date !== getTodayStr()) ? 0.7 : 1
+                    }}>
                     {apt.date !== selectedDate && (
                       <div style={{ position: 'absolute', top: '-10px', right: '20px', background: 'var(--accent)', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 900, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 10 }}>
                         📌 PROGRAMADA: {(() => {
@@ -869,7 +882,8 @@ const getPlanCapabilities = (planName: string) => {
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>{apt.clientName}</h4>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 600, color: isCancelled ? '#ef4444' : 'inherit' }}>{apt.clientName}</h4>
+                          {isCancelled && <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>TURNO CANCELADO</span>}
                           {apt.status === 'attending' && <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: 'black', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>SIENDO ATENDIDO</span>}
                         </div>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -880,23 +894,29 @@ const getPlanCapabilities = (planName: string) => {
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-outline" style={{ fontSize: '0.7rem' }} onClick={async () => {
-                          const newStatus = apt.arrived ? 'waiting' : 'arrived';
-                          await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
-                        }}>{apt.arrived ? '📍 LLEGÓ' : 'LLEGADA'}</button>
-                        {apt.status === 'waiting' ? (
-                          <button className="btn btn-primary" style={{ fontSize: '0.7rem' }} onClick={async () => {
-                            await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
-                            await supabase.from('appointments').update({ status: 'attending' }).eq('id', apt.id);
-                          }}>Atender</button>
+                        {isCancelled ? (
+                           <button className="btn btn-outline" style={{ fontSize: '0.7rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => removeApt(apt.id)}>Quitar Alerta</button>
                         ) : (
-                          <button className="btn btn-success" style={{ fontSize: '0.7rem' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
+                          <>
+                            <button className="btn btn-outline" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                              const newStatus = apt.arrived ? 'waiting' : 'arrived';
+                              await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
+                            }}>{apt.arrived ? '📍 LLEGÓ' : 'LLEGADA'}</button>
+                            {apt.status === 'waiting' ? (
+                              <button className="btn btn-primary" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                                await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
+                                await supabase.from('appointments').update({ status: 'attending' }).eq('id', apt.id);
+                              }}>Atender</button>
+                            ) : (
+                              <button className="btn btn-success" style={{ fontSize: '0.7rem' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
+                            )}
+                          </>
                         )}
                         <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)' }}><X size={14} /></button>
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
