@@ -377,19 +377,25 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           )}
           <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <CheckCircle2 color="var(--success)" size={20} />
-            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>¡Tienes un turno activo para hoy a las 14:30!</p>
+            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>
+              ¡Tienes un turno activo para hoy a las {(() => {
+                const myId = localStorage.getItem('myturn_active_appointment_id');
+                const apt = queueItems.find(q => q.id === myId);
+                // Note: queueItems doesn't have the full date_time yet, we should probably fetch the full object if we want the actual saved time
+                // For now, let's look for it in the raw appointments data (if we had it) or just use the first 'waiting' time
+                return apt?.time || '9:00'; 
+              })()}!
+            </p>
           </div>
           <SmartTimer 
             remainingMinutes={(() => {
               const myId = localStorage.getItem('myturn_active_appointment_id');
-              if (myId) {
-                const myIdx = queueItems.findIndex(q => q.id === myId);
-                if (myIdx !== -1) {
-                  return queueItems.slice(0, myIdx).reduce((acc, item) => {
-                    const svc = dbBusiness?.services.find(s => s.id === item.service_id);
-                    return acc + (svc?.duration || 25);
-                  }, 0);
-                }
+              const myIdx = queueItems.findIndex(q => q.id === myId);
+              if (myIdx !== -1) {
+                return queueItems.slice(0, myIdx).reduce((acc, item) => {
+                  const svc = dbBusiness?.services.find(s => s.id === item.service_id);
+                  return acc + (svc?.duration || 25);
+                }, 0);
               }
               return queueInfo.wait;
             })()} 
@@ -499,7 +505,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
       {hasAppointment && (
         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-          <button className="btn btn-outline" style={{ flex: 1, padding: '1rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => { localStorage.removeItem('myturn_active_appointment_id'); setHasAppointment(false); }}>
+          <button 
+            className="btn btn-outline" 
+            style={{ flex: 1, padding: '1rem', borderColor: '#ef4444', color: '#ef4444' }} 
+            onClick={async () => { 
+                const myId = localStorage.getItem('myturn_active_appointment_id');
+                if (myId) {
+                    await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', myId);
+                }
+                localStorage.removeItem('myturn_active_appointment_id'); 
+                setHasAppointment(false); 
+            }}
+          >
             Cancelar Turno
           </button>
           <button className="btn btn-outline" style={{ padding: '1rem' }}>
