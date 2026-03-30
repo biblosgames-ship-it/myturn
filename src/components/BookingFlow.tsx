@@ -20,6 +20,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
+  const [existingAppointments, setExistingAppointments] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
 
@@ -50,6 +51,26 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     };
     loadCatalog();
   }, [tenantId]);
+
+  React.useEffect(() => {
+    const fetchExisting = async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('date_time')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'waiting')
+        .gte('date_time', `${selectedDate}T00:00:00`)
+        .lte('date_time', `${selectedDate}T23:59:59`);
+      
+      if (data) {
+        setExistingAppointments(data.map(d => {
+          const dt = new Date(d.date_time);
+          return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        }));
+      }
+    };
+    fetchExisting();
+  }, [tenantId, selectedDate]);
 
   const handleConfirm = async () => {
     if (!clientName.trim()) {
@@ -229,24 +250,29 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
               <div>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Horarios disponibles</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                  {timeSlots.map((t: string) => (
-                    <button 
-                      key={t}
-                      onClick={() => { setSelectedTime(t); setStep(4); }}
-                      style={{ 
-                        padding: '0.5rem', 
-                        background: selectedTime === t ? 'var(--primary)' : 'var(--background)',
-                        color: selectedTime === t ? 'var(--background-alt)' : 'var(--text)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                  {timeSlots.map((t: string) => {
+                    const isTaken = existingAppointments.includes(t);
+                    return (
+                      <button 
+                        key={t}
+                        onClick={() => { if (!isTaken) { setSelectedTime(t); setStep(4); } }}
+                        disabled={isTaken}
+                        style={{ 
+                          padding: '0.5rem', 
+                          background: selectedTime === t ? 'var(--primary)' : isTaken ? 'var(--surface-hover)' : 'var(--background)',
+                          color: selectedTime === t ? 'var(--background-alt)' : isTaken ? 'var(--text-muted)' : 'var(--text)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          cursor: isTaken ? 'not-allowed' : 'pointer',
+                          opacity: isTaken ? 0.5 : 1
+                        }}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -28,7 +28,7 @@ const getTodayStr = () => new Date().toISOString().split('T')[0];
 // All appointments are now strictly database-driven.
 
 export const BarberDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile' | 'customers'>('queue');
   const [userEmail, setUserEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,22 +38,19 @@ export const BarberDashboard: React.FC = () => {
   const [businessName, setBusinessName] = useState('Cargando...');
   const [logoUrl, setLogoUrl] = useState('');
   const [shareUrl, setShareUrl] = useState('');
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [savedCustomers, setSavedCustomers] = useState<any[]>([]);
 
 
   // Supabase Real-time Sync for Appointments
   useEffect(() => {
-    const fetchAppointments = async () => {
-      // Get tenant_id from metadata or user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data: uData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-      if (!uData?.tenant_id) return;
+    if (!tenantId) return;
 
+    const fetchAppointments = async () => {
       const { data, error } = await supabase
         .from('appointments')
         .select('*, services(name)')
-        .eq('tenant_id', uData.tenant_id)
+        .eq('tenant_id', tenantId)
         .order('date_time', { ascending: true });
         
       if (data) {
@@ -72,18 +69,22 @@ export const BarberDashboard: React.FC = () => {
       }
     };
 
-    // Initial Fetch
     fetchAppointments();
 
-    // Subscribe to DB changes
+    const fetchSavedCustomers = async () => {
+      const { data } = await supabase.from('saved_tenants').select('*').eq('tenant_id', tenantId);
+      if (data) setSavedCustomers(data);
+    };
+    fetchSavedCustomers();
+
     const channel = supabase.channel('realtime:appointments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${tenantId}` }, () => {
          fetchAppointments();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [tenantId]);
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [dbServices, setDbServices] = useState<any[]>([]);
@@ -116,6 +117,7 @@ export const BarberDashboard: React.FC = () => {
         setUserEmail(user.email || '');
         const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
         if (userData?.tenant_id) {
+          setTenantId(userData.tenant_id);
           const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
           if (tenant) {
             setBusinessName(tenant.name);
@@ -157,6 +159,13 @@ export const BarberDashboard: React.FC = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, () => {
         loadMetadata(); // Refresh staff
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_tenants', filter: `tenant_id=eq.${tenantId}` }, () => {
+        const fetchC = async () => {
+          const { data } = await supabase.from('saved_tenants').select('*').eq('tenant_id', tenantId);
+          if (data) setSavedCustomers(data);
+        };
+        fetchC();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
         loadMetadata(); // Refresh services
@@ -450,7 +459,8 @@ const getPlanCapabilities = (planName: string) => {
                activeTab === 'agenda' ? 'Agenda de Citas' :
                activeTab === 'management' ? 'Gestión de Local' : 
                activeTab === 'inventory' ? 'Inventario Inteligente' :
-               activeTab === 'staff' ? 'Equipo de Trabajo' : 'Finanzas y Reportes'}
+               activeTab === 'staff' ? 'Equipo de Trabajo' : 
+               activeTab === 'customers' ? 'Clientes' : 'Finanzas y Reportes'}
             </h2>
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
@@ -473,6 +483,13 @@ const getPlanCapabilities = (planName: string) => {
               </button>
             )}
             <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--surface)', padding: '0.4rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflowX: 'auto', maxWidth: '100%' }}>
+            <button 
+              className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
+              onClick={() => handleTabClick('customers')}
+            >
+              <Users size={18} />
+              <span>Clientes</span>
+            </button>
             <button 
               className={`btn ${activeTab === 'queue' ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => handleTabClick('queue')}
@@ -845,6 +862,61 @@ const getPlanCapabilities = (planName: string) => {
           <FinanceManagement transactions={transactions} setTransactions={setTransactions} staff={staff} />
         ) : activeTab === 'staff' ? (
           <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} />
+        ) : activeTab === 'customers' ? (
+          <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Clientes Vinculados</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Personas que han guardado tu negocio en su panel.</p>
+              </div>
+              <div className="card" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary)', color: 'black', fontWeight: 800, borderRadius: 'var(--radius-lg)' }}>
+                {savedCustomers.length} Total
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cliente</th>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Contacto</th>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vinculado el</th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savedCustomers.map((cust) => (
+                    <tr key={cust.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '0.8rem' }}>
+                            {cust.client_name?.charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 600 }}>{cust.client_name || 'Sin nombre'}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                        {cust.client_contact || 'N/A'}
+                      </td>
+                      <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                        {new Date(cust.created_at).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        <button className="btn btn-outline" style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem' }}>Ver Perfil</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {savedCustomers.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                        Aún no tienes clientes vinculados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : activeTab === 'profile' ? (
           <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
              <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
