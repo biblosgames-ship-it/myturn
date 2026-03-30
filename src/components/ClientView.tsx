@@ -507,8 +507,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </button>
         </div>
       )}
-      <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', opacity: 0.3, fontSize: '0.6rem', textAlign: 'center', fontFamily: 'monospace' }}>
-        CLIENT_TENANT_ID: {dbBusiness?.id || 'NO_UUID'} | SLUG: {selectedBusinessSlug}
+      {/* Diagnostic Footer (Internal) */}
+      <div style={{ position: 'fixed', bottom: '1rem', left: '1rem', opacity: 0.8, fontSize: '0.7rem', color: 'var(--primary)', fontFamily: 'monospace', zIndex: 9999, background: 'rgba(0,0,0,0.8)', padding: '0.4rem', border: '1px solid var(--primary)', borderRadius: '4px', pointerEvents: 'auto' }}>
+        🚩 CLIENTE_ID: {dbBusiness?.id || 'NO_UUID'}
       </div>
     </div>
   );

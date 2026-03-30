@@ -124,9 +124,26 @@ export const BarberDashboard: React.FC = () => {
       if (user) {
         setUserEmail(user.email || '');
         const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-        if (userData?.tenant_id) {
-          setTenantId(userData.tenant_id);
-          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
+        let currentTenantId = userData?.tenant_id;
+
+        // self-healing: if user has no tenant_id, link them to the first one found
+        if (!currentTenantId) {
+          const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
+          if (allTenants && allTenants.length > 0) {
+            currentTenantId = allTenants[0].id;
+            await supabase.from('users').upsert({
+              id: user.id,
+              tenant_id: currentTenantId,
+              role: 'owner',
+              full_name: 'Propietario'
+            });
+            console.log("Self-healed: Linked user to tenant", currentTenantId);
+          }
+        }
+
+        if (currentTenantId) {
+          setTenantId(currentTenantId);
+          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
           if (tenant) {
             setBusinessName(tenant.name);
             setLogoUrl(tenant.logo || '');
