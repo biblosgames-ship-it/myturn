@@ -98,6 +98,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [queueItems, setQueueItems] = useState<any[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Profile & Appointment Sync
   useEffect(() => {
@@ -354,6 +355,44 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         />
       )}
 
+      {showShareModal && (() => {
+        const shareUrl = encodeURIComponent(window.location.href);
+        const shareText = encodeURIComponent(`¡Reserva tu turno en ${business?.name || 'MyTurn'}! Entra aquí:`);
+        const links = [
+          { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${shareUrl}` },
+          { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
+          { label: 'Twitter / X', color: '#000', emoji: '🐦', href: `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}` },
+          { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + (business?.name || 'MyTurn'))}&body=${shareText}%20${shareUrl}` },
+        ];
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '360px', padding: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir Negocio 🔗</h3>
+                <button className="btn btn-outline" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setShowShareModal(false)}><X size={18} /></button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {links.map(l => (
+                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none' }}
+                  >
+                    <span style={{ fontSize: '1.3rem' }}>{l.emoji}</span>
+                    {l.label}
+                  </a>
+                ))}
+                <button
+                  className="btn btn-outline"
+                  style={{ width: '100%', marginTop: '0.25rem' }}
+                  onClick={() => { navigator.clipboard.writeText(decodeURIComponent(shareUrl)); alert('¡Enlace copiado!'); setShowShareModal(false); }}
+                >
+                  📋 Copiar enlace
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {showLinkModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem' }}>
@@ -417,17 +456,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             className="btn btn-outline" 
             style={{ padding: '0.4rem', borderRadius: '50%' }} 
             title="Compartir este negocio"
-            onClick={async () => {
-              const shareUrl = window.location.href;
-              const shareText = `¡Mira ${business?.name || 'este negocio'} en MyTurn! Reserva tu turno aquí:`;
-              if (navigator.share) {
-                try { await navigator.share({ title: business?.name || 'MyTurn', text: shareText, url: shareUrl }); } 
-                catch (_) { /* user cancelled */ }
-              } else {
-                navigator.clipboard.writeText(shareUrl);
-                alert('¡Enlace copiado al portapapeles!');
-              }
-            }}
+            onClick={() => setShowShareModal(true)}
           >
             <Share2 size={18} />
           </button>
