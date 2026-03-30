@@ -193,6 +193,20 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
           }
+          // Dynamic OG meta tags so social shares show the business logo & name
+          const setMeta = (property: string, content: string) => {
+            let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+          };
+          const businessLogo = tenant.logo || '';
+          const businessSlogan = tenant.slogan || `Reserva tu turno en ${tenant.name}`;
+          document.title = tenant.name;
+          setMeta('og:title', tenant.name);
+          setMeta('og:description', businessSlogan);
+          setMeta('og:image', businessLogo);
+          setMeta('og:url', window.location.href);
+          setMeta('og:type', 'website');
           // Persistence for refresh
           localStorage.setItem('myturn_last_view', 'client');
           localStorage.setItem('myturn_active_business_slug', selectedBusinessSlug);
@@ -357,7 +371,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
       {showShareModal && (() => {
         const shareUrl = encodeURIComponent(window.location.href);
-        const shareText = encodeURIComponent(`¡Reserva tu turno en ${business?.name || 'MyTurn'}! Entra aquí:`);
+        const shareText = encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`);
         const links = [
           { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${shareUrl}` },
           { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
