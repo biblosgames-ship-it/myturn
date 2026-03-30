@@ -402,18 +402,74 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       
       {/* Header Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setSelectedBusinessSlug(null)}>
+        <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => {
+          localStorage.removeItem('myturn_active_business_slug');
+          localStorage.setItem('myturn_last_view', 'landing');
+          setSelectedBusinessSlug(null);
+        }}>
           <ChevronLeft size={20} />
         </button>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setIsGlobalPaused(!isGlobalPaused)} title="Simular Pausa Admin">
-            <Clock size={18} color={isGlobalPaused ? '#ef4444' : 'currentColor'} />
-          </button>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setShowLinkModal(true)} title="Vincularme a este negocio">
             <Plus size={18} />
           </button>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }}><Share2 size={18} /></button>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }}><Bell size={18} /></button>
+          <button 
+            className="btn btn-outline" 
+            style={{ padding: '0.4rem', borderRadius: '50%' }} 
+            title="Compartir este negocio"
+            onClick={async () => {
+              const shareUrl = window.location.href;
+              const shareText = `¡Mira ${business?.name || 'este negocio'} en MyTurn! Reserva tu turno aquí:`;
+              if (navigator.share) {
+                try { await navigator.share({ title: business?.name || 'MyTurn', text: shareText, url: shareUrl }); } 
+                catch (_) { /* user cancelled */ }
+              } else {
+                navigator.clipboard.writeText(shareUrl);
+                alert('¡Enlace copiado al portapapeles!');
+              }
+            }}
+          >
+            <Share2 size={18} />
+          </button>
+          <button 
+            className="btn btn-outline" 
+            style={{ padding: '0.4rem', borderRadius: '50%' }} 
+            title="Activar alertas de turno"
+            onClick={async () => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const apt = queueItems.find(q => q.id === myId);
+              if (!apt?.date_time) { alert('No tienes un turno activo para alertar.'); return; }
+              
+              const granted = await Notification.requestPermission();
+              if (granted !== 'granted') { alert('Por favor, permite las notificaciones en tu navegador para activar las alertas.'); return; }
+              
+              const aptTime = new Date(apt.date_time).getTime();
+              const now = Date.now();
+              const alertTimes = [
+                { mins: 30, label: '30 minutos' },
+                { mins: 10, label: '10 minutos' },
+                { mins: 5,  label: '5 minutos' },
+              ];
+              let scheduled = 0;
+              alertTimes.forEach(({ mins, label }) => {
+                const delay = aptTime - mins * 60000 - now;
+                if (delay > 0) {
+                  setTimeout(() => {
+                    new Notification(`MyTurn – Tu turno en ${business?.name || 'el negocio'}`, {
+                      body: `⏰ Faltan ${label} para tu cita. ¡Prepárate!`,
+                      icon: '/favicon.ico'
+                    });
+                  }, delay);
+                  scheduled++;
+                }
+              });
+              alert(scheduled > 0 
+                ? `✅ Alertas activadas. Te avisaremos 30, 10 y 5 minutos antes de tu turno.` 
+                : `⚠️ Tu turno está muy próximo. ¡Dirígete al local ahora!`);
+            }}
+          >
+            <Bell size={18} />
+          </button>
         </div>
       </div>
 
