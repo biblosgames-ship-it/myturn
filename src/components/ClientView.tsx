@@ -211,7 +211,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             active: isAttending,
             arrived: isArrived || isAttending,
             isUser: isMyApt,
-            service_id: d.service_id
+            service_id: d.service_id,
+            date_time: d.date_time
           };
         }));
       }
@@ -429,13 +430,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <CheckCircle2 color="var(--success)" size={20} />
             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>
-              ¡Tienes un turno activo para hoy a las {(() => {
+              {(() => {
                 const myId = localStorage.getItem('myturn_active_appointment_id');
                 const apt = queueItems.find(q => q.id === myId);
-                // Note: queueItems doesn't have the full date_time yet, we should probably fetch the full object if we want the actual saved time
-                // For now, let's look for it in the raw appointments data (if we had it) or just use the first 'waiting' time
-                return apt?.time || '9:00'; 
-              })()}!
+                const isToday = apt?.date_time?.startsWith(new Date().toISOString().split('T')[0]);
+                if (isToday) {
+                  return `¡Tienes un turno activo para hoy a las ${apt?.time || '...'}!`;
+                } else if (apt?.date_time) {
+                  const dateStr = new Date(apt.date_time).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+                  return `Tienes una cita programada para el ${dateStr} a las ${apt.time}.`;
+                }
+                return '¡Tienes un turno activo!';
+              })()}
             </p>
           </div>
           <SmartTimer 
@@ -468,6 +474,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             })()}
             isPaused={isGlobalPaused}
             isOpen={dbBusiness?.isOpen}
+            isToday={(() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const item = queueItems.find(q => q.id === myId);
+              if (!item?.date_time) return true; // fallback to today
+              return item.date_time.startsWith(new Date().toISOString().split('T')[0]);
+            })()}
           />
         </div>
       ) : (

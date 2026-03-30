@@ -8,6 +8,7 @@ interface SmartTimerProps {
   status: 'waiting' | 'next' | 'in_progress' | 'completed';
   isPaused?: boolean;
   isOpen?: boolean;
+  isToday?: boolean;
 }
 
 export const SmartTimer: React.FC<SmartTimerProps> = ({ 
@@ -16,19 +17,22 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
   turnNumber,
   status,
   isPaused = false,
-  isOpen = true
+  isOpen = true,
+  isToday = true
 }) => {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
 
   useEffect(() => {
-    if (status === 'completed' || timeLeft <= 0 || isPaused || !isOpen) return;
+    // If it's not today, the timer should not run
+    if (!isToday || status === 'completed' || timeLeft <= 0 || isPaused) return;
     
+    // Note: We ignore !isOpen here because we want it to run during "receso" if it's today
     const timer = setInterval(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status, timeLeft]);
+  }, [status, timeLeft, isToday, isPaused]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -60,8 +64,13 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         TURNO #{turnNumber}
       </p>
       
-      <div style={{ fontSize: '4rem', fontWeight: 800, margin: '1rem 0', color: (!isOpen || isPaused) ? 'var(--text-muted)' : getStatusColor() }}>
-        {(!isOpen || isPaused) ? '--:--' : formatTime(timeLeft)}
+      <div style={{ 
+        fontSize: '4rem', 
+        fontWeight: 800, 
+        margin: '1rem 0', 
+        color: (isPaused || (!isToday)) ? 'var(--text-muted)' : getStatusColor() 
+      }}>
+        {(isPaused || !isToday) ? '--:--' : formatTime(timeLeft)}
       </div>
       
       {isPaused && (
@@ -70,9 +79,15 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         </div>
       )}
 
-      {!isOpen && (
+      {!isToday && (
+        <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
+          📅 TU CITA ESTÁ PROGRAMADA PARA OTRO DÍA
+        </div>
+      )}
+
+      {isToday && !isOpen && !isPaused && (
         <div className="animate-pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
-          📅 EL NEGOCIO AÚN NO HA ABIERTO. TU TURNO COMENZARÁ PRONTO.
+          ☕ EL NEGOCIO ESTÁ EN RECESO, PERO TU ESPERA SIGUE ACTIVA
         </div>
       )}
       
