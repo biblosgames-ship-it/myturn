@@ -182,6 +182,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             label: isMyApt 
               ? `Tú (${d.client_name.split(' (')[0]})` 
               : `Cliente #${100 + index}`,
+            time: new Date(d.date_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
             status: isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : 'En espera',
             active: isAttending,
             arrived: isArrived || isAttending,
