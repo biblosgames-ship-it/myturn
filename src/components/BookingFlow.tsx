@@ -269,21 +269,33 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
                   {timeSlots.map((t: string) => {
                     const isTaken = existingAppointments.includes(t);
+                    
+                    // NEW: check if time is in the past for today
+                    const isPast = selectedDate === getTodayStr() && (() => {
+                      const [h, m] = t.split(':').map(Number);
+                      const now = new Date();
+                      const slotTime = new Date();
+                      slotTime.setHours(h, m, 0, 0);
+                      return slotTime < now;
+                    })();
+
+                    const isDisabled = isTaken || isPast;
+
                     return (
                       <button 
                         key={t}
-                        onClick={() => { if (!isTaken) { setSelectedTime(t); setStep(4); } }}
-                        disabled={isTaken}
+                        onClick={() => { if (!isDisabled) { setSelectedTime(t); setStep(4); } }}
+                        disabled={isDisabled}
                         style={{ 
                           padding: '0.5rem', 
-                          background: selectedTime === t ? 'var(--primary)' : isTaken ? 'var(--surface-hover)' : 'var(--background)',
-                          color: selectedTime === t ? 'var(--background-alt)' : isTaken ? 'var(--text-muted)' : 'var(--text)',
+                          background: selectedTime === t ? 'var(--primary)' : isDisabled ? 'var(--surface-hover)' : 'var(--background)',
+                          color: selectedTime === t ? 'var(--background-alt)' : isDisabled ? 'var(--text-muted)' : 'var(--text)',
                           border: '1px solid var(--border)',
                           borderRadius: 'var(--radius-sm)',
                           fontWeight: 600,
                           fontSize: '0.875rem',
-                          cursor: isTaken ? 'not-allowed' : 'pointer',
-                          opacity: isTaken ? 0.5 : 1
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
+                          opacity: isDisabled ? 0.5 : 1
                         }}
                       >
                         {t}
