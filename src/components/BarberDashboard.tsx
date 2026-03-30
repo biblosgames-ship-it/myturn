@@ -855,6 +855,26 @@ const getPlanCapabilities = (planName: string) => {
                   <input type="text" value={userEmail} readOnly style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
                 </section>
 
+                <section style={{ background: 'var(--background)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Identidad del Negocio</h3>
+                    <button onClick={() => setActiveTab('management')} style={{ fontSize: '0.75rem', background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Editar Marca</button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Nombre Comercial</span>
+                      <p style={{ fontWeight: 600, margin: '0.2rem 0 0.8rem 0' }}>{businessName || 'Sin definir'}</p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Color Primario</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'var(--primary)' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase' }}>{document.documentElement.style.getPropertyValue('--primary') || '#f59e0b'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '1rem' }}>Cambiar Contraseña</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -972,31 +992,40 @@ const getPlanCapabilities = (planName: string) => {
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Estimado Ganancia</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Ganancia Hoy</p>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <p style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>$145.00</p>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 700 }}>Ganado: $45.00</p>
+                  <p style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                    ${transactions
+                      .filter(t => t.date === selectedDate && t.type === 'ingreso')
+                      .reduce((acc, t) => acc + t.amount, 0)
+                      .toFixed(2)}
+                  </p>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 700 }}>Neto: ${(transactions
+                      .filter(t => t.date === selectedDate && t.type === 'ingreso')
+                      .reduce((acc, t) => acc + t.amount, 0) - transactions
+                      .filter(t => t.date === selectedDate && t.type === 'egreso')
+                      .reduce((acc, t) => acc + t.amount, 0)).toFixed(2)}</p>
                 </div>
               </div>
             </div>
             
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.25rem' }}>EFICIENCIA</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>94%</p>
+                <p style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>Realtime</p>
               </div>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.25rem' }}>DIFERENCIA</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>+$12</p>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.25rem' }}>ESTADO</p>
+                <p style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>Activo</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="card" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>Sugerencia IA</h3>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>Asistente MyTurn</h3>
           <p style={{ fontSize: '0.875rem', fontWeight: 500, opacity: 0.9 }}>
-            "Estás terminando los 'Cortes Clásicos' 5 minutos antes del promedio. Considera ajustar tu duración estimada."
+            "Bienvenido al panel de control. Tus estadísticas de rendimiento y sugerencias inteligentes aparecerán aquí a medida que registres más citas."
           </p>
         </div>
       </aside>

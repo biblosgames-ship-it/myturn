@@ -28,21 +28,36 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [scanStep, setScanStep] = useState<'idle' | 'scanning' | 'success'>('idle');
 
   useEffect(() => {
-    const fetchRealBusinesses = async () => {
-      const { data } = await supabase.from('tenants').select('*');
-      if (data) {
-        setSavedBusinesses(data.map(t => ({
-          id: t.slug || t.id,
-          name: t.name,
-          professional: 'Staff Profesional',
-          title: 'Servicios',
-          logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-          rating: 5.0,
-          lastVisit: 'Descubierto'
-        })));
+    const getDeviceId = () => {
+      let id = localStorage.getItem('myturn_client_device_id');
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem('myturn_client_device_id', id);
+      }
+      return id;
+    };
+
+    const fetchSavedBusinesses = async () => {
+      const deviceId = getDeviceId();
+      const { data: savedIds } = await supabase.from('saved_tenants').select('tenant_id').eq('client_device_id', deviceId);
+      
+      if (savedIds && savedIds.length > 0) {
+        const ids = savedIds.map(s => s.tenant_id);
+        const { data: tenants } = await supabase.from('tenants').select('*').in('id', ids);
+        if (tenants) {
+          setSavedBusinesses(tenants.map(t => ({
+            id: t.slug || t.id,
+            name: t.name,
+            professional: t.professional_name || 'Personal Principal',
+            title: t.professional_title || 'Servicios',
+            logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            rating: 5.0,
+            lastVisit: 'Guardado'
+          })));
+        }
       }
     };
-    fetchRealBusinesses();
+    fetchSavedBusinesses();
   }, []);
 
   useEffect(() => {
@@ -63,9 +78,10 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
           .filter(t => !savedBusinesses.find(s => s.id === (t.slug || t.id)))
           .map(t => ({
             id: t.slug || t.id,
+            realId: t.id,
             name: t.name,
-            professional: 'Staff Profesional',
-            title: 'Servicios',
+            professional: t.professional_name || 'Personal Principal',
+            title: t.professional_title || 'Servicios',
             logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
             rating: 5.0,
             lastVisit: 'Descubierto'
@@ -78,7 +94,14 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
     return () => clearTimeout(timeoutId);
   }, [searchTerm, savedBusinesses]);
 
-  const linkBusiness = (biz: SavedBusiness) => {
+  const linkBusiness = async (biz: SavedBusiness & { realId?: string }) => {
+    const deviceId = localStorage.getItem('myturn_client_device_id');
+    if (deviceId && biz.realId) {
+      await supabase.from('saved_tenants').upsert({
+        client_device_id: deviceId,
+        tenant_id: biz.realId
+      });
+    }
     setSavedBusinesses([...savedBusinesses, biz]);
     setSearchTerm('');
     setSearchResults([]);
@@ -104,7 +127,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
     <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Search Header */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Hola, <span style={{ color: 'var(--primary)' }}>Juan</span></h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Hola, <span style={{ color: 'var(--primary)' }}>Cliente MyTurn</span></h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>¿A dónde quieres ir hoy?</p>
       </div>
 

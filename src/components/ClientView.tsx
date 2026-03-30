@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -153,39 +153,69 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     if (!dbBusiness) return;
 
     const fetchQueue = async () => {
-      const { data, error } = await supabase
+      // Fetch appointments AND services to get durations
+      const { data: appts } = await supabase
         .from('appointments')
         .select('*')
         .eq('tenant_id', dbBusiness.id)
         .in('status', ['waiting', 'attending', 'arrived'])
         .order('date_time', { ascending: true });
 
-      if (data) {
-        setQueueItems(data.map((d, index) => {
+      const { data: svcs } = await supabase
+        .from('services')
+        .select('id, duration_minutes')
+        .eq('tenant_id', dbBusiness.id);
+
+      if (appts) {
+        setQueueItems(appts.map((d, index) => {
           const isAttending = d.status === 'attending';
           const isArrived = d.status === 'arrived';
           return {
+            id: d.id,
             pos: index + 1,
             label: `Cliente #${100 + index} (${d.client_name.split(' (')[0]})`,
-            status: isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : `En espera (Aprox. ${Math.max(15, index * 25)} min)`,
+            status: isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : 'En espera',
             active: isAttending,
             arrived: isArrived || isAttending,
             isUser: false,
+            service_id: d.service_id
           };
         }));
       }
     };
 
     fetchQueue();
-
-    const channel = supabase.channel('realtime:public_queue')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-         fetchQueue();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const chan = supabase.channel('realtime:client_queue').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${dbBusiness.id}` }, fetchQueue).subscribe();
+    return () => { supabase.removeChannel(chan); };
   }, [dbBusiness?.id]);
+
+  const getMyQueueInfo = () => {
+    // For this prototype, we assume the user is NOT yet in the queue unless we have a 'local session' 
+    // but we can calculate the general wait time
+    const totalWait = queueItems.reduce((acc, item) => {
+      const svc = dbBusiness?.services.find(s => s.id === item.service_id);
+      return acc + (svc?.duration || 25);
+    }, 0);
+    return {
+      wait: totalWait,
+      clients: queueItems.length,
+      nextTurn: (queueItems[queueItems.length - 1]?.pos || 0) + 1
+    };
+  };
+
+  const queueInfo = getMyQueueInfo();
+
+  const handleSaveToHub = async () => {
+    if (!dbBusiness) return;
+    const deviceId = localStorage.getItem('myturn_client_device_id') || crypto.randomUUID();
+    localStorage.setItem('myturn_client_device_id', deviceId);
+    
+    await supabase.from('saved_tenants').upsert({
+      client_device_id: deviceId,
+      tenant_id: dbBusiness.id
+    });
+    alert('¡Negocio guardado en tu panel personal!');
+  };
 
 
 
@@ -234,6 +264,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setIsGlobalPaused(!isGlobalPaused)} title="Simular Pausa Admin">
             <Clock size={18} color={isGlobalPaused ? '#ef4444' : 'currentColor'} />
+          </button>
+          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={handleSaveToHub} title="Guardar en mis negocios">
+            <Plus size={18} />
           </button>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }}><Share2 size={18} /></button>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }}><Bell size={18} /></button>
@@ -286,9 +319,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>¡Tienes un turno activo para hoy a las 14:30!</p>
           </div>
           <SmartTimer 
-            remainingMinutes={120} 
-            remainingClients={4} 
-            turnNumber={5} 
+            remainingMinutes={queueInfo.wait} 
+            remainingClients={queueInfo.clients} 
+            turnNumber={queueInfo.nextTurn} 
             status="waiting" 
             isPaused={isGlobalPaused}
           />

@@ -72,20 +72,26 @@ export const BarberManagement: React.FC = () => {
   useEffect(() => {
     const loadCatalog = async () => {
       // 1. Load Business Branding & Schedule
-      const { data: tenant } = await supabase.from('tenants').select('*').single();
-      if (tenant) {
-        setBrand({
-          name: tenant.name || '',
-          professionalName: tenant.professional_name || '',
-          professionalTitle: tenant.professional_title || '',
-          logo: tenant.logo || '',
-          color: tenant.color || '#f59e0b',
-          slogan: tenant.slogan || '',
-          showReviews: tenant.show_reviews ?? true,
-          bookingMode: (tenant.booking_mode as any) || 'online'
-        });
-        if (tenant.schedule) setWeeksSchedule(tenant.schedule);
-        if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+        if (userData?.tenant_id) {
+          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
+          if (tenant) {
+            setBrand({
+              name: tenant.name || '',
+              professionalName: tenant.professional_name || '',
+              professionalTitle: tenant.professional_title || '',
+              logo: tenant.logo || '',
+              color: tenant.color || '#f59e0b',
+              slogan: tenant.slogan || '',
+              showReviews: tenant.show_reviews ?? true,
+              bookingMode: (tenant.booking_mode as any) || 'online'
+            });
+            if (tenant.schedule) setWeeksSchedule(tenant.schedule);
+            if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
+          }
+        }
       }
 
       // 2. Load Services from DB
@@ -96,14 +102,11 @@ export const BarberManagement: React.FC = () => {
           name: s.name,
           price: s.price,
           duration: s.duration_minutes,
-          icon: 'Scissors'
+          icon: s.icon || 'Scissors'
         })));
       } else {
-        // Fallback default UI
-        setServices([
-          { name: 'Corte Clásico', price: 25, duration: 30, icon: 'Scissors' },
-          { name: 'Barba Completa', price: 15, duration: 20, icon: 'Scissors' }
-        ]);
+        // Fallback empty UI
+        setServices([]);
       }
       setIsLoading(false);
     };
