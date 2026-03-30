@@ -70,7 +70,7 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
 
     try {
       if (mode === 'admin') {
-        const adminEmails = ['admin@myturn.app', 'alexpalacio29@gmail.com'];
+        const adminEmails = ['admin@myturn.app', 'miturno.me@gmail.com'];
         const isAdmin = adminEmails.includes(email.toLowerCase().trim()) && password === 'admin123';
         if (isAdmin) onSuccess();
         else setErrorMsg('Credenciales de Super Admin inválidas.');
