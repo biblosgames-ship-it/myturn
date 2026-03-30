@@ -5,6 +5,11 @@ import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
 import { ClientUserHub } from './ClientUserHub';
 
+// Helper to get local date in YYYY-MM-DD format
+const getLocalDateStr = () => {
+  return new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
+};
+
 interface BusinessData {
   id: string;
   name: string;
@@ -94,11 +99,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [notFound, setNotFound] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
 
-  // Profile Sync
+  // Profile & Appointment Sync
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndAppointment = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        // 1. Fetch Profile
         const { data: profile } = await supabase
           .from('users')
           .select('full_name, phone')
@@ -111,10 +117,26 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             contact: profile.phone || ''
           });
         }
+
+        // 2. Fetch Active Appointment (Persistence Fix)
+        if (dbBusiness?.id) {
+          const { data: activeApt } = await supabase
+            .from('appointments')
+            .select('id')
+            .eq('tenant_id', dbBusiness.id)
+            .eq('user_id', session.user.id)
+            .in('status', ['waiting', 'attending', 'arrived'])
+            .maybeSingle();
+          
+          if (activeApt) {
+            localStorage.setItem('myturn_active_appointment_id', activeApt.id);
+            setHasAppointment(true);
+          }
+        }
       }
     };
-    fetchProfile();
-  }, []);
+    fetchProfileAndAppointment();
+  }, [dbBusiness?.id]);
 
   useEffect(() => {
     if (!selectedBusinessSlug) {
@@ -433,7 +455,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               {(() => {
                 const myId = localStorage.getItem('myturn_active_appointment_id');
                 const apt = queueItems.find(q => q.id === myId);
-                const isToday = apt?.date_time?.startsWith(new Date().toISOString().split('T')[0]);
+                const localToday = getLocalDateStr();
+                const isToday = apt?.date_time?.startsWith(localToday);
                 if (isToday) {
                   return `¡Tienes un turno activo para hoy a las ${apt?.time || '...'}!`;
                 } else if (apt?.date_time) {
@@ -477,8 +500,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             isToday={(() => {
               const myId = localStorage.getItem('myturn_active_appointment_id');
               const item = queueItems.find(q => q.id === myId);
-              if (!item?.date_time) return true; // fallback to today
-              return item.date_time.startsWith(new Date().toISOString().split('T')[0]);
+              if (!item?.date_time) return true; 
+              return item.date_time.startsWith(getLocalDateStr());
             })()}
           />
         </div>
