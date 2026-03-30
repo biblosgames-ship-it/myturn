@@ -1,25 +1,28 @@
 {
-  "name": "Myturn",
-  "short_name": "Myturn",
-  "description": "Gestión Modernizada de Turnos y Citas",
+  "id": "/",
+  "name": "MyTurn",
+  "short_name": "MyTurn",
+  "description": "Reserva y sigue tu turno en tiempo real",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#0a0a0b",
   "theme_color": "#f59e0b",
+  "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/logo-myturn.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/logo-myturn.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
-  ],
-  "orientation": "portrait",
-  "categories": ["business", "productivity"]
+  ]
 }
