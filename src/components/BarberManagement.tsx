@@ -62,6 +62,7 @@ export const BarberManagement: React.FC = () => {
     showReviews: true,
     bookingMode: 'online' as 'online' | 'manual' | 'hybrid'
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
   const [showSaved, setShowSaved] = useState(false);
@@ -127,25 +128,46 @@ export const BarberManagement: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 1. Update Tenant Branding & Settings
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-        if (userData?.tenant_id) {
-          await supabase.from('tenants').update({ 
-            name: brand.name,
-            professional_name: brand.professionalName,
-            professional_title: brand.professionalTitle,
-            logo: brand.logo,
-            slogan: brand.slogan,
-            color: brand.color,
-            show_reviews: brand.showReviews,
-            booking_mode: brand.bookingMode,
-            schedule: weeksSchedule,
-            lunch_break: lunchBreak
-          }).eq('id', userData.tenant_id);
-        }
+      if (!user) throw new Error('No user found');
+
+      const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+      if (!userData?.tenant_id) throw new Error('No tenant found');
+
+      let finalLogoUrl = brand.logo;
+
+      // 1. Upload Logo if changed
+      if (logoFile) {
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `${userData.tenant_id}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('logos')
+          .upload(filePath, logoFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('logos')
+          .getPublicUrl(filePath);
+        
+        finalLogoUrl = publicUrl;
       }
+
+      // 2. Update Tenant Branding & Settings
+      await supabase.from('tenants').update({ 
+        name: brand.name,
+        professional_name: brand.professionalName,
+        professional_title: brand.professionalTitle,
+        logo: finalLogoUrl,
+        slogan: brand.slogan,
+        color: brand.color,
+        show_reviews: brand.showReviews,
+        booking_mode: brand.bookingMode,
+        schedule: weeksSchedule,
+        lunch_break: lunchBreak
+      }).eq('id', userData.tenant_id);
 
       // 2. Sync Services
       const currentIds = services.filter(s => s.id).map(s => s.id);
@@ -162,7 +184,8 @@ export const BarberManagement: React.FC = () => {
         ...(s.id ? { id: s.id } : {}),
         name: s.name,
         price: s.price,
-        duration_minutes: s.duration
+        duration_minutes: s.duration,
+        icon: s.icon
       }));
 
       if (toUpsert.length > 0) {
@@ -269,6 +292,7 @@ export const BarberManagement: React.FC = () => {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        setLogoFile(file);
                         const url = URL.createObjectURL(file);
                         setBrand({...brand, logo: url});
                       }

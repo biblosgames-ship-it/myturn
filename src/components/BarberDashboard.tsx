@@ -45,15 +45,14 @@ export const BarberDashboard: React.FC = () => {
     const fetchAppointments = async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('*')
+        .select('*, services(name)')
         .order('date_time', { ascending: true });
         
       if (data && data.length > 0) {
         setAppointments(data.map(d => ({
           id: d.id,
-          // Extract the service name from the appended string hack or use 'Servicio'
-          clientName: d.client_name.split(' (')[0],
-          service: d.client_name.includes('(') ? d.client_name.split('(')[1].replace(')','') : 'Servicio',
+          clientName: d.client_name,
+          service: d.services?.name || 'Servicio',
           time: new Date(d.date_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
           date: new Date(d.date_time).toISOString().split('T')[0],
           status: d.status === 'arrived' ? 'waiting' : d.status as any,
@@ -111,6 +110,9 @@ export const BarberDashboard: React.FC = () => {
           if (tenant) {
             setBusinessName(tenant.name);
             setLogoUrl(tenant.logo || '');
+            if (tenant.color) {
+              document.documentElement.style.setProperty('--primary', tenant.color);
+            }
             setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
             setSubscription({
               plan: (tenant.plan_id as any) || 'Free',
@@ -131,6 +133,9 @@ export const BarberDashboard: React.FC = () => {
         const updated = payload.new as any;
         setBusinessName(updated.name);
         setLogoUrl(updated.logo || '');
+        if (updated.color) {
+          document.documentElement.style.setProperty('--primary', updated.color);
+        }
         if (updated.plan_id || updated.status) {
           setSubscription(prev => prev ? ({
             ...prev,
@@ -140,11 +145,15 @@ export const BarberDashboard: React.FC = () => {
           }) : null);
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, () => {
+        loadMetadata(); // Refresh staff
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
+        loadMetadata(); // Refresh services
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(tenantChannel);
-    };
+    return () => { supabase.removeChannel(tenantChannel); };
   }, []);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -291,8 +300,12 @@ const getPlanCapabilities = (planName: string) => {
     const selectedService = dbServices.find(s => s.name === newClient.service);
     const serviceName = selectedService ? selectedService.name : newClient.service;
 
+    const serviceObj = dbServices.find(s => s.name === newClient.service);
+    if (!serviceObj) return;
+
     const dbPayload = {
-      client_name: `${newClient.name} (${serviceName})`, // Compound string hack
+      client_name: newClient.name, // Just name, service is now relational
+      service_id: serviceObj.id,
       date_time: aptDate.toISOString(),
       status: 'waiting',
       staff_id: newClient.staffId || null
@@ -364,7 +377,9 @@ const getPlanCapabilities = (planName: string) => {
       amount,
       type: 'ingreso',
       payment_method: paymentMethod,
-      staff_id: selectedAptForComplete.staffId || null
+      staff_id: selectedAptForComplete.staffId || null,
+      category: selectedAptForComplete.service,
+      description: `Cliente: ${selectedAptForComplete.clientName}`
     }).select().single();
 
     if (!txError) {
