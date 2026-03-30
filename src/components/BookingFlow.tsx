@@ -102,7 +102,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
         const { data: existing } = await supabase
           .from('appointments')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('client_user_id', session.user.id)
           .in('status', ['waiting', 'attending', 'arrived'])
           .maybeSingle();
         
@@ -125,7 +125,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
           date_time: aptDate.toISOString(),
           status: 'waiting',
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
-          client_id: session?.user?.id || null
+          client_user_id: session?.user?.id || null
         }).select('id').single();
 
         if (data?.id) {

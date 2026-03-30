@@ -124,13 +124,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             .from('appointments')
             .select('id')
             .eq('tenant_id', dbBusiness.id)
-            .eq('user_id', session.user.id)
+            .eq('client_user_id', session.user.id)
             .in('status', ['waiting', 'attending', 'arrived'])
             .maybeSingle();
           
           if (activeApt) {
             localStorage.setItem('myturn_active_appointment_id', activeApt.id);
             setHasAppointment(true);
+          } else {
+            // No active appointment found for this logged user in this business
+            // Only clear it if the current session was supposed to be theirs
+            // For now, let's just clear it to be safe and avoid "phantom" appointments
+            localStorage.removeItem('myturn_active_appointment_id');
+            setHasAppointment(false);
           }
         }
       }
