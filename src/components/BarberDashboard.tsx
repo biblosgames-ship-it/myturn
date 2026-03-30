@@ -43,6 +43,7 @@ export const BarberDashboard: React.FC = () => {
   const [shareUrl, setShareUrl] = useState('');
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [savedCustomers, setSavedCustomers] = useState<any[]>([]);
+  const [isOpen, setIsOpen] = useState(true);
 
 
   // Supabase Real-time Sync for Appointments
@@ -148,6 +149,7 @@ export const BarberDashboard: React.FC = () => {
             setTenantId(currentTenantId);
             const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
             if (tenant) {
+              setIsOpen(tenant.is_open ?? true);
               setBusinessName(tenant.name);
               setLogoUrl(tenant.logo || '');
               if (tenant.color) {
@@ -200,6 +202,11 @@ export const BarberDashboard: React.FC = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
         loadMetadata(); // Refresh services
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` }, (payload) => {
+        if (payload.new) {
+          setIsOpen((payload.new as any).is_open);
+        }
       })
       .subscribe();
 
@@ -532,62 +539,92 @@ const getPlanCapabilities = (planName: string) => {
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
             {(activeTab === 'queue' || activeTab === 'agenda') && (
-              <button 
-                className={`btn ${isPaused ? 'btn-success' : 'btn-outline'}`}
-                style={{ 
-                  padding: '0.4rem 1rem', 
-                  fontSize: '0.75rem', 
-                  borderColor: isPaused ? 'var(--success)' : '#ef4444', 
-                  color: isPaused ? 'black' : '#ef4444', 
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}
-                onClick={() => setIsPaused(!isPaused)}
-              >
-                {isPaused ? '▶️ REANUDAR' : '⏸️ EN PAUSA'}
-              </button>
+              <>
+                <button 
+                  className={`btn ${isOpen ? 'btn-outline' : 'btn-success'}`} 
+                  style={{ 
+                    padding: '0.4rem 1rem', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 800, 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    borderColor: isOpen ? '#ef4444' : 'var(--success)', 
+                    color: isOpen ? '#ef4444' : 'black',
+                    background: isOpen ? 'transparent' : 'var(--success)'
+                  }} 
+                  onClick={async () => {
+                    const newStatus = !isOpen;
+                    setIsOpen(newStatus);
+                    await supabase.from('tenants').update({ is_open: newStatus }).eq('id', tenantId);
+                  }}
+                >
+                  {isOpen ? '🔴 CERRAR NEGOCIO' : '🟢 ABRIR NEGOCIO'}
+                </button>
+
+                <button 
+                  className={`btn ${isPaused ? 'btn-success' : 'btn-outline'}`}
+                  style={{ 
+                    padding: '0.4rem 1rem', 
+                    fontSize: '0.75rem', 
+                    borderColor: isPaused ? 'var(--success)' : '#ef4444', 
+                    color: isPaused ? 'black' : '#ef4444', 
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                  onClick={() => setIsPaused(!isPaused)}
+                >
+                  {isPaused ? '▶️ REANUDAR' : '⏸️ EN PAUSA'}
+                </button>
+              </>
             )}
             <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--surface)', padding: '0.4rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflowX: 'auto', maxWidth: '100%' }}>
-            <button 
-              className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
-              onClick={() => handleTabClick('customers')}
-            >
-              <Users size={18} />
-              <span>Registro</span>
-            </button>
-            <button 
-              className={`btn ${activeTab === 'queue' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => handleTabClick('queue')}
-              style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'queue' ? 'var(--primary)' : 'transparent', color: activeTab === 'queue' ? 'black' : 'var(--text)' }}
-            >
-              <LayoutDashboard size={16} /> Cola
-            </button>
-            <button 
-              className={`btn ${activeTab === 'inventory' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => handleTabClick('inventory')}
-              style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'inventory' ? 'var(--primary)' : 'transparent', color: activeTab === 'inventory' ? 'black' : 'var(--text)' }}
-            >
-              <Package size={16} /> Inventario
-            </button>
-            <button 
-              className={`btn ${activeTab === 'finance' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => handleTabClick('finance')}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'finance' ? 'var(--primary)' : 'transparent', color: subscription?.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'finance' ? 'black' : 'var(--text)' }}
-            >
-              <Wallet size={16} /> Finanzas {subscription?.plan === 'Free' && <Lock size={12} style={{marginLeft: '0.2rem'}}/>}
-            </button>
-            <button 
-              className={`btn ${activeTab === 'management' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => handleTabClick('management')}
-              style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', border: 'none', background: activeTab === 'management' ? 'var(--primary)' : 'transparent', color: activeTab === 'management' ? 'black' : 'var(--text)' }}
-            >
-              <Settings size={16} /> Local
-            </button>
+              <button 
+                className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
+                onClick={() => handleTabClick('queue')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+              >
+                <LayoutDashboard size={18} />
+                <span>Cola</span>
+              </button>
+              <button 
+                className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+                onClick={() => handleTabClick('inventory')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+              >
+                <Package size={18} />
+                <span>Inventario</span>
+              </button>
+              <button 
+                className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
+                onClick={() => handleTabClick('finance')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+              >
+                <Wallet size={18} />
+                <span>Finanzas</span>
+                {subscription?.plan === 'Free' && <Lock size={12} style={{marginLeft: '4px'}} />}
+              </button>
+              <button 
+                className={`nav-item ${activeTab === 'management' ? 'active' : ''}`}
+                onClick={() => handleTabClick('management')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+              >
+                <Settings size={18} />
+                <span>Local</span>
+              </button>
+              <button 
+                className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
+                onClick={() => handleTabClick('customers')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+              >
+                <Users size={18} />
+                <span>Registro</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
       <main style={{ flex: 1, padding: '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative' }}>
         

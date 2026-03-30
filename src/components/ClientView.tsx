@@ -21,6 +21,7 @@ interface BusinessData {
   bookingMode: 'online' | 'manual' | 'hybrid';
   color?: string;
   slogan?: string;
+  isOpen: boolean;
 }
 
 const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isGlobalPaused }) => {
@@ -135,7 +136,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             showReviews: tenant.show_reviews ?? false,
             bookingMode: (tenant.booking_mode as any) || 'online',
             color: tenant.color || '#f59e0b',
-            slogan: tenant.slogan || ''
+            slogan: tenant.slogan || '',
+            isOpen: tenant.is_open ?? true
           });
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
@@ -195,7 +197,24 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
     fetchQueue();
     const chan = supabase.channel('realtime:client_queue').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${dbBusiness.id}` }, fetchQueue).subscribe();
-    return () => { supabase.removeChannel(chan); };
+    
+    // Realtime listener for business open/close status
+    const tenantChan = supabase.channel('realtime:tenant_status').on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'tenants', 
+      filter: `id=eq.${dbBusiness.id}` 
+    }, (payload) => {
+      if (payload.new) {
+        const updated = payload.new as any;
+        setDbBusiness(prev => prev ? ({ ...prev, isOpen: updated.is_open ?? true }) : null);
+      }
+    }).subscribe();
+
+    return () => { 
+      supabase.removeChannel(chan); 
+      supabase.removeChannel(tenantChan);
+    };
   }, [dbBusiness?.id]);
 
   const getMyQueueInfo = () => {
@@ -417,6 +436,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               return 'waiting';
             })()}
             isPaused={isGlobalPaused}
+            isOpen={dbBusiness?.isOpen}
           />
         </div>
       ) : (

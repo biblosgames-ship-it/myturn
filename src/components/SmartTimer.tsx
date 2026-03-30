@@ -7,6 +7,7 @@ interface SmartTimerProps {
   turnNumber: number;
   status: 'waiting' | 'next' | 'in_progress' | 'completed';
   isPaused?: boolean;
+  isOpen?: boolean;
 }
 
 export const SmartTimer: React.FC<SmartTimerProps> = ({ 
@@ -14,12 +15,13 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
   remainingClients, 
   turnNumber,
   status,
-  isPaused = false
+  isPaused = false,
+  isOpen = true
 }) => {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
 
   useEffect(() => {
-    if (status === 'completed' || timeLeft <= 0 || isPaused) return;
+    if (status === 'completed' || timeLeft <= 0 || isPaused || !isOpen) return;
     
     const timer = setInterval(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
@@ -58,13 +60,19 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         TURNO #{turnNumber}
       </p>
       
-      <div style={{ fontSize: '4rem', fontWeight: 800, margin: '1rem 0', color: isPaused ? '#ef4444' : getStatusColor() }}>
-        {isPaused ? '--:--' : formatTime(timeLeft)}
+      <div style={{ fontSize: '4rem', fontWeight: 800, margin: '1rem 0', color: (!isOpen || isPaused) ? 'var(--text-muted)' : getStatusColor() }}>
+        {(!isOpen || isPaused) ? '--:--' : formatTime(timeLeft)}
       </div>
       
       {isPaused && (
         <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
           ⏸️ EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE
+        </div>
+      )}
+
+      {!isOpen && (
+        <div className="animate-pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
+          📅 EL NEGOCIO AÚN NO HA ABIERTO. TU TURNO COMENZARÁ PRONTO.
         </div>
       )}
       
