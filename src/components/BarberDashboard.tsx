@@ -115,7 +115,7 @@ export const BarberDashboard: React.FC = () => {
             setSubscription({
               plan: (tenant.plan_id as any) || 'Free',
               expiryDate: tenant.expiry_date || '2026-12-31',
-              status: 'active'
+              status: (tenant.status as any) || 'active'
             });
           }
         }
@@ -124,6 +124,27 @@ export const BarberDashboard: React.FC = () => {
     };
 
     loadMetadata();
+
+    // 4. Realtime Sync for Branding & Status (Tenant specific)
+    const tenantChannel = supabase.channel('tenant-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tenants' }, (payload) => {
+        const updated = payload.new as any;
+        setBusinessName(updated.name);
+        setLogoUrl(updated.logo || '');
+        if (updated.plan_id || updated.status) {
+          setSubscription(prev => prev ? ({
+            ...prev,
+            plan: updated.plan_id || prev.plan,
+            status: updated.status || prev.status,
+            expiryDate: updated.expiry_date || prev.expiryDate
+          }) : null);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tenantChannel);
+    };
   }, []);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -134,7 +155,7 @@ export const BarberDashboard: React.FC = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAptForComplete, setSelectedAptForComplete] = useState<Appointment | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'deposit' | 'credit'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'otro'>('efectivo');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Load Transactions
@@ -377,7 +398,7 @@ const getPlanCapabilities = (planName: string) => {
       setAppointments(appointments.filter((a: Appointment) => a.id !== selectedAptForComplete.id));
       setTransactions([{
         id: tx.id,
-        type: 'income',
+        type: 'ingreso',
         amount,
         method: paymentMethod as any,
         category: selectedAptForComplete.service,
@@ -388,7 +409,7 @@ const getPlanCapabilities = (planName: string) => {
       
       setShowCompleteModal(false);
       setSelectedAptForComplete(null);
-      setPaymentMethod('cash');
+      setPaymentMethod('efectivo');
     } else {
       console.error("Finanza no guardada:", txError);
     }
@@ -802,10 +823,14 @@ const getPlanCapabilities = (planName: string) => {
         ) : activeTab === 'profile' ? (
           <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
              <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', color: 'var(--primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                  <User size={40} />
+                <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', position: 'relative', overflow: 'hidden', border: '2px solid var(--border)' }}>
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={40} color="var(--primary)" />
+                  )}
                 </div>
-                <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Mi Cuenta SaaS</h1>
+                <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Mi Cuenta</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Gestiona tu perfil y seguridad.</p>
              </header>
 
@@ -894,7 +919,7 @@ const getPlanCapabilities = (planName: string) => {
 
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img src="/logo-myturn.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Perfil SaaS
+            <img src="/logo-myturn.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Mi Suscripción
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
@@ -907,7 +932,7 @@ const getPlanCapabilities = (planName: string) => {
               )}
               <div>
                 <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{businessName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SaaS {subscription?.plan || 'Free'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plan {subscription?.plan || 'Free'}</div>
               </div>
             </div>
             

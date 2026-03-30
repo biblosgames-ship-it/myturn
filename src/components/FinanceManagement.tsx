@@ -4,13 +4,13 @@ import { supabase } from '../lib/supabase';
 
 export interface Transaction {
   id: string;
-  type: 'income' | 'expense';
+  type: 'ingreso' | 'egreso';
   amount: number;
-  method: 'cash' | 'card' | 'deposit' | 'credit';
+  method: 'efectivo' | 'tarjeta' | 'transferencia' | 'otro';
   category: string;
   description: string;
   date: string;
-  staffId?: string; // Multi-tenant: which professional generated this
+  staffId?: string;
 }
 
 export interface StaffMember {
@@ -29,22 +29,24 @@ interface FinanceProps {
 export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTransactions, staff }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReport, setShowReport] = useState<'none' | 'pdf' | 'img' | 'cierre'>('none');
-  const [newTx, setNewTx] = useState<Partial<Transaction>>({ type: 'income', method: 'cash', amount: 0, category: 'Varios', description: '', staffId: '' });
+  const [newTx, setNewTx] = useState<Partial<Transaction>>({ type: 'ingreso', method: 'efectivo', amount: 0, category: 'Varios', description: '', staffId: '' });
 
   const totals = transactions.reduce((acc, t) => {
-    if (t.type === 'income') {
+    if (t.type === 'ingreso') {
       acc.income += t.amount;
-      acc[t.method] += t.amount;
+      const m = t.method as keyof typeof acc;
+      if (m in acc) (acc as any)[m] += t.amount;
+      else acc.otro += t.amount;
     } else {
       acc.expense += t.amount;
     }
     return acc;
-  }, { income: 0, expense: 0, cash: 0, card: 0, deposit: 0, credit: 0 });
+  }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, otro: 0 });
 
   const balance = totals.income - totals.expense;
 
   const totalsByStaff = transactions.reduce((acc, t) => {
-    if (t.type === 'income' && t.staffId) {
+    if (t.type === 'ingreso' && t.staffId) {
       acc[t.staffId] = (acc[t.staffId] || 0) + t.amount;
     }
     return acc;
@@ -60,8 +62,8 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
     try {
       const dbPayload = {
         amount: Number(newTx.amount),
-        type: newTx.type === 'income' ? 'ingreso' : 'egreso',
-        payment_method: (newTx.type === 'expense' && newTx.method === 'credit') ? 'cash' : (newTx.method as any),
+        type: newTx.type,
+        payment_method: newTx.method,
         category: newTx.category || 'Varios',
         description: newTx.description,
         staff_id: newTx.staffId || null
@@ -72,9 +74,9 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
       if (data && !error) {
         const tx: Transaction = {
           id: data.id,
-          type: newTx.type as 'income' | 'expense',
+          type: data.type as any,
           amount: data.amount,
-          method: newTx.method as any,
+          method: data.payment_method as any,
           category: data.category,
           description: data.description,
           date: new Date(data.created_at).toISOString().split('T')[0],
@@ -83,7 +85,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
 
         setTransactions([tx, ...transactions]);
         setShowAddModal(false);
-        setNewTx({ type: 'income', method: 'cash', amount: 0, category: 'Varios', description: '', staffId: '' });
+        setNewTx({ type: 'ingreso', method: 'efectivo', amount: 0, category: 'Varios', description: '', staffId: '' });
       } else {
         console.error(error);
         alert('Error al guardar la transacción. Revisa tu conexión.');
@@ -102,7 +104,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
           <Wallet size={24} color="var(--primary)" /> Gestión Financiera
         </h3>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-outline" onClick={() => { setNewTx({ ...newTx, type: 'income' }); setShowAddModal(true); }} style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}>
+          <button className="btn btn-outline" onClick={() => { setNewTx({ ...newTx, type: 'ingreso' }); setShowAddModal(true); }} style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}>
             <Plus size={18} /> Nuevo Movimiento
           </button>
           <button className="btn btn-primary" onClick={() => setShowReport('cierre')} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.875rem' }}>
@@ -115,13 +117,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--success)', background: 'rgba(16,185,129,0.02)' }}>
           <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ingresos Reales</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.4rem' }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${totals.income - totals.credit}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${totals.income}</span>
           </div>
         </div>
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid #a855f7', background: 'rgba(168,85,247,0.02)' }}>
-          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Crédito (Por Cobrar)</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Por Transferencia</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.4rem' }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${totals.credit}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${totals.transferencia}</span>
           </div>
         </div>
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--accent)', background: 'rgba(239,68,68,0.02)' }}>
@@ -133,7 +135,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--primary)', background: 'rgba(245,158,11,0.02)' }}>
           <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Caja Final</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.4rem' }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${balance - totals.credit}</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>${balance}</span>
           </div>
         </div>
       </div>
@@ -143,10 +145,10 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
           <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>Desglose por Vía de Pago</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {[
-              { label: 'Efectivo', amount: totals.cash, color: 'var(--success)', icon: DollarSign },
-              { label: 'Tarjeta (Deb/Cre)', amount: totals.card, color: '#3b82f6', icon: CreditCard },
-              { label: 'Depósitos / Transf.', amount: totals.deposit, color: 'var(--primary)', icon: Landmark },
-              { label: 'Crédito (Fiao)', amount: totals.credit, color: '#a855f7', icon: HelpCircle },
+              { label: 'Efectivo', amount: totals.efectivo, color: 'var(--success)', icon: DollarSign },
+              { label: 'Tarjeta (Deb/Cre)', amount: totals.tarjeta, color: '#3b82f6', icon: CreditCard },
+              { label: 'Depósitos / Transf.', amount: totals.transferencia, color: 'var(--primary)', icon: Landmark },
+              { label: 'Otros', amount: totals.otro, color: '#a855f7', icon: HelpCircle },
             ].map((m) => (
               <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `${m.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.color }}>
@@ -224,16 +226,16 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
           {transactions.map(t => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.875rem', background: 'var(--background)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ padding: '0.35rem', borderRadius: '4px', background: t.type === 'income' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: t.type === 'income' ? 'var(--success)' : 'var(--accent)' }}>
-                  {t.type === 'income' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                <div style={{ padding: '0.35rem', borderRadius: '4px', background: t.type === 'ingreso' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: t.type === 'ingreso' ? 'var(--success)' : 'var(--accent)' }}>
+                  {t.type === 'ingreso' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{t.description}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.category} • {t.method.toUpperCase()}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.category} • {(t.method || '').toUpperCase()}</div>
                 </div>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: t.type === 'income' ? 'var(--success)' : 'var(--accent)' }}>
-                {t.type === 'income' ? '+' : '-'}${t.amount}
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: t.type === 'ingreso' ? 'var(--success)' : 'var(--accent)' }}>
+                {t.type === 'ingreso' ? '+' : '-'}${t.amount}
               </div>
             </div>
           ))}
@@ -251,13 +253,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: 'var(--background)', padding: '0.4rem', borderRadius: 'var(--radius-md)' }}>
               <button 
                 type="button"
-                onClick={() => setNewTx({ ...newTx, type: 'income' })}
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: 'none', background: newTx.type === 'income' ? 'var(--success)' : 'transparent', color: newTx.type === 'income' ? 'white' : 'var(--text)', fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => setNewTx({ ...newTx, type: 'ingreso' })}
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: 'none', background: newTx.type === 'ingreso' ? 'var(--success)' : 'transparent', color: newTx.type === 'ingreso' ? 'white' : 'var(--text)', fontWeight: 700, cursor: 'pointer' }}
               >Ingreso</button>
               <button 
                 type="button"
-                onClick={() => setNewTx({ ...newTx, type: 'expense' })}
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: 'none', background: newTx.type === 'expense' ? 'var(--accent)' : 'transparent', color: newTx.type === 'expense' ? 'white' : 'var(--text)', fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => setNewTx({ ...newTx, type: 'egreso' })}
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: 'none', background: newTx.type === 'egreso' ? 'var(--accent)' : 'transparent', color: newTx.type === 'egreso' ? 'white' : 'var(--text)', fontWeight: 700, cursor: 'pointer' }}
               >Egreso (Gasto)</button>
             </div>
 
@@ -281,10 +283,10 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                   onChange={e => setNewTx({ ...newTx, method: e.target.value as any })}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 >
-                  <option value="cash">Efectivo</option>
-                  <option value="card">Tarjeta</option>
-                  <option value="deposit">Depósito</option>
-                  {newTx.type === 'income' && <option value="credit">Crédito (Fiao)</option>}
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="transferencia">Transferencia</option>
+                  {newTx.type === 'ingreso' && <option value="otro">Otro</option>}
                 </select>
               </div>
 
@@ -300,7 +302,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                 />
               </div>
 
-              {newTx.type === 'income' && staff && staff.length > 0 && (
+              {newTx.type === 'ingreso' && staff && staff.length > 0 && (
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>¿QUIÉN REALIZÓ EL SERVICIO?</label>
                   <select 
@@ -339,36 +341,32 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
                 <span style={{ fontWeight: 700 }}>INGRESOS TOTALES</span>
-                <span style={{ fontWeight: 900, color: '#10b981' }}>${totals.income}</span>
+                <span style={{ fontWeight: 900, color: '#10b981' }}>${totals.income.toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
                 <span style={{ fontWeight: 700 }}>GASTOS / SALIDAS</span>
-                <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                <span style={{ fontWeight: 700 }}>CRÉDITOS PENDIENTES</span>
-                <span style={{ fontWeight: 900, color: '#a855f7' }}>-${totals.credit}</span>
+                <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense.toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1rem', background: '#333', color: 'white', borderRadius: '8px', borderLeft: '5px solid #f59e0b' }}>
                 <span style={{ fontWeight: 800, fontSize: '1.125rem' }}>EFECTIVO EN CAJA</span>
-                <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance - totals.credit}</span>
+                <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance.toLocaleString()}</span>
               </div>
             </div>
 
-            <div style={{ fontSize: '0.875rem', marginBottom: '2rem' }}>
-              <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', borderBottom: '1px solid #eee' }}>Desglose de Operaciones</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                  <span>Efectivo:</span> <span>${totals.cash}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                  <span>Tarjeta:</span> <span>${totals.card}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                  <span>Depósitos:</span> <span>${totals.deposit}</span>
+              <div style={{ fontSize: '0.875rem', marginBottom: '2rem' }}>
+                <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', borderBottom: '1px solid #eee' }}>Desglose de Operaciones</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
+                    <span>Efectivo:</span> <span>${totals.efectivo}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
+                    <span>Tarjeta:</span> <span>${totals.tarjeta}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
+                    <span>Transferencias:</span> <span>${totals.transferencia}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button 

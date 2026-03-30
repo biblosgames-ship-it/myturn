@@ -456,7 +456,7 @@ export const SuperAdminDashboard: React.FC = () => {
                           )}
                           <div>
                             <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Código Generado' : (t.name || 'Sin Nombre')}</p>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600, margin: 0 }}>{isInvite ? inviteCode : (t.owner || 'SaaS Business')}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600, margin: 0 }}>{isInvite ? inviteCode : (t.owner || 'Negocio Registrado')}</p>
                           </div>
                         </div>
                       </td>
