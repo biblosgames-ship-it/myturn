@@ -335,7 +335,8 @@ const getPlanCapabilities = (planName: string) => {
       return;
     }
 
-    const lastApt = appointments[appointments.length - 1];
+    const todayApts = appointments.filter(a => a.date === selectedDate);
+    const lastApt = todayApts[todayApts.length - 1];
     let newTime = "Ahora";
     let hourForDb = new Date().getHours();
     let minForDb = new Date().getMinutes();
@@ -351,7 +352,8 @@ const getPlanCapabilities = (planName: string) => {
       }
     }
 
-    const aptDate = new Date(selectedDate);
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const aptDate = new Date(year, month - 1, day);
     aptDate.setHours(hourForDb, minForDb, 0, 0);
 
     const selectedService = dbServices.find(s => s.name === newClient.service);

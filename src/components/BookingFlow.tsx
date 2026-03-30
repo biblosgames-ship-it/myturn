@@ -404,7 +404,10 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
                   <>
                     <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Cita Programada para</p>
                     <p style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text)', margin: 0 }}>
-                      {new Date(selectedDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).toUpperCase()}
+                      {(() => {
+                        const [y, m, d] = selectedDate.split('-').map(Number);
+                        return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).toUpperCase();
+                      })()}
                     </p>
                     <p style={{ fontSize: '1.25rem', color: 'var(--primary)', fontWeight: 800, marginTop: '0.25rem', marginBottom: 0 }}>{selectedTime}</p>
                   </>
