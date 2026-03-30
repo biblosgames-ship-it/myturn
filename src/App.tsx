@@ -14,6 +14,29 @@ function App() {
   const [tenant, setTenant] = useState<{ id: string, name: string } | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  // PWA Install prompt capture
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+      setShowInstallBanner(false);
+    }
+  };
 
   // 1. Initial State from LocalStorage (Immediate UI fallback)
   useEffect(() => {
@@ -189,7 +212,16 @@ function App() {
           <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>
         </div>
         
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {showInstallBanner && (
+            <button 
+              onClick={handleInstall}
+              className="btn btn-primary"
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', fontWeight: 800, gap: '0.4rem' }}
+            >
+              📲 Instalar App
+            </button>
+          )}
           <div className="badge badge-success" style={{ cursor: 'pointer', background: 'var(--primary)', color: 'black' }} onClick={() => handleSetView(view === 'landing' ? 'client' : 'landing')}>
             {view === 'landing' ? 'Agendar Turno' : 'Volver al Inicio'}
           </div>
