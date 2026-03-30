@@ -192,6 +192,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
           }
+          // Persistence for refresh
+          localStorage.setItem('myturn_last_view', 'client');
+          localStorage.setItem('myturn_active_business_slug', selectedBusinessSlug);
           setNotFound(false);
         } else {
           setDbBusiness(null);

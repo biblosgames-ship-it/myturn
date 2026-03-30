@@ -76,9 +76,14 @@ function App() {
           if (userData.role === 'superadmin') {
             handleSetView('superadmin');
           } else if (userData.role === 'client') {
-            // Clients usually stay on landing/search unless they have a saved view
             const saved = localStorage.getItem('myturn_last_view');
-            handleSetView(saved === 'client' ? 'client' : 'landing');
+            const savedSlug = localStorage.getItem('myturn_active_business_slug');
+            if (saved === 'client' && savedSlug) {
+              setTenant({ id: savedSlug, name: '' });
+              handleSetView('client');
+            } else {
+              handleSetView('landing');
+            }
           } else {
             handleSetView('barber');
             if (userData.tenant_id) {

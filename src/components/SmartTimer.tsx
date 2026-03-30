@@ -22,6 +22,11 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
 
+  // Sync state with prop if it changes (e.g. on load after fetch)
+  useEffect(() => {
+    setTimeLeft(initialMinutes * 60);
+  }, [initialMinutes]);
+
   useEffect(() => {
     // If it's not today, the timer should not run
     if (!isToday || status === 'completed' || timeLeft <= 0 || isPaused) return;
