@@ -638,10 +638,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </button>
         </div>
       )}
-      {/* Diagnostic Footer (Internal) */}
-      <div style={{ position: 'fixed', bottom: '1rem', left: '1rem', opacity: 0.8, fontSize: '0.7rem', color: 'var(--primary)', fontFamily: 'monospace', zIndex: 9999, background: 'rgba(0,0,0,0.8)', padding: '0.4rem', border: '1px solid var(--primary)', borderRadius: '4px', pointerEvents: 'auto' }}>
-        🚩 CLIENTE_ID: {dbBusiness?.id || 'NO_UUID'}
-      </div>
+
     </div>
   );
 };
