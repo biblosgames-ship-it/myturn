@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Chrome, User, Phone, CheckCircle2, X } from 'lucide-react';
+import { Mail, Lock, ArrowRight, User, Phone, CheckCircle2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ClientAuthProps {
@@ -15,20 +15,6 @@ export const ClientAuth: React.FC<ClientAuthProps> = ({ onSuccess, onClose }) =>
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
-    });
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,22 +80,6 @@ export const ClientAuth: React.FC<ClientAuthProps> = ({ onSuccess, onClose }) =>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Google OAuth Button */}
-        <button 
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="btn btn-outline"
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '0.8rem', background: 'white', color: '#000', border: '1px solid #ddd' }}
-        >
-          <Chrome size={20} /> Continuar con Google
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-          <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>O CON CORREO</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-        </div>
-
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {mode === 'register' && (
             <>

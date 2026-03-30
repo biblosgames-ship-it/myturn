@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Lock, Mail, CheckCircle2, Building2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Lock, Mail, CheckCircle2, Building2, Chrome } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolean }> = ({ onSuccess, isSuperAdmin }) => {
@@ -14,6 +14,20 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) {
+      setErrorMsg(error.message);
+      setLoading(false);
+    }
+  };
 
   const slugify = (text: string) => {
     return text
