@@ -507,6 +507,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </button>
         </div>
       )}
+      <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', opacity: 0.3, fontSize: '0.6rem', textAlign: 'center', fontFamily: 'monospace' }}>
+        CLIENT_TENANT_ID: {dbBusiness?.id || 'NO_UUID'} | SLUG: {selectedBusinessSlug}
+      </div>
     </div>
   );
 };

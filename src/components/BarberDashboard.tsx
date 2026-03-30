@@ -54,16 +54,24 @@ export const BarberDashboard: React.FC = () => {
         .order('date_time', { ascending: true });
         
       if (data) {
-        setAppointments(data.map(d => ({
-          id: d.id,
-          clientName: d.client_name,
-          service: d.services?.name || 'Servicio',
-          time: new Date(d.date_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-          date: new Date(d.date_time).toISOString().split('T')[0],
-          status: d.status === 'arrived' ? 'waiting' : d.status as any,
-          arrived: d.status === 'attending' || d.status === 'arrived',
-          staffId: d.staff_id || undefined
-        })));
+        setAppointments(data.map(d => {
+          const dateObj = new Date(d.date_time);
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const localDateStr = `${year}-${month}-${day}`;
+          
+          return {
+            id: d.id,
+            clientName: d.client_name,
+            service: d.services?.name || 'Servicio',
+            time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+            date: localDateStr,
+            status: d.status === 'arrived' ? 'waiting' : d.status as any,
+            arrived: d.status === 'attending' || d.status === 'arrived',
+            staffId: d.staff_id || undefined
+          };
+        }));
       } else {
         setAppointments([]);
       }
@@ -460,7 +468,7 @@ const getPlanCapabilities = (planName: string) => {
                activeTab === 'management' ? 'Gestión de Local' : 
                activeTab === 'inventory' ? 'Inventario Inteligente' :
                activeTab === 'staff' ? 'Equipo de Trabajo' : 
-               activeTab === 'customers' ? 'Clientes' : 'Finanzas y Reportes'}
+               activeTab === 'customers' ? 'Registro Diario' : 'Finanzas y Reportes'}
             </h2>
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
@@ -488,7 +496,7 @@ const getPlanCapabilities = (planName: string) => {
               onClick={() => handleTabClick('customers')}
             >
               <Users size={18} />
-              <span>Clientes</span>
+              <span>Registro</span>
             </button>
             <button 
               className={`btn ${activeTab === 'queue' ? 'btn-primary' : 'btn-outline'}`}
@@ -649,6 +657,23 @@ const getPlanCapabilities = (planName: string) => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  onClick={async () => {
+                    if (confirm('¿Deseas limpiar todos los turnos pendientes de hoy?')) {
+                      const { error } = await supabase.from('appointments').delete()
+                        .eq('tenant_id', tenantId)
+                        .in('status', ['waiting', 'attending', 'arrived']);
+                      if (!error) {
+                        setAppointments(prev => prev.filter(a => a.status === 'finished'));
+                        alert('Cola limpiada correctamente.');
+                      }
+                    }
+                  }}
+                  className="btn btn-outline" 
+                  style={{ fontSize: '0.75rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', fontWeight: 700 }}
+                >
+                  Limpiar Cola
+                </button>
                 <button 
                   className="btn btn-outline" 
                   onClick={() => {
@@ -866,11 +891,11 @@ const getPlanCapabilities = (planName: string) => {
           <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Clientes Vinculados</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Personas que han guardado tu negocio en su panel.</p>
+                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Registro Diario</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Citas finalizadas para el día seleccionado.</p>
               </div>
-              <div className="card" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary)', color: 'black', fontWeight: 800, borderRadius: 'var(--radius-lg)' }}>
-                {savedCustomers.length} Total
+              <div className="card" style={{ padding: '0.75rem 1.5rem', background: 'var(--success)', color: 'white', fontWeight: 800, borderRadius: 'var(--radius-lg)' }}>
+                {appointments.filter(a => a.date === selectedDate && a.status === 'finished').length} Atendidos
               </div>
             </div>
 
@@ -879,37 +904,34 @@ const getPlanCapabilities = (planName: string) => {
                 <thead style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
                     <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cliente</th>
-                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Contacto</th>
-                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vinculado el</th>
-                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Servicio x Barbero</th>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hora</th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {savedCustomers.map((cust) => (
-                    <tr key={cust.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  {appointments.filter(a => a.date === selectedDate && a.status === 'finished').map((apt) => (
+                    <tr key={apt.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '0.8rem' }}>
-                            {cust.client_name?.charAt(0).toUpperCase()}
-                          </div>
-                          <span style={{ fontWeight: 600 }}>{cust.client_name || 'Sin nombre'}</span>
+                          <span style={{ fontWeight: 600 }}>{apt.clientName}</span>
                         </div>
                       </td>
                       <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {cust.client_contact || 'N/A'}
+                        {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name}`}
                       </td>
                       <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {new Date(cust.created_at).toLocaleDateString()}
+                        {apt.time}
                       </td>
                       <td style={{ padding: '1rem', textAlign: 'right' }}>
-                        <button className="btn btn-outline" style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem' }}>Ver Perfil</button>
+                        <span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.7rem' }}>FINALIZADO</span>
                       </td>
                     </tr>
                   ))}
-                  {savedCustomers.length === 0 && (
+                  {appointments.filter(a => a.date === selectedDate && a.status === 'finished').length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                        Aún no tienes clientes vinculados.
+                        No hay clientes registrados como finalizados en esta fecha.
                       </td>
                     </tr>
                   )}
@@ -1338,6 +1360,9 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </div>
       )}
+      <div style={{ position: 'fixed', bottom: '1rem', left: '1rem', opacity: 0.2, fontSize: '0.6rem', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 9999 }}>
+        ADMIN_TENANT_ID: {tenantId || 'LOADING...'}
+      </div>
     </div>
   );
 };
