@@ -30,7 +30,24 @@ interface BusinessData {
 }
 
 const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isGlobalPaused }) => {
-  const [localTimer, setLocalTimer] = useState(25 * 60);
+  const [localTimer, setLocalTimer] = useState(() => {
+    const defaultDuration = (item.duration || 30) * 60;
+    if (item.active && item.started_at) {
+      const elapsedSeconds = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 1000);
+      const remaining = defaultDuration - elapsedSeconds;
+      return remaining > 0 ? remaining : 0;
+    }
+    return defaultDuration;
+  });
+
+  React.useEffect(() => {
+    if (item.active && item.started_at) {
+      const defaultDuration = (item.duration || 30) * 60;
+      const elapsedSeconds = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 1000);
+      const remaining = defaultDuration - elapsedSeconds;
+      setLocalTimer(remaining > 0 ? remaining : 0);
+    }
+  }, [item.active, item.started_at, item.duration]);
 
   React.useEffect(() => {
     if (item.active && !isGlobalPaused) {
@@ -258,7 +275,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             arrived: isArrived || isAttending,
             isUser: isMyApt,
             service_id: d.service_id,
-            date_time: d.date_time
+            date_time: d.date_time,
+            started_at: d.started_at,
+            duration: svcs?.find(s => s.id === d.service_id)?.duration_minutes || 30
           };
         }));
       }
@@ -290,8 +309,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     // For this prototype, we assume the user is NOT yet in the queue unless we have a 'local session' 
     // but we can calculate the general wait time
     const totalWait = queueItems.reduce((acc, item) => {
-      const svc = dbBusiness?.services.find(s => s.id === item.service_id);
-      return acc + (svc?.duration || 25);
+      let waitTime = item.duration || 30;
+      if (item.active && item.started_at) {
+        const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
+        waitTime = Math.max(0, waitTime - elapsedMinutes);
+      }
+      return acc + waitTime;
     }, 0);
     return {
       wait: totalWait,
@@ -600,8 +623,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               if (apt && myIdx !== -1) {
                 // 1. Wait based on people ahead
                 const queueWait = queueItems.slice(0, myIdx).reduce((acc, item) => {
-                  const svc = dbBusiness?.services.find(s => s.id === item.service_id);
-                  return acc + (svc?.duration || 25);
+                  let waitTime = item.duration || 30;
+                  if (item.active && item.started_at) {
+                    const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
+                    waitTime = Math.max(0, waitTime - elapsedMinutes);
+                  }
+                  return acc + waitTime;
                 }, 0);
                 
                 // 2. Wait based on scheduled time

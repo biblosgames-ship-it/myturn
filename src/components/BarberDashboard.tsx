@@ -905,7 +905,7 @@ const getPlanCapabilities = (planName: string) => {
                             {apt.status === 'waiting' ? (
                               <button className="btn btn-primary" style={{ fontSize: '0.7rem' }} onClick={async () => {
                                 await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
-                                await supabase.from('appointments').update({ status: 'attending' }).eq('id', apt.id);
+                                await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
                               }}>Atender</button>
                             ) : (
                               <button className="btn btn-success" style={{ fontSize: '0.7rem' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
