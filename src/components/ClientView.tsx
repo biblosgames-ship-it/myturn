@@ -466,8 +466,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             <LayoutGrid size={20} color="var(--primary)" /> En Vivo: La Cola
           </h3>
-          <span style={{ fontSize: '0.75rem', background: isGlobalPaused ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: isGlobalPaused ? '#ef4444' : 'var(--success)', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
-            {isGlobalPaused ? 'Pausado' : 'Abierto'}
+          <span style={{ 
+            fontSize: '0.75rem', 
+            background: !dbBusiness?.isOpen ? 'rgba(239,68,68,0.1)' : (isGlobalPaused ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'), 
+            color: !dbBusiness?.isOpen ? '#ef4444' : (isGlobalPaused ? 'var(--primary)' : 'var(--success)'), 
+            padding: '0.2rem 0.6rem', 
+            borderRadius: 'var(--radius-full)', 
+            fontWeight: 800 
+          }}>
+            {!dbBusiness?.isOpen ? 'Cerrado' : (isGlobalPaused ? 'En Pausa' : 'Abierto')}
           </span>
         </div>
 
