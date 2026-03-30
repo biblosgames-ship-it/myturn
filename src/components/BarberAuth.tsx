@@ -238,6 +238,25 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             </div>
           )}
 
+          {/* Google Login for Business (Experimental/Existing Owners) */}
+          {mode === 'login' && !isSuperAdmin && (
+            <>
+              <button 
+                type="button"
+                onClick={handleGoogleLogin}
+                className="btn btn-outline"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'white', color: '#000', border: '1px solid #ddd' }}
+              >
+                <Chrome size={20} /> Entrar con Google
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                <span style={{ fontSize: '0.7rem', fontWeight: 800 }}>O CON EMAIL</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+              </div>
+            </>
+          )}
+
           {mode === 'register' && !inviteValid ? (
             <>
               <div style={{ position: 'relative' }}>
