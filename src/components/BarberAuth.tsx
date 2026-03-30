@@ -78,15 +78,16 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
           // 2. Create or Update the Tenant (Business)
           let tenantId;
           if (inviteTenantId) {
+            // Update the existing invitation record
             const { data: tenantData, error: tenantError } = await supabase.from('tenants').update({
               name: businessName || 'Mi Negocio',
               slug: slug,
-              industry: 'General',
-              plan_id: 'Free'
+              owner: email // This fixes the 'Pendiente' issue in SuperAdmin
             }).eq('id', inviteTenantId).select().single();
             if (tenantError) throw tenantError;
             tenantId = tenantData.id;
           } else {
+
             const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
               name: businessName || 'Mi Negocio',
               slug: slug,

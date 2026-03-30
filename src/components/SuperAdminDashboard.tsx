@@ -37,11 +37,12 @@ export interface SaasPlan {
 }
 
 const GLOBAL_STATS = {
-  totalRevenue: 12540.50,
-  activeBusinesses: 156,
-  totalUsers: 4520,
-  growthRate: 15.4
+  totalRevenue: 0,
+  activeBusinesses: 0,
+  totalUsers: 0,
+  growthRate: 0
 };
+
 
 // No initial mock data anymore
 const initialTenants: Tenant[] = [];
@@ -129,34 +130,69 @@ export const SuperAdminDashboard: React.FC = () => {
     });
   };
 
-  const handleSaveManualPayment = () => {
+  const handleSaveManualPayment = async () => {
     if (!selectedTenantForPayment) return;
     
-    setTenants((prev: Tenant[]) => prev.map((t: Tenant) => {
-      if (t.id === selectedTenantForPayment.id) {
-        return { 
-          ...t, 
-          expiryDate: manualPaymentData.expiryDate, 
-          status: manualPaymentData.status,
-          plan: manualPaymentData.plan
-        };
-      }
-      return t;
-    }));
-    
-    setSelectedTenantForPayment(null);
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 3000);
+    try {
+      const { error } = await supabase.from('tenants').update({
+        expiry_date: manualPaymentData.expiryDate,
+        plan_id: manualPaymentData.plan,
+        status: (manualPaymentData.status === 'suspended' ? 'suspended' : 'active')
+      }).eq('id', selectedTenantForPayment.id);
+
+      if (error) throw error;
+
+      await fetchTenants(); // Re-fetch to sync
+      setSelectedTenantForPayment(null);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (err: any) {
+      console.error('Payment save error:', err);
+      alert('Error al guardar pago: ' + err.message);
+    }
   };
 
-  const handleUpdateTenant = (updatedTenant: Tenant) => {
-    setTenants((prev: Tenant[]) => prev.map((t: Tenant) => t.id === updatedTenant.id ? updatedTenant : t));
-    setEditingTenant(null);
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 3000);
+
+  const handleDeleteTenant = async () => {
+    if (!deletingTenant) return;
+    
+    try {
+      const { error } = await supabase.from('tenants').delete().eq('id', deletingTenant.id);
+      if (error) throw error;
+
+      await fetchTenants();
+      setDeletingTenant(null);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      alert('Error al borrar: ' + err.message);
+    }
+  };
+
+  const handleUpdateTenant = async (updatedTenant: Tenant) => {
+    try {
+      const { error } = await supabase.from('tenants').update({
+        name: updatedTenant.name,
+        owner: updatedTenant.owner,
+        industry: updatedTenant.industry,
+        logo: updatedTenant.logo
+      }).eq('id', updatedTenant.id);
+
+      if (error) throw error;
+
+      await fetchTenants();
+      setEditingTenant(null);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (err: any) {
+      console.error('Update error:', err);
+      alert('Error al actualizar: ' + err.message);
+    }
   };
 
   const handleUpdatePlan = (updatedPlan: SaasPlan) => {
+
     const newPlans = saasPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p);
     setSaasPlans(newPlans);
     localStorage.setItem('myturn_saas_plans', JSON.stringify(newPlans));
@@ -165,18 +201,6 @@ export const SuperAdminDashboard: React.FC = () => {
     setTimeout(() => setShowSuccessToast(false), 3000);
   };
 
-  const handleDeleteTenant = async (id: string) => {
-    const { error } = await supabase.from('tenants').delete().eq('id', id);
-    if (!error) {
-      setTenants((prev: Tenant[]) => prev.filter((t: Tenant) => t.id !== id));
-      setDeletingTenant(null);
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
-      fetchTenants();
-    } else {
-      alert('Error al eliminar el negocio: ' + error.message);
-    }
-  };
 
   return (
     <div className="animate-fade-in" style={{ 
@@ -894,7 +918,8 @@ export const SuperAdminDashboard: React.FC = () => {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <button 
-                  onClick={() => handleDeleteTenant(deletingTenant.id)}
+                  onClick={() => handleDeleteTenant()}
+
                   className="btn" 
                   style={{ width: '100%', padding: '1rem', background: '#ef4444', color: 'white', border: 'none', fontWeight: 800 }}
                 >
