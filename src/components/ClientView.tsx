@@ -370,34 +370,50 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       )}
 
       {showShareModal && (() => {
-        const shareUrl = encodeURIComponent(window.location.href);
+        // Build the canonical business URL (clean link, not the user's current session URL)
+        const businessUrl = `${window.location.origin}/${selectedBusinessSlug || dbBusiness?.id}`;
+        const shareUrl = encodeURIComponent(businessUrl);
         const shareText = encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`);
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${shareUrl}&color=000000&bgcolor=ffffff`;
         const links = [
           { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${shareUrl}` },
           { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
           { label: 'Twitter / X', color: '#000', emoji: '🐦', href: `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}` },
-          { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + (business?.name || 'MyTurn'))}&body=${shareText}%20${shareUrl}` },
+          { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + (business?.name || 'el negocio'))}&body=${shareText}%20${shareUrl}` },
         ];
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '360px', padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir Negocio 🔗</h3>
+            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir {business?.name || 'Negocio'}</h3>
                 <button className="btn btn-outline" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setShowShareModal(false)}><X size={18} /></button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+              {/* QR Code */}
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>ESCANEA PARA ABRIR EN OTRO TELÉFONO</p>
+                <img 
+                  src={qrSrc} 
+                  alt="QR Code" 
+                  style={{ width: '160px', height: '160px', borderRadius: 'var(--radius-md)', border: '4px solid white', background: 'white' }}
+                />
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', wordBreak: 'break-all' }}>{businessUrl}</p>
+              </div>
+
+              {/* Social Links */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {links.map(l => (
                   <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.95rem', textDecoration: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none' }}
                   >
-                    <span style={{ fontSize: '1.3rem' }}>{l.emoji}</span>
+                    <span style={{ fontSize: '1.2rem' }}>{l.emoji}</span>
                     {l.label}
                   </a>
                 ))}
                 <button
                   className="btn btn-outline"
                   style={{ width: '100%', marginTop: '0.25rem' }}
-                  onClick={() => { navigator.clipboard.writeText(decodeURIComponent(shareUrl)); alert('¡Enlace copiado!'); setShowShareModal(false); }}
+                  onClick={() => { navigator.clipboard.writeText(businessUrl); alert('¡Enlace copiado!'); setShowShareModal(false); }}
                 >
                   📋 Copiar enlace
                 </button>
