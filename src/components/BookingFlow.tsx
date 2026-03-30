@@ -9,7 +9,10 @@ interface Service {
   duration: number;
 }
 
-const getTodayStr = () => new Date().toISOString().split('T')[0];
+const getTodayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queueInfo: { wait: number, clients: number, nextTurn: number } }> = ({ onClose, tenantId, queueInfo }) => {
   const [step, setStep] = useState(1);
@@ -80,9 +83,8 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     setIsLoading(true);
     try {
       if (selectedService && selectedTime) {
-        const aptDate = new Date(selectedDate);
-        const [hh, mm] = selectedTime.split(':');
-        aptDate.setHours(parseInt(hh), parseInt(mm), 0, 0);
+        // Use local ISO format: YYYY-MM-DDTHH:mm:00
+        const aptDate = new Date(`${selectedDate}T${selectedTime}:00`);
 
         // 2. Insert the appointment
         const { data, error } = await supabase.from('appointments').insert({

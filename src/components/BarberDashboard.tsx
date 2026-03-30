@@ -23,7 +23,10 @@ interface Subscription {
   status: 'active' | 'grace' | 'suspended';
 }
 
-const getTodayStr = () => new Date().toISOString().split('T')[0];
+const getTodayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // All appointments are now strictly database-driven.
 
@@ -809,12 +812,22 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             )}
 
-            {appointments.filter((a: Appointment) => a.date === selectedDate).length === 0 ? (
+            {appointments.filter((a: Appointment) => {
+               // If viewing 'Today', show all active (waiting/attending/arrived)
+               if (selectedDate === getTodayStr()) {
+                 return a.status !== 'finished';
+               }
+               // For other dates, strict date match
+               return a.date === selectedDate;
+            }).length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5, border: '2px dashed var(--border)' }}>
                 <Calendar size={48} style={{ marginBottom: '1rem' }} />
-                <p>No hay citas programadas para este día.</p>
+                <p>No hay turnos {selectedDate === getTodayStr() ? 'activos' : 'para este día'}.</p>
               </div>
-            ) : appointments.filter((a: Appointment) => a.date === selectedDate).map((apt: Appointment, idx: number) => (
+            ) : appointments.filter((a: Appointment) => {
+                if (selectedDate === getTodayStr()) return a.status !== 'finished';
+                return a.date === selectedDate;
+            }).map((apt: Appointment, idx: number) => (
               <div key={apt.id} className="card" style={{ 
                 border: apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
                 background: apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
