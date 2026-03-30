@@ -11,6 +11,7 @@ interface SavedBusiness {
   logo: string;
   rating: number;
   lastVisit: string;
+  isAlreadySaved?: boolean;
 }
 
 interface ClientUserHubProps {
@@ -137,23 +138,26 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
       const { data } = await supabase
         .from('tenants')
         .select('*')
-        .ilike('name', `%${searchTerm}%`)
+        .or(`name.ilike.%${searchTerm}%,slug.ilike.%${searchTerm}%`)
         .limit(10);
         
       if (data) {
-        setSearchResults(data
-          .filter(t => !savedBusinesses.find(s => s.id === (t.slug || t.id)))
-          .map(t => ({
-            id: t.slug || t.id,
+        setSearchResults(data.map(t => {
+          const id = t.slug || t.id;
+          const isAlreadySaved = savedBusinesses.some(s => s.id === id);
+          
+          return {
+            id,
             realId: t.id,
             name: t.name,
             professional: t.professional_name || 'Personal Principal',
             title: t.professional_title || 'Servicios',
             logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
             rating: 5.0,
-            lastVisit: 'Descubierto'
-          }))
-        );
+            lastVisit: isAlreadySaved ? 'Ya vinculado' : 'Descubierto',
+            isAlreadySaved
+          } as any;
+        }));
       }
     };
 
@@ -327,11 +331,17 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
                   <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>{result.professional}</p>
                 </div>
                 <button 
-                  onClick={() => linkBusiness(result)}
-                  className="btn btn-primary" 
+                  onClick={() => {
+                    if (result.isAlreadySaved) {
+                      onSelectBusiness(result.id);
+                    } else {
+                      linkBusiness(result);
+                    }
+                  }}
+                  className={result.isAlreadySaved ? "btn btn-outline" : "btn btn-primary"} 
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
                 >
-                  Vincular
+                  {result.isAlreadySaved ? 'Abrir' : 'Vincular'}
                 </button>
               </div>
             ))}
