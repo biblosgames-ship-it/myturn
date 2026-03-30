@@ -49,11 +49,13 @@ function App() {
 
         if (userData) {
           if (userData.role === 'superadmin') {
-            setView('superadmin');
-            localStorage.setItem('myturn_last_view', 'superadmin');
+            handleSetView('superadmin');
+          } else if (userData.role === 'client') {
+            // Clients usually stay on landing/search unless they have a saved view
+            const saved = localStorage.getItem('myturn_last_view');
+            handleSetView(saved === 'client' ? 'client' : 'landing');
           } else {
-            setView('barber');
-            localStorage.setItem('myturn_last_view', 'barber');
+            handleSetView('barber');
             if (userData.tenant_id) {
               setTenant({ id: userData.tenant_id, name: '' });
             }

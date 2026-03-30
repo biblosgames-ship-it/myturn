@@ -75,6 +75,19 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     fetchExisting();
   }, [tenantId, selectedDate]);
 
+  React.useEffect(() => {
+    const prefillUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase.from('users').select('full_name').eq('id', session.user.id).single();
+        if (profile?.full_name) {
+          setClientName(profile.full_name);
+        }
+      }
+    };
+    prefillUser();
+  }, []);
+
   const handleConfirm = async () => {
     if (!clientName.trim()) {
       alert("Por favor, ingresa tu nombre para reservar.");
@@ -82,6 +95,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     }
     setIsLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       if (selectedService && selectedTime) {
         // Use local ISO format: YYYY-MM-DDTHH:mm:00
         const aptDate = new Date(`${selectedDate}T${selectedTime}:00`);
@@ -93,7 +107,8 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
           service_id: selectedService.id,
           date_time: aptDate.toISOString(),
           status: 'waiting',
-          staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null
+          staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
+          client_id: session?.user?.id || null
         }).select('id').single();
 
         if (data?.id) {

@@ -1,6 +1,7 @@
-import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { ClientAuth } from './ClientAuth';
 
 interface SavedBusiness {
   id: string;
@@ -16,54 +17,115 @@ interface ClientUserHubProps {
   onSelectBusiness: (id: string | null) => void;
 }
 
-// GLOBAL_DIRECTORY is now empty, will fetch from Supabase
-const GLOBAL_DIRECTORY: SavedBusiness[] = [];
-
 export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }) => {
   const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([]);
-  const [clientDisplayName, setClientDisplayName] = useState('Cliente MyTurn');
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Profile Editor State
+  const [editData, setEditData] = useState({ full_name: '', phone: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SavedBusiness[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [scanStep, setScanStep] = useState<'idle' | 'scanning' | 'success'>('idle');
 
+  const getDeviceId = () => {
+    let id = localStorage.getItem('myturn_client_device_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('myturn_client_device_id', id);
+    }
+    return id;
+  };
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (data) {
+      setProfile(data);
+      setEditData({ full_name: data.full_name || '', phone: data.phone || '' });
+    }
+  };
+
+  const syncSavedBusinesses = async (userId: string | null) => {
+    const deviceId = getDeviceId();
+    
+    // If logged in, ensure anonymous businesses are linked to this user
+    if (userId) {
+      await supabase.from('saved_tenants').update({ user_id: userId }).eq('client_device_id', deviceId).is('user_id', null);
+    }
+
+    const query = userId 
+      ? supabase.from('saved_tenants').select('tenant_id').eq('user_id', userId)
+      : supabase.from('saved_tenants').select('tenant_id').eq('client_device_id', deviceId);
+    
+    const { data: savedIds } = await query;
+    
+    if (savedIds && savedIds.length > 0) {
+      const ids = savedIds.map(s => s.tenant_id);
+      const { data: tenants } = await supabase.from('tenants').select('*').in('id', ids);
+      if (tenants) {
+        setSavedBusinesses(tenants.map(t => ({
+          id: t.slug || t.id,
+          name: t.name,
+          professional: t.professional_name || 'Personal Principal',
+          title: t.professional_title || 'Servicios',
+          logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+          rating: 5.0,
+          lastVisit: 'Guardado'
+        })));
+      }
+    }
+  };
+
   useEffect(() => {
-    const getDeviceId = () => {
-      let id = localStorage.getItem('myturn_client_device_id');
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem('myturn_client_device_id', id);
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+        await syncSavedBusinesses(session.user.id);
+      } else {
+        await syncSavedBusinesses(null);
       }
-      return id;
+      setLoading(false);
     };
 
-    const fetchSavedBusinesses = async () => {
-      const deviceId = getDeviceId();
-      const { data: savedIds } = await supabase.from('saved_tenants').select('tenant_id, client_name').eq('client_device_id', deviceId);
-      
-      if (savedIds && savedIds.length > 0) {
-        // Try to get a name if available
-        const namedLink = savedIds.find(s => s.client_name);
-        if (namedLink) setClientDisplayName(namedLink.client_name);
+    initAuth();
 
-        const ids = savedIds.map(s => s.tenant_id);
-        const { data: tenants } = await supabase.from('tenants').select('*').in('id', ids);
-        if (tenants) {
-          setSavedBusinesses(tenants.map(t => ({
-            id: t.slug || t.id,
-            name: t.name,
-            professional: t.professional_name || 'Personal Principal',
-            title: t.professional_title || 'Servicios',
-            logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-            rating: 5.0,
-            lastVisit: 'Guardado'
-          })));
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+        await syncSavedBusinesses(session.user.id);
+        setShowAuth(false);
+      } else {
+        setUser(null);
+        setProfile(null);
+        await syncSavedBusinesses(null);
       }
-    };
-    fetchSavedBusinesses();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { error } = await supabase.from('users').update({
+      full_name: editData.full_name,
+      phone: editData.phone
+    }).eq('id', user.id);
+
+    if (!error) {
+      setProfile({ ...profile, ...editData });
+      setShowProfileEditor(false);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     const searchBusinesses = async () => {
@@ -100,11 +162,14 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   }, [searchTerm, savedBusinesses]);
 
   const linkBusiness = async (biz: SavedBusiness & { realId?: string }) => {
-    const deviceId = localStorage.getItem('myturn_client_device_id');
-    if (deviceId && biz.realId) {
+    const deviceId = getDeviceId();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (biz.realId) {
       await supabase.from('saved_tenants').upsert({
         client_device_id: deviceId,
-        tenant_id: biz.realId
+        tenant_id: biz.realId,
+        user_id: session?.user?.id || null
       });
     }
     setSavedBusinesses([...savedBusinesses, biz]);
@@ -118,10 +183,6 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
     setTimeout(() => {
       setScanStep('success');
       setTimeout(() => {
-        const dental = GLOBAL_DIRECTORY.find(b => b.id === 'clinic-center');
-        if (dental && !savedBusinesses.find(s => s.id === dental.id)) {
-          linkBusiness(dental);
-        }
         setIsScanning(false);
         setScanStep('idle');
       }, 1500);
@@ -130,10 +191,98 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Search Header */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Hola, <span style={{ color: 'var(--primary)' }}>{clientDisplayName}</span></h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>¿A dónde quieres ir hoy?</p>
+      
+      {/* Auth Modal */}
+      {showAuth && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '1rem' }}>
+          <ClientAuth onSuccess={() => setShowAuth(false)} onClose={() => setShowAuth(false)} />
+        </div>
+      )}
+
+      {/* Profile Editor Modal */}
+      {showProfileEditor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '1rem' }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', background: 'var(--surface)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 900, margin: 0 }}>Editar Perfil</h3>
+              <button onClick={() => setShowProfileEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>NOMBRE COMPLETO</label>
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                  <input 
+                    type="text" 
+                    value={editData.full_name}
+                    onChange={(e) => setEditData({...editData, full_name: e.target.value})}
+                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>TELÉFONO</label>
+                <div style={{ position: 'relative' }}>
+                  <Phone style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                  <input 
+                    type="tel" 
+                    value={editData.phone}
+                    onChange={(e) => setEditData({...editData, phone: e.target.value})}
+                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+              <button 
+                onClick={handleUpdateProfile}
+                disabled={loading}
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '1rem', fontWeight: 900, marginTop: '1rem' }}
+              >
+                {loading ? 'Guardando...' : 'GUARDAR CAMBIOS'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header Profile Section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px', marginBottom: '0.25rem' }}>
+            Hola, <span style={{ color: 'var(--primary)' }}>{profile?.full_name || 'Invitado'}</span>
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>¿A dónde quieres ir hoy?</p>
+        </div>
+        
+        {user ? (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+             <button 
+              onClick={() => setShowProfileEditor(true)}
+              className="btn btn-outline" 
+              style={{ padding: '0.6rem', borderRadius: '12px' }}
+              title="Configuración de Perfil"
+            >
+              <Settings size={20} />
+            </button>
+            <button 
+              onClick={() => supabase.auth.signOut()}
+              className="btn btn-outline" 
+              style={{ padding: '0.6rem', borderRadius: '12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}
+              title="Cerrar Sesión"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setShowAuth(true)}
+            className="btn btn-primary" 
+            style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 800 }}
+          >
+            Iniciar Sesión
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '0.75rem', position: 'relative' }}>
@@ -215,34 +364,12 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
           </button>
           
           <div style={{ position: 'relative', width: '280px', height: '280px' }}>
-            {/* Camera View Simulation */}
             <div style={{ width: '100%', height: '100%', border: '2px solid rgba(255,255,255,0.2)', borderRadius: '24px', overflow: 'hidden' }}>
               <img src="https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=400&h=400&fit=crop" style={{ width: '100%', height: '100%', filter: 'grayscale(100%) blur(2px)', opacity: 0.5 }} alt="" />
             </div>
-            {/* Scanning Line Animation */}
             {scanStep === 'scanning' && (
-              <>
-                <div style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  right: 0, 
-                  height: '2px', 
-                  background: 'var(--primary)', 
-                  boxShadow: '0 0 15px var(--primary)',
-                  animation: 'scanner-loop 2s infinite linear' 
-                }} />
-                <style>{`
-                  @keyframes scanner-loop {
-                    0% { top: 10%; }
-                    50% { top: 90%; }
-                    100% { top: 10%; }
-                  }
-                `}</style>
-              </>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', animation: 'scanner-loop 2s infinite linear' }} />
             )}
-            
-            {/* Corners UI */}
             <div style={{ position: 'absolute', top: 20, left: 20, width: 40, height: 40, borderLeft: '4px solid var(--primary)', borderTop: '4px solid var(--primary)' }} />
             <div style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRight: '4px solid var(--primary)', borderTop: '4px solid var(--primary)' }} />
             <div style={{ position: 'absolute', bottom: 20, left: 20, width: 40, height: 40, borderLeft: '4px solid var(--primary)', borderBottom: '4px solid var(--primary)' }} />
@@ -283,28 +410,12 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
               onClick={() => onSelectBusiness(biz.id)}
               className="card"
               style={{ 
-                padding: '1.25rem', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                textAlign: 'center', 
-                gap: '0.75rem', 
-                cursor: 'pointer',
-                transition: 'transform 0.2s',
-                border: '1px solid var(--border)',
-                background: 'var(--surface)'
+                padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.75rem', cursor: 'pointer', transition: 'transform 0.2s', border: '1px solid var(--border)', background: 'var(--surface)'
               }}
               onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              <div style={{ 
-                width: '72px', 
-                height: '72px', 
-                borderRadius: '50%', 
-                padding: '3px',
-                border: '2px solid var(--primary)',
-                background: 'var(--background)'
-              }}>
+              <div style={{ width: '72px', height: '72px', borderRadius: '50%', padding: '3px', border: '2px solid var(--primary)', background: 'var(--background)' }}>
                 <img src={biz.logo} alt={biz.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               </div>
               <div>
@@ -323,32 +434,10 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
             className="card"
             onClick={() => {
               const input = document.querySelector('input');
-              if (input) {
-                input.focus();
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
+              if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
             }}
             style={{ 
-              padding: '1.25rem', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              textAlign: 'center', 
-              gap: '0.75rem', 
-              cursor: 'pointer',
-              border: '2px dashed var(--border)',
-              background: 'transparent',
-              minHeight: '160px',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary)';
-              e.currentTarget.style.background = 'rgba(245,158,11,0.03)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.background = 'transparent';
+              padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '0.75rem', cursor: 'pointer', border: '2px dashed var(--border)', background: 'transparent', minHeight: '160px', transition: 'all 0.2s'
             }}
           >
             <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
