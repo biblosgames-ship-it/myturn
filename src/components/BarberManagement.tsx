@@ -251,7 +251,12 @@ export const BarberManagement: React.FC = () => {
       </div>
 
       <div className="card">
-        {activeTab === 'brand' ? (
+        {isLoading ? (
+          <div style={{ padding: '4rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)' }}>
+            <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%' }} />
+            <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Cargando configuración...</p>
+          </div>
+        ) : activeTab === 'brand' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Personalización de Marca</h3>
             

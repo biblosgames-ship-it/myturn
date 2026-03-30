@@ -11,7 +11,7 @@ interface BusinessData {
   professional: string;
   title: string;
   awards: string[];
-  services: string[];
+  services: { id: string, name: string, price: number, duration: number, icon: string }[];
   logo: string;
   rating: number;
   reviews: number;
@@ -19,6 +19,8 @@ interface BusinessData {
   mapUrl: string;
   showReviews: boolean;
   bookingMode: 'online' | 'manual' | 'hybrid';
+  color?: string;
+  slogan?: string;
 }
 
 const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isGlobalPaused }) => {
@@ -97,28 +99,44 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     // Dynamic SaaS fetch by Slug
     const fetchSaaSInfo = async () => {
       try {
-        const { data: tenant, error } = await supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
+        // Search by slug OR by ID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(selectedBusinessSlug);
+        const query = isUuid 
+          ? supabase.from('tenants').select('*').eq('id', selectedBusinessSlug).single()
+          : supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
+        
+        const { data: tenant, error } = await query;
         
         if (tenant && !error) {
-          // Fetch services for this tenant
-          const { data: sData } = await supabase.from('services').select('name').eq('tenant_id', tenant.id);
-          const serviceNames = sData ? sData.map(s => s.name) : ['Servicio General'];
+          const { data: sData } = await supabase.from('services').select('*').eq('tenant_id', tenant.id);
+          const serviceList = sData ? sData.map(s => ({
+            id: s.id,
+            name: s.name,
+            price: s.price || 0,
+            duration: s.duration_minutes || 30,
+            icon: s.icon || 'Scissors'
+          })) : [];
 
           setDbBusiness({
             id: tenant.id,
             name: tenant.name,
-            professional: tenant.owner || 'Profesional Principal',
-            title: tenant.industry || 'Servicios Profesionales',
+            professional: tenant.professional_name || tenant.owner || 'Profesional Principal',
+            title: tenant.professional_title || tenant.industry || 'Servicios Profesionales',
             awards: [],
-            services: serviceNames,
+            services: serviceList,
             logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
             rating: 5.0,
             reviews: 1,
             address: tenant.address || 'Ubicación local',
             mapUrl: '#',
-            showReviews: false,
-            bookingMode: 'online'
+            showReviews: tenant.show_reviews ?? false,
+            bookingMode: (tenant.booking_mode as any) || 'online',
+            color: tenant.color || '#f59e0b',
+            slogan: tenant.slogan || ''
           });
+          if (tenant.color) {
+            document.documentElement.style.setProperty('--primary', tenant.color);
+          }
           setNotFound(false);
         } else {
           setDbBusiness(null);
@@ -325,9 +343,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         <h3 style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Servicios del Professional</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1rem' }}>
           {business?.services.map(s => (
-            <div key={s} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={s.id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }} />
-              {s}
+              <div style={{ flex: 1 }}>
+                <div>{s.name}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>${s.price} • {s.duration} min</div>
+              </div>
             </div>
           ))}
         </div>
