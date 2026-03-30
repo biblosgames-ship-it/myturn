@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, User, Phone, CheckCircle2, X } from 'lucide-react';
+import { Mail, Lock, ArrowRight, User, Phone, CheckCircle2, X, LogIn } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ClientAuthProps {
@@ -157,7 +157,7 @@ export const ClientAuth: React.FC<ClientAuthProps> = ({ onSuccess, onClose }) =>
           )}
 
           <div style={{ position: 'relative' }}>
-            <Mail style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+            <LogIn style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
             <input 
               type="text" 
               value={email}

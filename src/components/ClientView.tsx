@@ -94,6 +94,28 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [notFound, setNotFound] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
 
+  // Profile Sync
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name, phone')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        
+        if (profile) {
+          setLinkData({
+            name: profile.full_name || '',
+            contact: profile.phone || ''
+          });
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
+
   useEffect(() => {
     if (!selectedBusinessSlug) {
       setDbBusiness(null);
@@ -245,6 +267,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       client_name: linkData.name,
       client_contact: linkData.contact
     });
+
+    // Update central users table if logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await supabase.from('users').update({
+        full_name: linkData.name,
+        phone: linkData.contact
+      }).eq('id', session.user.id);
+    }
     
     setIsLinking(false);
     setShowLinkModal(false);

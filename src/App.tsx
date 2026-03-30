@@ -48,11 +48,29 @@ function App() {
       
       if (session?.user) {
         // Query user role and tenant
-        const { data: userData } = await supabase
+        let { data: userData, error: fetchError } = await supabase
           .from('users')
           .select('role, tenant_id')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
+
+        // If user document is missing (e.g. first Google Login), create it
+        if (!userData && !fetchError) {
+          const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: session.user.id,
+              role: 'client',
+              full_name: session.user.user_metadata.full_name || 'Nuevo Cliente',
+              phone: session.user.phone || null
+            })
+            .select('role, tenant_id')
+            .maybeSingle();
+          
+          if (!insertError) {
+            userData = newUser;
+          }
+        }
 
         if (userData) {
           if (userData.role === 'superadmin') {
