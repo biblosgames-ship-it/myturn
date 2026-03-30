@@ -43,12 +43,20 @@ export const BarberDashboard: React.FC = () => {
   // Supabase Real-time Sync for Appointments
   useEffect(() => {
     const fetchAppointments = async () => {
+      // Get tenant_id from metadata or user session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: uData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+      if (!uData?.tenant_id) return;
+
       const { data, error } = await supabase
         .from('appointments')
         .select('*, services(name)')
+        .eq('tenant_id', uData.tenant_id)
         .order('date_time', { ascending: true });
         
-      if (data && data.length > 0) {
+      if (data) {
         setAppointments(data.map(d => ({
           id: d.id,
           clientName: d.client_name,
@@ -59,6 +67,8 @@ export const BarberDashboard: React.FC = () => {
           arrived: d.status === 'attending' || d.status === 'arrived',
           staffId: d.staff_id || undefined
         })));
+      } else {
+        setAppointments([]);
       }
     };
 

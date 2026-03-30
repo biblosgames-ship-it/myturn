@@ -170,17 +170,22 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         .eq('tenant_id', dbBusiness.id);
 
       if (appts) {
+        const myId = localStorage.getItem('myturn_active_appointment_id');
         setQueueItems(appts.map((d, index) => {
           const isAttending = d.status === 'attending';
           const isArrived = d.status === 'arrived';
+          const isMyApt = d.id === myId;
+          
           return {
             id: d.id,
             pos: index + 1,
-            label: `Cliente #${100 + index} (${d.client_name.split(' (')[0]})`,
+            label: isMyApt 
+              ? `Tú (${d.client_name.split(' (')[0]})` 
+              : `Cliente #${100 + index}`,
             status: isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : 'En espera',
             active: isAttending,
             arrived: isArrived || isAttending,
-            isUser: false,
+            isUser: isMyApt,
             service_id: d.service_id
           };
         }));
