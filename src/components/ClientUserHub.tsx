@@ -290,7 +290,10 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
               <Settings size={20} />
             </button>
             <button 
-              onClick={() => supabase.auth.signOut()}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/';
+              }}
               className="btn btn-outline" 
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)', fontSize: '0.8rem' }}
               title="Cerrar Sesión"
