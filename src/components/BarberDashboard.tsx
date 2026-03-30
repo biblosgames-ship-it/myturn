@@ -123,40 +123,43 @@ export const BarberDashboard: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || '');
-        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-        let currentTenantId = userData?.tenant_id;
+        try {
+          const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+          let currentTenantId = userData?.tenant_id;
 
-        // self-healing: if user has no tenant_id, link them to the first one found
-        if (!currentTenantId) {
-          const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
-          if (allTenants && allTenants.length > 0) {
-            currentTenantId = allTenants[0].id;
-            await supabase.from('users').upsert({
-              id: user.id,
-              tenant_id: currentTenantId,
-              role: 'owner',
-              full_name: 'Propietario'
-            });
-            console.log("Self-healed: Linked user to tenant", currentTenantId);
-          }
-        }
-
-        if (currentTenantId) {
-          setTenantId(currentTenantId);
-          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
-          if (tenant) {
-            setBusinessName(tenant.name);
-            setLogoUrl(tenant.logo || '');
-            if (tenant.color) {
-              document.documentElement.style.setProperty('--primary', tenant.color);
+          // self-healing: if user has no tenant_id, link them to the first one found
+          if (!currentTenantId) {
+            const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
+            if (allTenants && allTenants.length > 0) {
+              currentTenantId = allTenants[0].id;
+              await supabase.from('users').upsert({
+                id: user.id,
+                tenant_id: currentTenantId,
+                role: 'owner',
+                full_name: 'Propietario'
+              });
             }
-            setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
-            setSubscription({
-              plan: (tenant.plan_id as any) || 'Free',
-              expiryDate: tenant.expiry_date || '2026-12-31',
-              status: (tenant.status as any) || 'active'
-            });
           }
+
+          if (currentTenantId) {
+            setTenantId(currentTenantId);
+            const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
+            if (tenant) {
+              setBusinessName(tenant.name);
+              setLogoUrl(tenant.logo || '');
+              if (tenant.color) {
+                document.documentElement.style.setProperty('--primary', tenant.color);
+              }
+              setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
+              setSubscription({
+                plan: (tenant.plan_id as any) || 'Free',
+                expiryDate: tenant.expiry_date || '2026-12-31',
+                status: (tenant.status as any) || 'active'
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Critical identity error:", error);
         }
       }
       setIsLoading(false);
@@ -475,7 +478,43 @@ const getPlanCapabilities = (planName: string) => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem' }}>
+    <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', position: 'relative' }}>
+      {!tenantId && !isLoading && (
+        <div style={{ 
+          position: 'fixed', 
+          inset: 0, 
+          background: 'rgba(0,0,0,0.95)', 
+          zIndex: 10000, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <ShieldAlert size={64} color="#ef4444" style={{ marginBottom: '1.5rem' }} />
+          <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'white', marginBottom: '1rem' }}>SISTEMA DESVINCULADO</h1>
+          <p style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '500px', marginBottom: '2rem' }}>
+            Tu usuario no está conectado a ningún negocio. Pulsa el botón de abajo para conectarte al negocio principal y restaurar la sincronización.
+          </p>
+          <button 
+            className="btn btn-primary" 
+            style={{ padding: '1.25rem 3rem', fontSize: '1.125rem', fontWeight: 800 }}
+            onClick={async () => {
+              const { data } = await supabase.from('tenants').select('id').limit(1).single();
+              if (data) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  await supabase.from('users').upsert({ id: user.id, tenant_id: data.id, role: 'owner', full_name: 'Propietario' });
+                  window.location.reload();
+                }
+              }
+            }}
+          >
+            VINCULAR MI CUENTA AHORA
+          </button>
+        </div>
+      )}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
