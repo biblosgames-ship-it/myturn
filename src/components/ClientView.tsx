@@ -85,10 +85,13 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [selectedBusinessSlug, setSelectedBusinessSlug] = useState<string | null>(initialSlug || null);
   const [dbBusiness, setDbBusiness] = useState<BusinessData | null>(null);
   const [showBooking, setShowBooking] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkData, setLinkData] = useState({ name: '', contact: '' });
   const [hasAppointment, setHasAppointment] = useState(false);
   const [isGlobalPaused, setIsGlobalPaused] = useState(false);
   const [queueItems, setQueueItems] = useState<any[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     if (!selectedBusinessSlug) {
@@ -206,14 +209,20 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const queueInfo = getMyQueueInfo();
 
   const handleSaveToHub = async () => {
-    if (!dbBusiness) return;
+    if (!dbBusiness || !linkData.name) return;
+    setIsLinking(true);
     const deviceId = localStorage.getItem('myturn_client_device_id') || crypto.randomUUID();
     localStorage.setItem('myturn_client_device_id', deviceId);
     
     await supabase.from('saved_tenants').upsert({
       client_device_id: deviceId,
-      tenant_id: dbBusiness.id
+      tenant_id: dbBusiness.id,
+      client_name: linkData.name,
+      client_contact: linkData.contact
     });
+    
+    setIsLinking(false);
+    setShowLinkModal(false);
     alert('¡Negocio guardado en tu panel personal!');
   };
 
@@ -249,11 +258,58 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       {showBooking && (
         <BookingFlow 
           tenantId={business.id}
+          queueInfo={queueInfo}
           onClose={() => { 
             setShowBooking(false); 
             setHasAppointment(true); 
           }} 
         />
+      )}
+
+      {showLinkModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', textAlign: 'center' }}>Vincular Negocio 🔗</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+              Guarda este negocio en tu panel para agendar más rápido.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TU NOMBRE</label>
+                <input 
+                  type="text" 
+                  value={linkData.name} 
+                  onChange={(e) => setLinkData({ ...linkData, name: e.target.value })}
+                  placeholder="Ej: Carlos Ruiz"
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TÉLEFONO O CORREO</label>
+                <input 
+                  type="text" 
+                  value={linkData.contact} 
+                  onChange={(e) => setLinkData({ ...linkData, contact: e.target.value })}
+                  placeholder="Para identificarte con el negocio"
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button className="btn btn-outline" onClick={() => setShowLinkModal(false)} style={{ flex: 1 }}>Cerrar</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveToHub}
+                disabled={!linkData.name || isLinking}
+                style={{ flex: 2, fontWeight: 900 }}
+              >
+                {isLinking ? 'Vinculando...' : 'GUARDAR NEGOCIO'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Header Navigation */}
@@ -265,7 +321,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setIsGlobalPaused(!isGlobalPaused)} title="Simular Pausa Admin">
             <Clock size={18} color={isGlobalPaused ? '#ef4444' : 'currentColor'} />
           </button>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={handleSaveToHub} title="Guardar en mis negocios">
+          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setShowLinkModal(true)} title="Vincularme a este negocio">
             <Plus size={18} />
           </button>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }}><Share2 size={18} /></button>
@@ -319,10 +375,35 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>¡Tienes un turno activo para hoy a las 14:30!</p>
           </div>
           <SmartTimer 
-            remainingMinutes={queueInfo.wait} 
-            remainingClients={queueInfo.clients} 
-            turnNumber={queueInfo.nextTurn} 
-            status="waiting" 
+            remainingMinutes={(() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              if (myId) {
+                const myIdx = queueItems.findIndex(q => q.id === myId);
+                if (myIdx !== -1) {
+                  return queueItems.slice(0, myIdx).reduce((acc, item) => {
+                    const svc = dbBusiness?.services.find(s => s.id === item.service_id);
+                    return acc + (svc?.duration || 25);
+                  }, 0);
+                }
+              }
+              return queueInfo.wait;
+            })()} 
+            remainingClients={(() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myIdx = queueItems.findIndex(q => q.id === myId);
+              return myIdx !== -1 ? myIdx : queueInfo.clients;
+            })()} 
+            turnNumber={(() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const item = queueItems.find(q => q.id === myId);
+              return item ? item.pos : queueInfo.nextTurn;
+            })()} 
+            status={(() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const item = queueItems.find(q => q.id === myId);
+              if (item?.active) return 'in_progress';
+              return 'waiting';
+            })()}
             isPaused={isGlobalPaused}
           />
         </div>
@@ -413,7 +494,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
       {hasAppointment && (
         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-          <button className="btn btn-outline" style={{ flex: 1, padding: '1rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => setHasAppointment(false)}>
+          <button className="btn btn-outline" style={{ flex: 1, padding: '1rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => { localStorage.removeItem('myturn_active_appointment_id'); setHasAppointment(false); }}>
             Cancelar Turno
           </button>
           <button className="btn btn-outline" style={{ padding: '1rem' }}>

@@ -11,7 +11,7 @@ interface Service {
 
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string }> = ({ onClose, tenantId }) => {
+export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queueInfo: { wait: number, clients: number, nextTurn: number } }> = ({ onClose, tenantId, queueInfo }) => {
   const [step, setStep] = useState(1);
   const [dbServices, setDbServices] = useState<Service[]>([]);
   const [dbStaff, setDbStaff] = useState<any[]>([]);
@@ -63,14 +63,19 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string }> = 
         const [hh, mm] = selectedTime.split(':');
         aptDate.setHours(parseInt(hh), parseInt(mm), 0, 0);
 
-        // 2. Insert the appointment as an anonymous client
-        await supabase.from('appointments').insert({
+        // 2. Insert the appointment
+        const { data, error } = await supabase.from('appointments').insert({
           tenant_id: tenantId,
           client_name: `${clientName} (${selectedService.name})`,
+          service_id: selectedService.id,
           date_time: aptDate.toISOString(),
           status: 'waiting',
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null
-        });
+        }).select('id').single();
+
+        if (data?.id) {
+          localStorage.setItem('myturn_active_appointment_id', data.id);
+        }
       }
       setStep(5);
     } catch (err) {
@@ -317,8 +322,8 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string }> = 
                 {selectedDate === getTodayStr() ? (
                   <>
                     <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Tu Posición en Cola</p>
-                    <p style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--text)', margin: 0 }}>#5</p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Tiempo estimado: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>120 min</span></p>
+                    <p style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--text)', margin: 0 }}>#{queueInfo.nextTurn}</p>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Tiempo estimado: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{queueInfo.wait} min</span></p>
                   </>
                 ) : (
                   <>

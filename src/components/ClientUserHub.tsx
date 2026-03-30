@@ -21,6 +21,7 @@ const GLOBAL_DIRECTORY: SavedBusiness[] = [];
 
 export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }) => {
   const [savedBusinesses, setSavedBusinesses] = useState<SavedBusiness[]>([]);
+  const [clientDisplayName, setClientDisplayName] = useState('Cliente MyTurn');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SavedBusiness[]>([]);
@@ -39,9 +40,13 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
 
     const fetchSavedBusinesses = async () => {
       const deviceId = getDeviceId();
-      const { data: savedIds } = await supabase.from('saved_tenants').select('tenant_id').eq('client_device_id', deviceId);
+      const { data: savedIds } = await supabase.from('saved_tenants').select('tenant_id, client_name').eq('client_device_id', deviceId);
       
       if (savedIds && savedIds.length > 0) {
+        // Try to get a name if available
+        const namedLink = savedIds.find(s => s.client_name);
+        if (namedLink) setClientDisplayName(namedLink.client_name);
+
         const ids = savedIds.map(s => s.tenant_id);
         const { data: tenants } = await supabase.from('tenants').select('*').in('id', ids);
         if (tenants) {
@@ -127,7 +132,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
     <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Search Header */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Hola, <span style={{ color: 'var(--primary)' }}>Cliente MyTurn</span></h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Hola, <span style={{ color: 'var(--primary)' }}>{clientDisplayName}</span></h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>¿A dónde quieres ir hoy?</p>
       </div>
 
