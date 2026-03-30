@@ -28,6 +28,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
 
   // Profile Editor State
   const [editData, setEditData] = useState({ full_name: '', phone: '' });
+  const [errorMsg, setErrorMsg] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SavedBusiness[]>([]);
@@ -44,10 +45,16 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   };
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('users').select('*').eq('id', userId).single();
-    if (data) {
-      setProfile(data);
-      setEditData({ full_name: data.full_name || '', phone: data.phone || '' });
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+      if (data) {
+        setProfile(data);
+        setEditData({ full_name: data.full_name || '', phone: data.phone || '' });
+      } else if (error) {
+        console.error('Fetch profile error:', error);
+      }
+    } catch (err) {
+      console.error('Fetch profile catch:', err);
     }
   };
 
@@ -116,16 +123,22 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const handleUpdateProfile = async () => {
     if (!user) return;
     setLoading(true);
-    const { error } = await supabase.from('users').update({
-      full_name: editData.full_name,
-      phone: editData.phone
-    }).eq('id', user.id);
+    setErrorMsg('');
+    try {
+      const { error } = await supabase.from('users').update({
+        full_name: editData.full_name,
+        phone: editData.phone
+      }).eq('id', user.id);
 
-    if (!error) {
+      if (error) throw error;
+      
       setProfile({ ...profile, ...editData });
       setShowProfileEditor(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'No se pudo guardar el perfil. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -237,6 +250,11 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
                   />
                 </div>
               </div>
+              
+              {errorMsg && (
+                <p style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>{errorMsg}</p>
+              )}
+
               <button 
                 onClick={handleUpdateProfile}
                 disabled={loading}
@@ -256,7 +274,9 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
           <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px', marginBottom: '0.25rem' }}>
             Hola, <span style={{ color: 'var(--primary)' }}>{profile?.full_name || 'Invitado'}</span>
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>¿A dónde quieres ir hoy?</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            {user ? user.email : '¿A dónde quieres ir hoy?'}
+          </p>
         </div>
         
         {user ? (
@@ -272,10 +292,11 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
             <button 
               onClick={() => supabase.auth.signOut()}
               className="btn btn-outline" 
-              style={{ padding: '0.6rem', borderRadius: '12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)', fontSize: '0.8rem' }}
               title="Cerrar Sesión"
             >
-              <LogOut size={20} />
+              <LogOut size={16} />
+              <span style={{ fontWeight: 800 }}>SALIR</span>
             </button>
           </div>
         ) : (
