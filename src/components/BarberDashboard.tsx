@@ -820,7 +820,10 @@ const getPlanCapabilities = (planName: string) => {
                   }}>
                     {apt.date !== selectedDate && (
                       <div style={{ position: 'absolute', top: '-10px', right: '20px', background: 'var(--accent)', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 900, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 10 }}>
-                        📌 PROGRAMADA: {new Date(apt.date + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        📌 PROGRAMADA: {(() => {
+                          const [y, m, d] = apt.date.split('-').map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+                        })()}
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
