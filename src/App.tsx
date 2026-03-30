@@ -4,9 +4,10 @@ import { BarberDashboard } from './components/BarberDashboard';
 import { ClientView } from './components/ClientView';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { BarberAuth } from './components/BarberAuth';
+import { PasswordReset } from './components/PasswordReset';
 import { supabase } from './lib/supabase';
 
-type AppView = 'landing' | 'barber' | 'client' | 'superadmin' | 'barber_login' | 'superadmin_login';
+type AppView = 'landing' | 'barber' | 'client' | 'superadmin' | 'barber_login' | 'superadmin_login' | 'reset_password';
 
 function App() {
   const [view, setView] = useState<AppView>('landing');
@@ -29,6 +30,12 @@ function App() {
       
       // Check for tenant slug in URL (Priority 1)
       const path = window.location.pathname.replace(/^\/|\/$/g, '');
+      if (path === 'reset-password') {
+        setView('reset_password');
+        setLoading(false);
+        return;
+      }
+
       if (path && path !== '') {
         setTenant({ id: path, name: '' });
         setView('client');
@@ -127,6 +134,8 @@ function App() {
         return <BarberDashboard />;
       case 'client': 
         return <ClientView initialSlug={tenant?.id} />;
+      case 'reset_password':
+        return <PasswordReset onComplete={() => setView('landing')} />;
       default: return (
         <main className="animate-fade-in" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
           <h1 style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1.5rem', lineHeight: 1.1 }}>
