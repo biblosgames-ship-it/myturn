@@ -214,7 +214,7 @@ export const BarberDashboard: React.FC = () => {
   }, []);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '' });
+  const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
   const [copied, setCopied] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [activeTimer, setActiveTimer] = useState(25 * 60); // Seconds left for current client
@@ -335,22 +335,10 @@ const getPlanCapabilities = (planName: string) => {
       return;
     }
 
-    const todayApts = appointments.filter(a => a.date === selectedDate);
-    const lastApt = todayApts[todayApts.length - 1];
-    let newTime = "Ahora";
-    let hourForDb = new Date().getHours();
-    let minForDb = new Date().getMinutes();
-    
-    if (lastApt) {
-      const [hours, minutes] = lastApt.time.split(':').map(Number);
-      if (!isNaN(hours)) {
-        const date = new Date();
-        date.setHours(hours, minutes + 30);
-        newTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-        hourForDb = date.getHours();
-        minForDb = date.getMinutes();
-      }
-    }
+    const [hStr, mStr] = newClient.time.split(':');
+    let hourForDb = Number(hStr);
+    let minForDb = Number(mStr);
+    let newTime = newClient.time;
 
     const [year, month, day] = selectedDate.split('-').map(Number);
     const aptDate = new Date(year, month - 1, day);
@@ -391,7 +379,7 @@ const getPlanCapabilities = (planName: string) => {
       setAppointments([...appointments, newApt]);
     }
 
-    setNewClient({ name: '', service: 'Corte Clásico', staffId: '' });
+    setNewClient({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
     setShowAddForm(false);
   };
 
@@ -813,6 +801,15 @@ const getPlanCapabilities = (planName: string) => {
                         </>
                       )}
                     </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>HORA</label>
+                    <input 
+                      type="time" 
+                      value={newClient.time}
+                      onChange={(e) => setNewClient({...newClient, time: e.target.value})}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                    />
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>PROFESIONAL</label>
