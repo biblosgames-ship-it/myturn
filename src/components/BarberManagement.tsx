@@ -60,7 +60,8 @@ export const BarberManagement: React.FC = () => {
     color: '#f59e0b',
     slogan: '',
     showReviews: true,
-    bookingMode: 'online' as 'online' | 'manual' | 'hybrid'
+    bookingMode: 'online' as 'online' | 'manual' | 'hybrid',
+    closingTime: '20:00'
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -86,7 +87,8 @@ export const BarberManagement: React.FC = () => {
               color: tenant.color || '#f59e0b',
               slogan: tenant.slogan || '',
               showReviews: tenant.show_reviews ?? true,
-              bookingMode: (tenant.booking_mode as any) || 'online'
+              bookingMode: (tenant.booking_mode as any) || 'online',
+              closingTime: tenant.closing_time || '20:00'
             });
             if (tenant.schedule) setWeeksSchedule(tenant.schedule);
             if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
@@ -168,6 +170,7 @@ export const BarberManagement: React.FC = () => {
         color: brand.color,
         show_reviews: brand.showReviews,
         booking_mode: brand.bookingMode,
+        closing_time: brand.closingTime,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
       }).eq('id', userData.tenant_id);
@@ -417,6 +420,21 @@ export const BarberManagement: React.FC = () => {
                     <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>{mode.desc}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div style={{ padding: '1.25rem', background: 'rgba(239,68,68,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid #ef4444' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Cierre Automático</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>El negocio se pondrá en modo "Cerrado" automáticamente a esta hora.</p>
+                </div>
+                <input 
+                  type="time" 
+                  value={brand.closingTime}
+                  onChange={(e) => setBrand({...brand, closingTime: e.target.value})}
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', fontWeight: 700 }}
+                />
               </div>
             </div>
           </div>

@@ -44,6 +44,7 @@ export const BarberDashboard: React.FC = () => {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [savedCustomers, setSavedCustomers] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(true);
+  const [closingTime, setClosingTime] = useState('20:00');
 
 
   // Supabase Real-time Sync for Appointments
@@ -150,6 +151,7 @@ export const BarberDashboard: React.FC = () => {
             const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
             if (tenant) {
               setIsOpen(tenant.is_open ?? true);
+              setClosingTime(tenant.closing_time || '20:00');
               setBusinessName(tenant.name);
               setLogoUrl(tenant.logo || '');
               if (tenant.color) {
@@ -205,7 +207,9 @@ export const BarberDashboard: React.FC = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` }, (payload) => {
         if (payload.new) {
-          setIsOpen((payload.new as any).is_open);
+          const updated = payload.new as any;
+          setIsOpen(updated.is_open);
+          if (updated.closing_time) setClosingTime(updated.closing_time);
         }
       })
       .subscribe();
