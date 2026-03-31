@@ -649,12 +649,40 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </button>
           <button 
             className="btn btn-outline" 
-            style={{ padding: '0.4rem', borderRadius: '50%' }} 
+            style={{ padding: '0.4rem', borderRadius: '50%', position: 'relative' }} 
             title="Chat con el negocio"
-            onClick={() => setShowChat(true)}
+            onClick={() => {
+              setShowChat(!showChat);
+              if (!showChat) {
+                localStorage.setItem('myturn_chat_last_seen', new Date().toISOString());
+                setUnreadCount(0);
+              }
+            }}
           >
             <MessageSquare size={18} />
+            {unreadCount > 0 && (
+              <span style={{ 
+                position: 'absolute', 
+                top: '-4px', 
+                right: '-4px', 
+                background: '#ff3b30', 
+                color: 'white', 
+                borderRadius: '50%', 
+                width: '18px', 
+                height: '18px', 
+                fontSize: '10px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                fontWeight: 900,
+                border: '2px solid var(--background)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                {unreadCount}
+              </span>
+            )}
           </button>
+
         </div>
       </div>
 
@@ -1038,9 +1066,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
         )}
 
-        {/* Floating Chat Bubble (Persistent) */}
-        <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1300, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1rem' }}>
-          {showChat && (
+        {/* Chat Window (Persistent Popup) */}
+        {showChat && (
+          <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1300 }}>
             <div className="card animate-scale-in" style={{ width: '320px', height: '420px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)', background: 'var(--surface)' }}>
               <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1110,42 +1138,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <button 
-            onClick={() => {
-              setShowChat(!showChat);
-              if (!showChat) {
-                localStorage.setItem('myturn_chat_last_seen', new Date().toISOString());
-                setUnreadCount(0);
-              }
-            }}
-            style={{ 
-              width: '60px', 
-              height: '60px', 
-              borderRadius: '50%', 
-              background: 'var(--primary)', 
-              color: 'black', 
-              border: 'none', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(245,158,11,0.4)',
-              transition: 'transform 0.2s',
-              position: 'relative'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            {showChat ? <X size={24} /> : <MessageSquare size={24} />}
-            {unreadCount > 0 && !showChat && (
-              <span style={{ position: 'absolute', top: '0', right: '0', background: 'red', color: 'white', border: '2px solid var(--background)', borderRadius: '50%', width: '22px', height: '22px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-        </div>
 
     </div>
   );
