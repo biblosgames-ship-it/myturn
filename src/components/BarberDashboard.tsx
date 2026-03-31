@@ -684,7 +684,8 @@ const getPlanCapabilities = (planName: string) => {
             {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
               const date = new Date();
               date.setDate(date.getDate() + offset);
-              const dateStr = date.toISOString().split('T')[0];
+              const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const dStr = String(date.getDate()).padStart(2, '0');
+              const dateStr = `${y}-${m}-${dStr}`;
               const isToday = offset === 0;
               const isSelected = selectedDate === dateStr;
               
