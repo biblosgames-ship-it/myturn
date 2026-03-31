@@ -26,6 +26,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
   const [existingAppointments, setExistingAppointments] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -62,6 +63,12 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
           price: s.price,
           duration: s.duration_minutes
         })));
+      }
+
+      // 1b. Fetch Schedule
+      const { data: tData } = await supabase.from('tenants').select('schedule').eq('id', tenantId).single();
+      if (tData?.schedule) {
+        setBusinessSchedule(tData.schedule);
       }
 
       // 2. Fetch Staff
@@ -284,25 +291,33 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
                     const dateStr = `${y}-${m}-${dStr}`;
                     const isSelected = selectedDate === dateStr;
                     
+                    // CHECK IF DAY IS CLOSED IN SCHEDULE
+                    const dayNameRaw = date.toLocaleDateString('es-ES', { weekday: 'long' });
+                    const dayName = dayNameRaw.charAt(0).toUpperCase() + dayNameRaw.slice(1);
+                    const scheduleDay = businessSchedule.find(s => s.day === dayName);
+                    const isClosed = scheduleDay && !scheduleDay.isOpen;
+
                     return (
                       <button
                         key={dateStr}
-                        onClick={() => setSelectedDate(dateStr)}
+                        onClick={() => { if (!isClosed) setSelectedDate(dateStr); }}
+                        disabled={isClosed}
                         style={{
                           minWidth: '60px',
                           padding: '0.5rem',
                           borderRadius: 'var(--radius-md)',
-                          background: isSelected ? 'var(--primary)' : 'var(--background)',
-                          color: isSelected ? 'black' : 'var(--text)',
-                          border: isSelected ? 'none' : '1px solid var(--border)',
-                          cursor: 'pointer',
+                          background: isSelected ? 'var(--primary)' : isClosed ? 'rgba(239,68,68,0.05)' : 'var(--background)',
+                          color: isSelected ? 'black' : isClosed ? '#ef4444' : 'var(--text)',
+                          border: isSelected ? 'none' : `1px solid ${isClosed ? '#ef4444' : 'var(--border)'}`,
+                          cursor: isClosed ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          opacity: isClosed ? 0.6 : 1
                         }}
                       >
-                        <span style={{ fontSize: '0.6rem', fontWeight: 800 }}>{offset === 0 ? 'HOY' : date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</span>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 800 }}>{isClosed ? 'CERRADO' : offset === 0 ? 'HOY' : date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</span>
                         <span style={{ fontSize: '1rem', fontWeight: 800 }}>{date.getDate()}</span>
                       </button>
                     );
