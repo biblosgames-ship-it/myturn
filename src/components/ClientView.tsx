@@ -611,11 +611,22 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
               {business?.title}
             </p>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button 
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ background: 'var(--primary)', color: 'black', border: 'none', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                >
+                  <MessageSquare size={14} fill="black" /> DEJAR OPINIÓN
+                </button>
+            </div>
             {business?.showReviews && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+              <div 
+                onClick={() => setShowReviewModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.8rem', cursor: 'pointer' }}
+              >
                 <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                <span style={{ color: 'var(--text)', fontWeight: 700 }}>{business?.rating}</span>
-                <span>({business?.reviews} reseñas)</span>
+                <span style={{ color: 'var(--text)', fontWeight: 800 }}>{business?.rating}</span>
+                <span style={{ fontWeight: 600 }}>({business?.reviews} reseñas)</span>
               </div>
             )}
           </div>

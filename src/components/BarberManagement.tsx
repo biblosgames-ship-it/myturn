@@ -74,6 +74,8 @@ export const BarberManagement: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [showAddReview, setShowAddReview] = useState(false);
+  const [newReview, setNewReview] = useState({ client_name: '', rating: 5, comment: '' });
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -612,9 +614,71 @@ export const BarberManagement: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Moderación de Reseñas</h3>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {reviews.filter(r => !r.is_approved).length} pendientes de aprobación
+              <button 
+                onClick={() => setShowAddReview(true)}
+                className="btn btn-primary" 
+                style={{ fontSize: '0.75rem', padding: '0.4rem 1rem' }}
+              >
+                + Crear Reseña Manual
+              </button>
+            </div>
+
+            {showAddReview && (
+              <div className="card animate-scale-in" style={{ padding: '1.5rem', background: 'var(--surface-hover)', border: '1px solid var(--primary)' }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '1rem' }}>Nueva Reseña (Auto-aprobada)</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <input 
+                      type="text" placeholder="Nombre del cliente" value={newReview.client_name}
+                      onChange={(e) => setNewReview({...newReview, client_name: e.target.value})}
+                      style={{ width: '100%', padding: '0.6rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                    />
+                    <select 
+                      value={newReview.rating}
+                      onChange={(e) => setNewReview({...newReview, rating: parseInt(e.target.value)})}
+                      style={{ width: '100%', padding: '0.6rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                    >
+                      {[5,4,3,2,1].map(v => <option key={v} value={v}>{v} Estrellas</option>)}
+                    </select>
+                  </div>
+                  <textarea 
+                    placeholder="Comentario o testimonio..." value={newReview.comment}
+                    onChange={(e) => setNewReview({...newReview, comment: e.target.value})}
+                    style={{ width: '100%', padding: '0.6rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', resize: 'none' }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowAddReview(false)}>Cancelar</button>
+                    <button 
+                      className="btn btn-primary" style={{ flex: 2 }}
+                      disabled={!newReview.client_name}
+                      onClick={async () => {
+                         const { data: { user } } = await supabase.auth.getUser();
+                         if (!user) return;
+                         const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+                         if (!userData?.tenant_id) return;
+
+                         const { data: rev, error } = await supabase.from('reviews').insert({
+                           tenant_id: userData.tenant_id,
+                           client_name: newReview.client_name,
+                           rating: newReview.rating,
+                           comment: newReview.comment,
+                           is_approved: true
+                         }).select().single();
+
+                         if (!error && rev) {
+                           setReviews([rev, ...reviews]);
+                           setShowAddReview(false);
+                           setNewReview({ client_name: '', rating: 5, comment: '' });
+                         }
+                      }}
+                    >Guardar Reseña</button>
+                  </div>
+                </div>
               </div>
+            )}
+
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {reviews.filter(r => !r.is_approved).length} pendientes de aprobación
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
