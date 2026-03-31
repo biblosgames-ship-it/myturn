@@ -45,6 +45,9 @@ export const BarberManagement: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [chatReply, setChatReply] = useState('');
+  const [broadcastData, setBroadcastData] = useState({ content: '', imageUrl: '' });
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+
 
   const [weeksSchedule, setWeeksSchedule] = useState<DaySchedule[]>([
     { day: 'Lunes', isOpen: true, hours: '09:00 - 18:00' },
@@ -179,6 +182,35 @@ export const BarberManagement: React.FC = () => {
        });
     }
   };
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastData.content.trim()) return;
+    setIsSendingBroadcast(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+      if (userData?.tenant_id) {
+         await supabase.from('messages').insert({
+           tenant_id: userData.tenant_id,
+           session_id: 'broadcast',
+           content: broadcastData.content,
+           image_url: broadcastData.imageUrl || null,
+           is_from_client: false,
+           is_broadcast: true,
+           customer_name: 'ANUNCIO'
+         });
+         setBroadcastData({ content: '', imageUrl: '' });
+         alert('¡Mensaje de difusión enviado con éxito!');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al enviar la difusión');
+    } finally {
+      setIsSendingBroadcast(false);
+    }
+  };
+
 
   const addService = () => {
     setServices([...services, { name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
@@ -349,13 +381,14 @@ export const BarberManagement: React.FC = () => {
             position: 'relative'
           }}
         >
-          Preguntas de Clientes
+          Mensajería de Clientes
           {chatMessages.filter(m => !m.is_read && m.is_from_client).length > 0 && (
             <span style={{ position: 'absolute', top: '0', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
               {chatMessages.filter(m => !m.is_read && m.is_from_client).length}
             </span>
           )}
         </button>
+
       </div>
 
       <div className="card">
@@ -804,7 +837,141 @@ export const BarberManagement: React.FC = () => {
               )}
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'messages' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Mensajería de Clientes</h3>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Chat en Vivo Activo</span>
+              </div>
+            </div>
+
+            {/* Broadcast Creation Tool */}
+            <div style={{ padding: '1.5rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)' }}>
+              <h4 style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Zap size={16} /> Enviar Mensaje Masivo / Difusión
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>CONTENIDO DEL MENSAJE (OFERTAS, AVISOS...)</label>
+                  <textarea 
+                    rows={2}
+                    value={broadcastData.content}
+                    onChange={(e) => setBroadcastData({...broadcastData, content: e.target.value})}
+                    placeholder="Escribe el mensaje que verán TODOS tus clientes..."
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem', resize: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>URL DE IMAGEN (OPCIONAL)</label>
+                  <input 
+                    type="text"
+                    value={broadcastData.imageUrl}
+                    onChange={(e) => setBroadcastData({...broadcastData, imageUrl: e.target.value})}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    style={{ width: '100%', padding: '0.7rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <button 
+                  onClick={handleSendBroadcast}
+                  disabled={isSendingBroadcast || !broadcastData.content.trim()}
+                  className="btn btn-primary"
+                  style={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}
+                >
+                  {isSendingBroadcast ? 'Enviando...' : '🚀 Enviar a todos los clientes'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', height: '500px', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+              {/* List of Chats */}
+              <div style={{ width: '250px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
+                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', fontWeight: 800, fontSize: '0.8rem', color: 'var(--text-muted)' }}>CONVERSACIONES</div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {Array.from(new Set(chatMessages.filter(m => !m.is_broadcast).map(m => m.session_id))).map(sid => {
+                    const sessionMsgs = chatMessages.filter(m => m.session_id === sid);
+                    const lastMsg = sessionMsgs[sessionMsgs.length - 1];
+                    const unreadCount = sessionMsgs.filter(m => !m.is_read && m.is_from_client).length;
+                    return (
+                      <div 
+                        key={sid} 
+                        onClick={() => {
+                          setSelectedSessionId(sid);
+                          const unreadIds = sessionMsgs.filter(m => !m.is_read && m.is_from_client).map(m => m.id);
+                          if (unreadIds.length > 0) {
+                            supabase.from('messages').update({ is_read: true }).in('id', unreadIds).then(() => {
+                               setChatMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, is_read: true } : m));
+                            });
+                          }
+                        }}
+                        style={{ 
+                          padding: '1rem', 
+                          borderBottom: '1px solid var(--border)', 
+                          cursor: 'pointer', 
+                          background: selectedSessionId === sid ? 'rgba(245,158,11,0.05)' : 'transparent',
+                          borderLeft: selectedSessionId === sid ? '4px solid var(--primary)' : '4px solid transparent'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.8rem' }}>{sessionMsgs.find(m => m.customer_name)?.customer_name || 'Cliente'}</span>
+                          {unreadCount > 0 && <span style={{ background: 'red', color: 'white', borderRadius: '50%', padding: '0 5px', fontSize: '10px', height: '16px', display: 'flex', alignItems: 'center' }}>{unreadCount}</span>}
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMsg.content}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Chat Window */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+                {selectedSessionId ? (
+                  <>
+                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--background)', fontWeight: 800, fontSize: '0.9rem' }}>
+                      {chatMessages.find(m => m.session_id === selectedSessionId)?.customer_name || 'Cliente'}
+                    </div>
+                    <div style={{ flex: 1, padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: '#0a0a0a' }}>
+                      {chatMessages.filter(m => m.session_id === selectedSessionId).map(m => (
+                        <div key={m.id} style={{ alignSelf: m.is_from_client ? 'flex-start' : 'flex-end', maxWidth: '75%' }}>
+                          <div style={{ 
+                            padding: '0.6rem 0.9rem', 
+                            borderRadius: m.is_from_client ? '1rem 1rem 1rem 0' : '1rem 1rem 0 1rem',
+                            background: m.is_from_client ? 'var(--surface)' : 'var(--primary)',
+                            color: m.is_from_client ? 'var(--text)' : 'black',
+                            fontSize: '0.85rem',
+                            fontWeight: 600
+                          }}>
+                            {m.content}
+                          </div>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.2rem', textAlign: m.is_from_client ? 'left' : 'right' }}>
+                            {new Date(m.created_at).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ padding: '0.75rem', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
+                      <input 
+                        type="text" 
+                        value={chatReply}
+                        onChange={(e) => setChatReply(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendReply()}
+                        placeholder="Responde aquí..."
+                        style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
+                      />
+                      <button onClick={handleSendReply} className="btn btn-primary" style={{ padding: '0 1.25rem', borderRadius: 'var(--radius-full)' }}>Enviar</button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    Selecciona una conversación para responder
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'schedule' ? (
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Disponibilidad Semanal</h3>
             
@@ -906,7 +1073,7 @@ export const BarberManagement: React.FC = () => {
               </p>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div style={{ position: 'relative' }}>
@@ -940,97 +1107,7 @@ export const BarberManagement: React.FC = () => {
           </div>
         )}
       </div>
-      {activeTab === 'messages' && (
-        <div className="card animate-fade-in" style={{ padding: '0', display: 'flex', height: '600px', overflow: 'hidden' }}>
-          {/* List of Chats */}
-          <div style={{ width: '300px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
-            <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', fontWeight: 800, fontSize: '0.9rem' }}>Conversaciones</div>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {Array.from(new Set(chatMessages.map(m => m.session_id))).map(sid => {
-                const sessionMsgs = chatMessages.filter(m => m.session_id === sid);
-                const lastMsg = sessionMsgs[sessionMsgs.length - 1];
-                const unreadCount = sessionMsgs.filter(m => !m.is_read && m.is_from_client).length;
-                return (
-                  <div 
-                    key={sid} 
-                    onClick={() => {
-                      setSelectedSessionId(sid);
-                      // Mark as read
-                      const unreadIds = sessionMsgs.filter(m => !m.is_read && m.is_from_client).map(m => m.id);
-                      if (unreadIds.length > 0) {
-                        supabase.from('messages').update({ is_read: true }).in('id', unreadIds).then(() => {
-                           setChatMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, is_read: true } : m));
-                        });
-                      }
-                    }}
-                    style={{ 
-                      padding: '1rem', 
-                      borderBottom: '1px solid var(--border)', 
-                      cursor: 'pointer', 
-                      background: selectedSessionId === sid ? 'rgba(245,158,11,0.05)' : 'transparent',
-                      borderLeft: selectedSessionId === sid ? '4px solid var(--primary)' : '4px solid transparent'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{sessionMsgs.find(m => m.customer_name)?.customer_name || 'Cliente'}</span>
-                      {unreadCount > 0 && <span style={{ background: 'red', color: 'white', borderRadius: '50%', padding: '0 5px', fontSize: '10px', height: '16px' }}>{unreadCount}</span>}
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMsg.content}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          
-          {/* Chat Window */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {selectedSessionId ? (
-              <>
-                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 800 }}>
-                  Chat con {chatMessages.find(m => m.session_id === selectedSessionId)?.customer_name || 'Cliente'}
-                </div>
-                <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#0a0a0a' }}>
-                  {chatMessages.filter(m => m.session_id === selectedSessionId).map(m => (
-                    <div key={m.id} style={{ alignSelf: m.is_from_client ? 'flex-start' : 'flex-end', maxWidth: '70%' }}>
-                      <div style={{ 
-                        padding: '0.75rem 1rem', 
-                        borderRadius: m.is_from_client ? '1rem 1rem 1rem 0' : '1rem 1rem 0 1rem',
-                        background: m.is_from_client ? 'var(--surface)' : 'var(--primary)',
-                        color: m.is_from_client ? 'var(--text)' : 'black',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        boxShadow: 'var(--shadow-sm)'
-                      }}>
-                        {m.content}
-                      </div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.3rem', textAlign: m.is_from_client ? 'left' : 'right' }}>
-                        {new Date(m.created_at).toLocaleTimeString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem' }}>
-                  <input 
-                    type="text" 
-                    value={chatReply}
-                    onChange={(e) => setChatReply(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendReply()}
-                    placeholder="Escribe tu respuesta..."
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
-                  />
-                  <button onClick={handleSendReply} className="btn btn-primary">Enviar</button>
-                </div>
-              </>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                Selecciona una conversación para empezar
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Chat UI already handled in the block above */}
     </div>
   );
 };
+

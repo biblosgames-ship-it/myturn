@@ -127,6 +127,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
   const [sessionId] = useState(() => {
     let id = localStorage.getItem('myturn_chat_session_id');
     if (!id) {
@@ -135,6 +136,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     }
     return id;
   });
+
 
   const business = dbBusiness;
 
@@ -155,10 +157,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       .from('messages')
       .select('*')
       .eq('tenant_id', dbBusiness.id)
-      .eq('session_id', sessionId)
+      .or(`session_id.eq.${sessionId},is_broadcast.eq.true`)
       .order('created_at', { ascending: true });
-    if (data) setChatMessages(data);
-  }, [dbBusiness?.id, sessionId]);
+    if (data) {
+      setChatMessages(data);
+      const lastSeen = localStorage.getItem('myturn_chat_last_seen') || '1970-01-01';
+      const unread = data.filter(m => !m.is_from_client && m.created_at > lastSeen).length;
+      setUnreadCount(showChat ? 0 : unread);
+    }
+  }, [dbBusiness?.id, sessionId, showChat]);
+
   const sendMessage = async () => {
     if (!chatInput.trim() || !dbBusiness?.id) return;
     const msg = chatInput;
@@ -1030,67 +1038,111 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
         )}
 
-        {/* Chat Modal (Simplified) */}
-        {showChat && (
-        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '1rem', zIndex: 1300 }}>
-          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '360px', height: '60vh', minHeight: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)' }}>
-            <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
-                <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Pregunta al Negocio</span>
-              </div>
-              <button 
-                onClick={() => setShowChat(false)} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div style={{ flex: 1, padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--background)' }}>
-              {chatMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
-                  <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Tienes alguna duda sobre tu turno?</p>
+        {/* Floating Chat Bubble (Persistent) */}
+        <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1300, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1rem' }}>
+          {showChat && (
+            <div className="card animate-scale-in" style={{ width: '320px', height: '420px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Chat de Atención</span>
                 </div>
-              ) : (
-                chatMessages.map((m, idx) => (
-                  <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                    <div style={{ 
-                      padding: '0.6rem 0.9rem', 
-                      borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
-                      background: m.is_from_client ? 'var(--primary)' : 'var(--surface)',
-                      color: m.is_from_client ? 'black' : 'var(--text)',
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      boxShadow: 'var(--shadow-sm)'
-                    }}>
-                      {m.content}
-                    </div>
+                <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
+                {chatMessages.length === 0 ? (
+                  <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Alguna duda sobre tu turno?</p>
                   </div>
-                ))
-              )}
-            </div>
+                ) : (
+                  chatMessages.map((m, idx) => (
+                    <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '90%' }}>
+                      <div style={{ 
+                        padding: '0.6rem 0.9rem', 
+                        borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
+                        background: m.is_broadcast ? 'rgba(245,158,11,0.15)' : m.is_from_client ? 'var(--primary)' : 'var(--surface)',
+                        color: m.is_broadcast ? 'var(--primary)' : m.is_from_client ? 'black' : 'var(--text)',
+                        border: m.is_broadcast ? '1px solid var(--primary)' : 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        {m.image_url && (
+                          <img 
+                            src={m.image_url} 
+                            alt="Ad" 
+                            style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'block' }} 
+                            onLoad={(e) => {
+                               const target = e.target as any;
+                               target.parentNode.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                          />
+                        )}
+                        {m.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
 
-            <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.5rem' }}>
-              <input 
-                type="text" 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Escribe tu pregunta..."
-                style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
-              />
-              <button 
-                onClick={sendMessage}
-                disabled={!chatInput.trim()}
-                style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: 'black', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              >
-                <Send size={18} />
-              </button>
+              <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Escribe aquí..."
+                  style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
+                />
+                <button 
+                  onClick={sendMessage}
+                  disabled={!chatInput.trim()}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', color: 'black', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                >
+                  <Send size={16} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          <button 
+            onClick={() => {
+              setShowChat(!showChat);
+              if (!showChat) {
+                localStorage.setItem('myturn_chat_last_seen', new Date().toISOString());
+                setUnreadCount(0);
+              }
+            }}
+            style={{ 
+              width: '60px', 
+              height: '60px', 
+              borderRadius: '50%', 
+              background: 'var(--primary)', 
+              color: 'black', 
+              border: 'none', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(245,158,11,0.4)',
+              transition: 'transform 0.2s',
+              position: 'relative'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {showChat ? <X size={24} /> : <MessageSquare size={24} />}
+            {unreadCount > 0 && !showChat && (
+              <span style={{ position: 'absolute', top: '0', right: '0', background: 'red', color: 'white', border: '2px solid var(--background)', borderRadius: '50%', width: '22px', height: '22px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
         </div>
-      )}
+
     </div>
   );
 };
