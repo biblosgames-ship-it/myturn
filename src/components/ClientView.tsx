@@ -1081,7 +1081,11 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                             }}
                           />
                         )}
-                        {m.content}
+                        {m.is_broadcast ? (
+                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: m.content }} />
+                        ) : (
+                          m.content
+                        )}
                       </div>
                     </div>
                   ))

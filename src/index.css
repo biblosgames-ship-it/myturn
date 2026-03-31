@@ -170,3 +170,21 @@ header {
     width: 100%;
   }
 }
+
+/* Rich Content Styles */
+.rich-content {
+  line-height: 1.5;
+}
+.rich-content img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  margin: 0.5rem 0;
+  display: block;
+}
+.rich-content font[size="1"] { font-size: 10px; }
+.rich-content font[size="2"] { font-size: 13px; }
+.rich-content font[size="3"] { font-size: 16px; }
+.rich-content font[size="4"] { font-size: 18px; }
+.rich-content font[size="5"] { font-size: 24px; }
+.rich-content font[size="6"] { font-size: 32px; }
+.rich-content font[size="7"] { font-size: 48px; }

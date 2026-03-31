@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
   Stethoscope, Palette, Brush, User, Heart, Activity, Car, Smartphone, Zap, Star, 
-  Smile, Wind, Droplets, Briefcase, ShoppingBag
+  Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, Image as ImageIcon, Eye, X
 } from 'lucide-react';
+
+
 import { supabase } from '../lib/supabase';
 
 const availableIcons = [
@@ -40,13 +42,58 @@ interface DaySchedule {
   hours: string;
 }
 
+const RichTextEditor: React.FC<{ 
+  value: string, 
+  onChange: (val: string) => void,
+  placeholder?: string 
+}> = ({ value, onChange, placeholder }) => {
+  const [isClient, setIsClient] = React.useState(false);
+  React.useEffect(() => setIsClient(true), []);
+
+  const exec = (cmd: string, val?: string) => {
+    document.execCommand(cmd, false, val);
+  };
+
+  if (!isClient) return null;
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--background)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', padding: '0.6rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" onClick={() => exec('bold')} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text)', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Negrita"><Bold size={14} /></button>
+        <button type="button" onClick={() => exec('italic')} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text)', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Cursiva"><Italic size={14} /></button>
+        <button type="button" onClick={() => exec('underline')} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text)', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Subrayado"><Underline size={14} /></button>
+        <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 0.2rem' }} />
+        <select onChange={(e) => exec('fontSize', e.target.value)} style={{ fontSize: '11px', background: 'var(--background)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px' }}>
+          <option value="3">Mediano</option>
+          <option value="2">Pequeño</option>
+          <option value="5">Grande</option>
+          <option value="7">Gigante</option>
+        </select>
+        <input type="color" defaultValue="#ffffff" onChange={(e) => exec('foreColor', e.target.value)} style={{ width: '24px', height: '24px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }} />
+      </div>
+      <div 
+        contentEditable
+        onInput={(e) => onChange(e.currentTarget.innerHTML)}
+        onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+        style={{ padding: '1rem', minHeight: '100px', outline: 'none', fontSize: '1rem', color: 'var(--text)', lineHeight: '1.5' }}
+        dangerouslySetInnerHTML={{ __html: value }}
+      />
+    </div>
+  );
+};
+
+
 export const BarberManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews' | 'messages'>('brand');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
   const [chatReply, setChatReply] = useState('');
   const [broadcastData, setBroadcastData] = useState({ content: '', imageUrl: '' });
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [broadcastFile, setBroadcastFile] = useState<File | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
 
 
   const [weeksSchedule, setWeeksSchedule] = useState<DaySchedule[]>([
@@ -190,19 +237,42 @@ export const BarberManagement: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-      if (userData?.tenant_id) {
-         await supabase.from('messages').insert({
-           tenant_id: userData.tenant_id,
-           session_id: 'broadcast',
-           content: broadcastData.content,
-           image_url: broadcastData.imageUrl || null,
-           is_from_client: false,
-           is_broadcast: true,
-           customer_name: 'ANUNCIO'
-         });
-         setBroadcastData({ content: '', imageUrl: '' });
-         alert('¡Mensaje de difusión enviado con éxito!');
+      if (!userData?.tenant_id) return;
+
+      let finalImageUrl = broadcastData.imageUrl;
+
+      // Upload image if file is selected
+      if (broadcastFile) {
+        const fileExt = broadcastFile.name.split('.').pop();
+        const fileName = `broadcast_${Date.now()}.${fileExt}`;
+        const filePath = `${userData.tenant_id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('logos') // Using 'logos' bucket for now as it's already configured
+          .upload(filePath, broadcastFile);
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('logos')
+            .getPublicUrl(filePath);
+          finalImageUrl = publicUrl;
+        }
       }
+
+      await supabase.from('messages').insert({
+        tenant_id: userData.tenant_id,
+        session_id: 'broadcast',
+        content: broadcastData.content,
+        image_url: finalImageUrl || null,
+        is_from_client: false,
+        is_broadcast: true,
+        customer_name: 'PROMOCIÓN'
+      });
+
+      setBroadcastData({ content: '', imageUrl: '' });
+      setBroadcastFile(null);
+      setShowPreview(false);
+      alert('¡Difusión enviada con éxito!');
     } catch (err) {
       console.error(err);
       alert('Error al enviar la difusión');
@@ -210,6 +280,7 @@ export const BarberManagement: React.FC = () => {
       setIsSendingBroadcast(false);
     }
   };
+
 
 
   const addService = () => {
@@ -847,42 +918,99 @@ export const BarberManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Broadcast Creation Tool */}
+            {/* Broadcast Creation Tool (Rich) */}
             <div style={{ padding: '1.5rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)' }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Zap size={16} /> Enviar Mensaje Masivo / Difusión
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>CONTENIDO DEL MENSAJE (OFERTAS, AVISOS...)</label>
-                  <textarea 
-                    rows={2}
-                    value={broadcastData.content}
-                    onChange={(e) => setBroadcastData({...broadcastData, content: e.target.value})}
-                    placeholder="Escribe el mensaje que verán TODOS tus clientes..."
-                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem', resize: 'none' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>URL DE IMAGEN (OPCIONAL)</label>
-                  <input 
-                    type="text"
-                    value={broadcastData.imageUrl}
-                    onChange={(e) => setBroadcastData({...broadcastData, imageUrl: e.target.value})}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    style={{ width: '100%', padding: '0.7rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.85rem' }}
-                  />
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Zap size={16} /> Crear Mensaje Promocional
+                </h4>
                 <button 
-                  onClick={handleSendBroadcast}
-                  disabled={isSendingBroadcast || !broadcastData.content.trim()}
-                  className="btn btn-primary"
-                  style={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}
+                  onClick={() => setShowPreview(!showPreview)}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  {isSendingBroadcast ? 'Enviando...' : '🚀 Enviar a todos los clientes'}
+                  {showPreview ? <><X size={14} /> Ocultar Previsualización</> : <><Eye size={14} /> Ver Previsualización</>}
                 </button>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 300px' : '1fr', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>CONTENIDO (USA EL EDITOR PARA DAR ESTILO)</label>
+                    <RichTextEditor 
+                      value={broadcastData.content} 
+                      onChange={(val) => setBroadcastData({...broadcastData, content: val})} 
+                      placeholder="Escribe tu anuncio aquí..."
+                    />
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>SUBIR IMAGEN / ARTE</label>
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setBroadcastFile(file);
+                            setBroadcastData({...broadcastData, imageUrl: URL.createObjectURL(file)});
+                          }
+                        }}
+                        style={{ fontSize: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', width: '100%' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>O PEGAR URL DE IMAGEN</label>
+                      <input 
+                        type="text"
+                        value={broadcastData.imageUrl}
+                        onChange={(e) => setBroadcastData({...broadcastData, imageUrl: e.target.value})}
+                        placeholder="https://..."
+                        style={{ width: '100%', padding: '0.65rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleSendBroadcast}
+                    disabled={isSendingBroadcast || !broadcastData.content.trim()}
+                    className="btn btn-primary"
+                    style={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginTop: '0.5rem' }}
+                  >
+                    {isSendingBroadcast ? 'Enviando...' : '🚀 Lanzar Difusión a Todos'}
+                  </button>
+                </div>
+
+                {showPreview && (
+                  <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>VISTA PREVIA DEL CLIENTE</label>
+                    <div style={{ padding: '1rem', background: '#0a0a0a', borderRadius: '1rem', border: '1px solid var(--border)', flex: 1, minHeight: '300px' }}>
+                      <div style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+                        <div style={{ 
+                          padding: '0.8rem 1rem', 
+                          borderRadius: '1rem 1rem 1rem 0',
+                          background: 'rgba(245,158,11,0.15)',
+                          color: 'var(--primary)',
+                          border: '1px solid var(--primary)',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          boxShadow: 'var(--shadow-sm)'
+                        }}>
+                          {broadcastData.imageUrl && (
+                            <img src={broadcastData.imageUrl} alt="Preview" style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.75rem' }} />
+                          )}
+                          <div dangerouslySetInnerHTML={{ __html: broadcastData.content || 'Tu mensaje vacío...' }} />
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                          Justo ahora
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
 
             <div style={{ display: 'flex', height: '500px', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
               {/* List of Chats */}
