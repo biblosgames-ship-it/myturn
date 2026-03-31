@@ -65,18 +65,25 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
 
   React.useEffect(() => {
     const fetchExisting = async () => {
+      // Create explicit 00:00:00 and 23:59:59 local dates to extract their true UTC bounds
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const startOfDay = new Date(year, month - 1, day, 0, 0, 0);
+      const endOfDay = new Date(year, month - 1, day, 23, 59, 59);
+
       const { data } = await supabase
         .from('appointments')
         .select('date_time')
         .eq('tenant_id', tenantId)
-        .eq('status', 'waiting')
-        .gte('date_time', `${selectedDate}T00:00:00`)
-        .lte('date_time', `${selectedDate}T23:59:59`);
+        .in('status', ['waiting', 'attending', 'arrived'])
+        .gte('date_time', startOfDay.toISOString())
+        .lte('date_time', endOfDay.toISOString());
       
       if (data) {
         setExistingAppointments(data.map(d => {
           const dt = new Date(d.date_time);
-          return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+          const h = String(dt.getHours()).padStart(2, '0');
+          const m = String(dt.getMinutes()).padStart(2, '0');
+          return `${h}:${m}`;
         }));
       }
     };
