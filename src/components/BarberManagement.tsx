@@ -349,7 +349,7 @@ export const BarberManagement: React.FC = () => {
             position: 'relative'
           }}
         >
-          Canal de Soporte
+          Preguntas de Clientes
           {chatMessages.filter(m => !m.is_read && m.is_from_client).length > 0 && (
             <span style={{ position: 'absolute', top: '0', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
               {chatMessages.filter(m => !m.is_read && m.is_from_client).length}

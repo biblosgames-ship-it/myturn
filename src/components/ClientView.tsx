@@ -1023,39 +1023,33 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 }}
                 style={{ flex: 2, fontWeight: 900 }}
               >
-                {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESEÑA'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Chat Modal */}
+                {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESE�      {/* Chat Modal (Simplified) */}
       {showChat && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '1rem', zIndex: 1300 }}>
-          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '400px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
-            <div style={{ padding: '1rem', background: 'var(--primary)', color: 'black', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '360px', height: '60vh', minHeight: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)' }}>
+            <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <img src={business?.logo} style={{ width: '32px', height: '32px', borderRadius: '50%' }} alt="Logo" />
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: '0.9rem' }}>Chat con {business?.name}</div>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.8 }}>Soporte MyTurn</div>
-                </div>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
+                <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Pregunta al Negocio</span>
               </div>
-              <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: 'black', cursor: 'pointer' }}><X size={20} /></button>
+              <button 
+                onClick={() => setShowChat(false)} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
             </div>
             
-            <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
+            <div style={{ flex: 1, padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--background)' }}>
               {chatMessages.length === 0 ? (
                 <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
-                  <MessageSquare size={32} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-                  <p style={{ fontSize: '0.8rem' }}>¡Hola! ¿En qué podemos ayudarte?</p>
+                  <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Tienes alguna duda sobre tu turno?</p>
                 </div>
               ) : (
                 chatMessages.map((m, idx) => (
                   <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                     <div style={{ 
-                      padding: '0.6rem 0.8rem', 
+                      padding: '0.6rem 0.9rem', 
                       borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
                       background: m.is_from_client ? 'var(--primary)' : 'var(--surface)',
                       color: m.is_from_client ? 'black' : 'var(--text)',
@@ -1064,9 +1058,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                       boxShadow: 'var(--shadow-sm)'
                     }}>
                       {m.content}
-                    </div>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.25rem', textAlign: m.is_from_client ? 'right' : 'left' }}>
-                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                 ))
@@ -1079,7 +1070,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Escribe tu mensaje..."
+                placeholder="Escribe tu pregunta..."
                 style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
               />
               <button 
@@ -1094,6 +1085,5 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         </div>
       )}
     </div>
-
   );
 };
