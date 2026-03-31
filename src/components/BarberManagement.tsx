@@ -367,9 +367,11 @@ export const BarberManagement: React.FC = () => {
             </div>
 
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>DIRECCIÓN FÍSICA</label>
+            <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+              <h4 style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '1rem' }}>📍 Ubicación y Google Maps</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>DIRECCIÓN FÍSICA</label>
                 <input 
                   type="text" 
                   placeholder="Ej. Calle Principal #123"
@@ -388,6 +390,7 @@ export const BarberManagement: React.FC = () => {
                   style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
                 />
               </div>
+            </div>
             </div>
 
             <div style={{ padding: '1rem', background: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6' }}>
