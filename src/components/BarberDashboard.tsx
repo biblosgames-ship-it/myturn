@@ -546,28 +546,6 @@ const getPlanCapabilities = (planName: string) => {
             {(activeTab === 'queue' || activeTab === 'agenda') && (
               <>
                 <button 
-                  className={`btn ${isOpen ? 'btn-outline' : 'btn-success'}`} 
-                  style={{ 
-                    padding: '0.4rem 1rem', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 800, 
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    borderColor: isOpen ? '#ef4444' : 'var(--success)', 
-                    color: isOpen ? '#ef4444' : 'black',
-                    background: isOpen ? 'transparent' : 'var(--success)'
-                  }} 
-                  onClick={async () => {
-                    const newStatus = !isOpen;
-                    setIsOpen(newStatus);
-                    await supabase.from('tenants').update({ is_open: newStatus }).eq('id', tenantId);
-                  }}
-                >
-                  {isOpen ? '🔴 CERRAR NEGOCIO' : '🟢 ABRIR NEGOCIO'}
-                </button>
-
-                <button 
                   className={`btn ${isPaused ? 'btn-success' : 'btn-outline'}`}
                   style={{ 
                     padding: '0.4rem 1rem', 
@@ -750,11 +728,34 @@ const getPlanCapabilities = (planName: string) => {
         {(activeTab === 'queue' || activeTab === 'agenda') ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div className="pulse-success" style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--success)', margin: 0 }}>
-                    {selectedDate === getTodayStr() ? 'En Vivo' : `📅 Citas para el ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                {/* Open/Close status badge — clickable toggle */}
+                <button
+                  onClick={async () => {
+                    const newStatus = !isOpen;
+                    setIsOpen(newStatus);
+                    await supabase.from('tenants').update({ is_open: newStatus }).eq('id', tenantId);
+                  }}
+                  title={isOpen ? 'Haz clic para cerrar el negocio' : 'Haz clic para abrir el negocio'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.4rem 0.9rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
+                    background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                    color: isOpen ? 'var(--success)' : '#ef4444',
+                    fontWeight: 800, fontSize: '0.8rem',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
+                  {isOpen ? 'ABIERTO' : 'CERRADO'}
+                </button>
+
+                {/* Date / En vivo label */}
+                <div className="card" style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>
+                    {selectedDate === getTodayStr() ? '📅 Hoy' : `📅 ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
                   </p>
                 </div>
               </div>
