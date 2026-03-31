@@ -37,3 +37,6 @@ CREATE POLICY "Allow owners update reviews" ON public.reviews
             SELECT id FROM public.users WHERE tenant_id = reviews.tenant_id
         )
     );
+
+-- Habilitar Realtime para la tabla de reseñas
+ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
