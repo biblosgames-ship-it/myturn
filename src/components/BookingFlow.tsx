@@ -27,15 +27,29 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
 
-  const generateTimeSlots = () => {
+  // Compute slot interval dynamically from average service duration.
+  // Falls back to 30 min if no services loaded yet.
+  const slotIntervalMinutes = React.useMemo(() => {
+    if (dbServices.length === 0) return 30;
+    const avg = dbServices.reduce((sum, s) => sum + (s.duration || 30), 0) / dbServices.length;
+    // Round to nearest sensible interval (10, 15, 20, 25, 30, 45, 60)
+    const sensible = [10, 15, 20, 25, 30, 45, 60];
+    return sensible.reduce((prev, curr) => Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev);
+  }, [dbServices]);
+
+  const generateTimeSlots = (intervalMinutes: number) => {
     const slots = [];
-    for (let h = 8; h <= 22; h++) {
-      slots.push(`${String(h).padStart(2, '0')}:00`);
-      slots.push(`${String(h).padStart(2, '0')}:30`);
+    let totalMinutes = 8 * 60; // Start at 8:00 AM
+    const end = 22 * 60 + 30;  // End at 22:30 (10:30 PM)
+    while (totalMinutes <= end) {
+      const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const m = String(totalMinutes % 60).padStart(2, '0');
+      slots.push(`${h}:${m}`);
+      totalMinutes += intervalMinutes;
     }
     return slots;
   };
-  const timeSlots = generateTimeSlots();
+  const timeSlots = generateTimeSlots(slotIntervalMinutes);
 
   React.useEffect(() => {
     const loadCatalog = async () => {
