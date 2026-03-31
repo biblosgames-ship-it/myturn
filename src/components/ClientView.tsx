@@ -97,6 +97,7 @@ const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isG
             {item.active ? `Atendiendo... ⏳ ${fmt(localTimer)}` : item.status}
           </p>
           {item.arrived && !item.active && <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>LLEGÓ</span>}
+          {item.source === 'walkin' && !item.isUser && <span style={{ fontSize: '0.65rem', background: 'rgba(99,102,241,0.12)', color: '#818cf8', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>📍 REFERIDO</span>}
         </div>
       </div>
       {item.active && !isGlobalPaused && <div className="pulse-success" style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success)' }} />}
@@ -278,7 +279,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             service_id: d.service_id,
             date_time: d.date_time,
             started_at: d.started_at,
-            duration: svcs?.find(s => s.id === d.service_id)?.duration_minutes || 30
+            duration: svcs?.find(s => s.id === d.service_id)?.duration_minutes || 30,
+            source: d.source || 'online'
           };
         }));
       }

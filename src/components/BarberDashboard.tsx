@@ -351,11 +351,12 @@ const getPlanCapabilities = (planName: string) => {
     if (!serviceObj) return;
 
     const dbPayload = {
-      client_name: newClient.name, // Just name, service is now relational
+      client_name: newClient.name,
       service_id: serviceObj.id,
       date_time: aptDate.toISOString(),
       status: 'waiting',
-      staff_id: newClient.staffId || null
+      staff_id: newClient.staffId || null,
+      source: 'walkin'
     };
 
     // Insert into Supabase
