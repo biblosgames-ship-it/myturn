@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, RefreshCw, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -124,7 +124,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
   const [approvedReviews, setApprovedReviews] = useState<any[]>([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [sessionId] = useState(() => {
+    let id = localStorage.getItem('myturn_chat_session_id');
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('myturn_chat_session_id', id);
+    }
+    return id;
+  });
 
+  const business = dbBusiness;
 
   const fetchApprovedReviews = useCallback(async () => {
     if (!dbBusiness?.id) return;
@@ -136,6 +148,33 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       .order('created_at', { ascending: false });
     if (data) setApprovedReviews(data);
   }, [dbBusiness?.id]);
+
+  const fetchChatMessages = useCallback(async () => {
+    if (!dbBusiness?.id) return;
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('tenant_id', dbBusiness.id)
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+    if (data) setChatMessages(data);
+  }, [dbBusiness?.id, sessionId]);
+  const sendMessage = async () => {
+    if (!chatInput.trim() || !dbBusiness?.id) return;
+    const msg = chatInput;
+    setChatInput('');
+    const { error } = await supabase.from('messages').insert({
+      tenant_id: dbBusiness.id,
+      session_id: sessionId,
+      customer_name: (linkData.name || 'Cliente').split(' (')[0],
+      content: msg,
+      is_from_client: true
+    });
+    if (error) {
+      alert('Error enviando mensaje');
+      setChatInput(msg);
+    }
+  };
 
 
   // Profile & Appointment Sync
@@ -308,6 +347,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
     fetchQueue();
     fetchApprovedReviews();
+    fetchChatMessages();
 
     if (!dbBusiness?.id) return;
 
@@ -337,12 +377,20 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       filter: `tenant_id=eq.${dbBusiness.id}` 
     }, fetchApprovedReviews).subscribe();
 
+    const chatChan = supabase.channel('realtime:chat').on('postgres_changes', { 
+      event: '*', 
+      schema: 'public', 
+      table: 'messages', 
+      filter: `tenant_id=eq.${dbBusiness.id}` 
+    }, fetchChatMessages).subscribe();
+
     return () => { 
       supabase.removeChannel(chan); 
       supabase.removeChannel(tenantChan);
       supabase.removeChannel(reviewChan);
+      supabase.removeChannel(chatChan);
     };
-  }, [dbBusiness?.id]);
+  }, [dbBusiness?.id, fetchChatMessages]);
 
   const getMyQueueInfo = () => {
     // For this prototype, we assume the user is NOT yet in the queue unless we have a 'local session' 
@@ -393,7 +441,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
 
 
-  const business = dbBusiness;
+
 
 
   if (notFound) {
@@ -594,13 +642,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           <button 
             className="btn btn-outline" 
             style={{ padding: '0.4rem', borderRadius: '50%' }} 
-            title="Dejar una reseña"
-            onClick={() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
-              const apt = queueItems.find(q => q.id === myId);
-              setReviewData({ ...reviewData, name: apt?.client_name.split(' (')[0] || '' });
-              setShowReviewModal(true);
-            }}
+            title="Chat con el negocio"
+            onClick={() => setShowChat(true)}
           >
             <MessageSquare size={18} />
           </button>
@@ -987,6 +1030,69 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         </div>
       )}
 
+      {/* Chat Modal */}
+      {showChat && (
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '1rem', zIndex: 1300 }}>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '400px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding: '1rem', background: 'var(--primary)', color: 'black', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <img src={business?.logo} style={{ width: '32px', height: '32px', borderRadius: '50%' }} alt="Logo" />
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '0.9rem' }}>Chat con {business?.name}</div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.8 }}>Soporte MyTurn</div>
+                </div>
+              </div>
+              <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: 'black', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            
+            <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
+                  <MessageSquare size={32} style={{ marginBottom: '1rem', opacity: 0.3 }} />
+                  <p style={{ fontSize: '0.8rem' }}>¡Hola! ¿En qué podemos ayudarte?</p>
+                </div>
+              ) : (
+                chatMessages.map((m, idx) => (
+                  <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                    <div style={{ 
+                      padding: '0.6rem 0.8rem', 
+                      borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
+                      background: m.is_from_client ? 'var(--primary)' : 'var(--surface)',
+                      color: m.is_from_client ? 'black' : 'var(--text)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      boxShadow: 'var(--shadow-sm)'
+                    }}>
+                      {m.content}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.25rem', textAlign: m.is_from_client ? 'right' : 'left' }}>
+                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.5rem' }}>
+              <input 
+                type="text" 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Escribe tu mensaje..."
+                style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
+              />
+              <button 
+                onClick={sendMessage}
+                disabled={!chatInput.trim()}
+                style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: 'black', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
 
   );

@@ -41,7 +41,11 @@ interface DaySchedule {
 }
 
 export const BarberManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews'>('brand');
+  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews' | 'messages'>('brand');
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [chatReply, setChatReply] = useState('');
+
   const [weeksSchedule, setWeeksSchedule] = useState<DaySchedule[]>([
     { day: 'Lunes', isOpen: true, hours: '09:00 - 18:00' },
     { day: 'Martes', isOpen: true, hours: '09:00 - 18:00' },
@@ -107,6 +111,10 @@ export const BarberManagement: React.FC = () => {
             // Fetch Reviews
             const { data: revs } = await supabase.from('reviews').select('*').eq('tenant_id', userData.tenant_id).order('created_at', { ascending: false });
             if (revs) setReviews(revs);
+
+            // Fetch Messages
+            const { data: msgs } = await supabase.from('messages').select('*').eq('tenant_id', userData.tenant_id).order('created_at', { ascending: true });
+            if (msgs) setChatMessages(msgs);
           }
         }
       }
@@ -122,14 +130,55 @@ export const BarberManagement: React.FC = () => {
           icon: s.icon || 'Scissors'
         })));
       } else {
-        // Fallback empty UI
         setServices([]);
       }
       setIsLoading(false);
     };
 
     loadCatalog();
+
+    // Realtime for Messages
+    let msgChan: any;
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+      if (userData?.tenant_id) {
+        msgChan = supabase.channel('realtime:admin_messages').on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `tenant_id=eq.${userData.tenant_id}`
+        }, (res) => {
+          if (res.eventType === 'INSERT') {
+            setChatMessages(prev => [...prev, res.new]);
+          }
+        }).subscribe();
+      }
+    };
+    setupRealtime();
+
+    return () => {
+      if (msgChan) supabase.removeChannel(msgChan);
+    };
   }, []);
+
+  const handleSendReply = async () => {
+    if (!chatReply.trim() || !selectedSessionId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+    if (userData?.tenant_id) {
+       const msg = chatReply;
+       setChatReply('');
+       await supabase.from('messages').insert({
+         tenant_id: userData.tenant_id,
+         session_id: selectedSessionId,
+         content: msg,
+         is_from_client: false
+       });
+    }
+  };
 
   const addService = () => {
     setServices([...services, { name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
@@ -286,6 +335,26 @@ export const BarberManagement: React.FC = () => {
           }}
         >
           Reseñas y Feedback
+        </button>
+        <button 
+          onClick={() => setActiveTab('messages')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'messages' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'messages' ? '2px solid var(--primary)' : 'none',
+            position: 'relative'
+          }}
+        >
+          Canal de Soporte
+          {chatMessages.filter(m => !m.is_read && m.is_from_client).length > 0 && (
+            <span style={{ position: 'absolute', top: '0', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
+              {chatMessages.filter(m => !m.is_read && m.is_from_client).length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -871,6 +940,97 @@ export const BarberManagement: React.FC = () => {
           </div>
         )}
       </div>
+      {activeTab === 'messages' && (
+        <div className="card animate-fade-in" style={{ padding: '0', display: 'flex', height: '600px', overflow: 'hidden' }}>
+          {/* List of Chats */}
+          <div style={{ width: '300px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
+            <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', fontWeight: 800, fontSize: '0.9rem' }}>Conversaciones</div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {Array.from(new Set(chatMessages.map(m => m.session_id))).map(sid => {
+                const sessionMsgs = chatMessages.filter(m => m.session_id === sid);
+                const lastMsg = sessionMsgs[sessionMsgs.length - 1];
+                const unreadCount = sessionMsgs.filter(m => !m.is_read && m.is_from_client).length;
+                return (
+                  <div 
+                    key={sid} 
+                    onClick={() => {
+                      setSelectedSessionId(sid);
+                      // Mark as read
+                      const unreadIds = sessionMsgs.filter(m => !m.is_read && m.is_from_client).map(m => m.id);
+                      if (unreadIds.length > 0) {
+                        supabase.from('messages').update({ is_read: true }).in('id', unreadIds).then(() => {
+                           setChatMessages(prev => prev.map(m => unreadIds.includes(m.id) ? { ...m, is_read: true } : m));
+                        });
+                      }
+                    }}
+                    style={{ 
+                      padding: '1rem', 
+                      borderBottom: '1px solid var(--border)', 
+                      cursor: 'pointer', 
+                      background: selectedSessionId === sid ? 'rgba(245,158,11,0.05)' : 'transparent',
+                      borderLeft: selectedSessionId === sid ? '4px solid var(--primary)' : '4px solid transparent'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{sessionMsgs.find(m => m.customer_name)?.customer_name || 'Cliente'}</span>
+                      {unreadCount > 0 && <span style={{ background: 'red', color: 'white', borderRadius: '50%', padding: '0 5px', fontSize: '10px', height: '16px' }}>{unreadCount}</span>}
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMsg.content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Chat Window */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {selectedSessionId ? (
+              <>
+                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 800 }}>
+                  Chat con {chatMessages.find(m => m.session_id === selectedSessionId)?.customer_name || 'Cliente'}
+                </div>
+                <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#0a0a0a' }}>
+                  {chatMessages.filter(m => m.session_id === selectedSessionId).map(m => (
+                    <div key={m.id} style={{ alignSelf: m.is_from_client ? 'flex-start' : 'flex-end', maxWidth: '70%' }}>
+                      <div style={{ 
+                        padding: '0.75rem 1rem', 
+                        borderRadius: m.is_from_client ? '1rem 1rem 1rem 0' : '1rem 1rem 0 1rem',
+                        background: m.is_from_client ? 'var(--surface)' : 'var(--primary)',
+                        color: m.is_from_client ? 'var(--text)' : 'black',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        {m.content}
+                      </div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.3rem', textAlign: m.is_from_client ? 'left' : 'right' }}>
+                        {new Date(m.created_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem' }}>
+                  <input 
+                    type="text" 
+                    value={chatReply}
+                    onChange={(e) => setChatReply(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendReply()}
+                    placeholder="Escribe tu respuesta..."
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                  <button onClick={handleSendReply} className="btn btn-primary">Enviar</button>
+                </div>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                Selecciona una conversación para empezar
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Chat UI already handled in the block above */}
     </div>
   );
 };
