@@ -41,7 +41,7 @@ interface DaySchedule {
 }
 
 export const BarberManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand'>('brand');
+  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews'>('brand');
   const [weeksSchedule, setWeeksSchedule] = useState<DaySchedule[]>([
     { day: 'Lunes', isOpen: true, hours: '09:00 - 18:00' },
     { day: 'Martes', isOpen: true, hours: '09:00 - 18:00' },
@@ -73,6 +73,7 @@ export const BarberManagement: React.FC = () => {
   const [showSaved, setShowSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [reviews, setReviews] = useState<any[]>([]);
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -100,6 +101,10 @@ export const BarberManagement: React.FC = () => {
             });
             if (tenant.schedule) setWeeksSchedule(tenant.schedule);
             if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
+            
+            // Fetch Reviews
+            const { data: revs } = await supabase.from('reviews').select('*').eq('tenant_id', userData.tenant_id).order('created_at', { ascending: false });
+            if (revs) setReviews(revs);
           }
         }
       }
@@ -265,6 +270,20 @@ export const BarberManagement: React.FC = () => {
           }}
         >
           Horarios y Descansos
+        </button>
+        <button 
+          onClick={() => setActiveTab('reviews')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'reviews' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'reviews' ? '2px solid var(--primary)' : 'none'
+          }}
+        >
+          Reseñas y Feedback
         </button>
       </div>
 
@@ -588,6 +607,69 @@ export const BarberManagement: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        ) : activeTab === 'reviews' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Moderación de Reseñas</h3>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {reviews.filter(r => !r.is_approved).length} pendientes de aprobación
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {reviews.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  Aún no has recibido reseñas de tus clientes.
+                </div>
+              ) : (
+                reviews.map(r => (
+                  <div key={r.id} className="card" style={{ padding: '1.25rem', border: `1px solid ${r.is_approved ? 'var(--border)' : 'var(--primary)'}`, background: r.is_approved ? 'var(--background)' : 'rgba(245,158,11,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem' }}>
+                          {r.client_name.charAt(0)}
+                        </div>
+                        <div>
+                          <p style={{ fontWeight: 800, margin: 0, fontSize: '0.875rem' }}>{r.client_name}</p>
+                          <div style={{ display: 'flex', gap: '2px' }}>
+                            {[1,2,3,4,5].map(star => <Star key={star} size={10} fill={star <= r.rating ? "var(--primary)" : "none"} color={star <= r.rating ? "var(--primary)" : "var(--text-muted)"} />)}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', margin: '0 0 1rem 0', color: 'var(--text)' }}>"{r.comment || 'Sin comentario'}"</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                      <button 
+                        onClick={async () => {
+                          const { error } = await supabase.from('reviews').delete().eq('id', r.id);
+                          if (!error) setReviews(reviews.filter(rev => rev.id !== r.id));
+                        }}
+                        className="btn btn-outline" 
+                        style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}
+                      >
+                        Eliminar
+                      </button>
+                      <button 
+                        onClick={async () => {
+                           const { error } = await supabase.from('reviews').update({ is_approved: !r.is_approved }).eq('id', r.id);
+                           if (!error) {
+                             setReviews(reviews.map(rev => rev.id === r.id ? { ...rev, is_approved: !rev.is_approved } : rev));
+                           }
+                        }}
+                        className="btn btn-primary" 
+                        style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem', background: r.is_approved ? '#ef4444' : 'var(--primary)' }}
+                      >
+                        {r.is_approved ? 'Desaprobar' : 'Aprobar'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

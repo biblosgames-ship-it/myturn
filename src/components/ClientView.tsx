@@ -119,6 +119,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [notFound, setNotFound] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
+  const [approvedReviews, setApprovedReviews] = useState<any[]>([]);
 
   // Profile & Appointment Sync
   useEffect(() => {
@@ -289,6 +293,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     };
 
     fetchQueue();
+    
+    // Fetch Approved Reviews
+    const fetchApprovedReviews = async () => {
+      const { data } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('tenant_id', dbBusiness.id)
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false });
+      if (data) setApprovedReviews(data);
+    };
+    fetchApprovedReviews();
+
     const chan = supabase.channel('realtime:client_queue').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${dbBusiness.id}` }, fetchQueue).subscribe();
     
     // Realtime listener for business open/close status
@@ -557,6 +574,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           >
             <Bell size={18} />
           </button>
+          <button 
+            className="btn btn-outline" 
+            style={{ padding: '0.4rem', borderRadius: '50%' }} 
+            title="Dejar una reseña"
+            onClick={() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const apt = queueItems.find(q => q.id === myId);
+              setReviewData({ ...reviewData, name: apt?.client_name.split(' (')[0] || '' });
+              setShowReviewModal(true);
+            }}
+          >
+            <MessageSquare size={18} />
+          </button>
         </div>
       </div>
 
@@ -743,6 +773,26 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         </div>
       </div>
 
+      {/* Reviews Section */}
+      {approvedReviews.length > 0 && (
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <h3 style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Testimonios de Clientes</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+            {approvedReviews.map(r => (
+              <div key={r.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{r.client_name}</span>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {[1,2,3,4,5].map(star => <Star key={star} size={10} fill={star <= r.rating ? "var(--primary)" : "none"} color={star <= r.rating ? "var(--primary)" : "var(--text-muted)"} />)}
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, fontStyle: 'italic' }}>"{r.comment}"</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Info & Support */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         <a 
@@ -793,12 +843,101 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           >
             Cancelar Turno
           </button>
-          <button className="btn btn-outline" style={{ padding: '1rem' }}>
+          <button 
+            className="btn btn-outline" 
+            style={{ padding: '1rem' }}
+            onClick={() => {
+              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const apt = queueItems.find(q => q.id === myId);
+              setReviewData({ ...reviewData, name: apt?.client_name.split(' (')[0] || '' });
+              setShowReviewModal(true);
+            }}
+          >
             <MessageSquare size={20} />
           </button>
         </div>
       )}
 
+      {showReviewModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '0.5rem', textAlign: 'center' }}>Tu Opinión Vale ⭐</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+                Cuéntanas cómo fue tu experiencia en {business?.name}.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                   <button 
+                    key={star}
+                    onClick={() => setReviewData({...reviewData, rating: star})}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem' }}
+                   >
+                     <Star 
+                        size={28} 
+                        fill={star <= reviewData.rating ? "var(--primary)" : "none"} 
+                        color={star <= reviewData.rating ? "var(--primary)" : "var(--text-muted)"} 
+                     />
+                   </button>
+                ))}
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TU NOMBRE</label>
+                <input 
+                  type="text" 
+                  value={reviewData.name} 
+                  onChange={(e) => setReviewData({ ...reviewData, name: e.target.value })}
+                  placeholder="Ej: Carlos Ruiz"
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>COMENTARIO</label>
+                <textarea 
+                  rows={3}
+                  value={reviewData.comment} 
+                  onChange={(e) => setReviewData({ ...reviewData, comment: e.target.value })}
+                  placeholder="¿Qué tal estuvo el servicio?"
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', resize: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button className="btn btn-outline" onClick={() => setShowReviewModal(false)} style={{ flex: 1 }}>Cancelar</button>
+              <button 
+                className="btn btn-primary" 
+                disabled={!reviewData.name || isSubmittingReview}
+                onClick={async () => {
+                   if (!dbBusiness) return;
+                   setIsSubmittingReview(true);
+                   const { error } = await supabase.from('reviews').insert({
+                     tenant_id: dbBusiness.id,
+                     client_name: reviewData.name,
+                     rating: reviewData.rating,
+                     comment: reviewData.comment,
+                     is_approved: false
+                   });
+                   setIsSubmittingReview(false);
+                   if (!error) {
+                     alert('¡Gracias! Tu reseña ha sido enviada y será visible una vez que el administrador la apruebe.');
+                     setShowReviewModal(false);
+                     setReviewData({ name: '', rating: 5, comment: '' });
+                   } else {
+                     alert('Error al enviar la reseña. Inténtalo de nuevo.');
+                   }
+                }}
+                style={{ flex: 2, fontWeight: 900 }}
+              >
+                {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESEÑA'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
+
   );
 };
