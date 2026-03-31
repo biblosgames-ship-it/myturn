@@ -6,8 +6,9 @@ import { BookingFlow } from './BookingFlow';
 import { ClientUserHub } from './ClientUserHub';
 
 // Helper to get local date in YYYY-MM-DD format
-const getLocalDateStr = () => {
-  return new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
+const getLocalDateStr = (d?: Date) => {
+  const dateObj = d || new Date();
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 };
 
 interface BusinessData {
@@ -603,7 +604,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 const myId = localStorage.getItem('myturn_active_appointment_id');
                 const apt = queueItems.find(q => q.id === myId);
                 const localToday = getLocalDateStr();
-                const isToday = apt?.date_time?.startsWith(localToday);
+                const isToday = apt?.date_time ? getLocalDateStr(new Date(apt.date_time)) === localToday : false;
                 if (isToday) {
                   return `¡Tienes un turno activo para hoy a las ${apt?.time || '...'}!`;
                 } else if (apt?.date_time) {
@@ -663,7 +664,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               const myId = localStorage.getItem('myturn_active_appointment_id');
               const item = queueItems.find(q => q.id === myId);
               if (!item?.date_time) return true; 
-              return item.date_time.startsWith(getLocalDateStr());
+              return getLocalDateStr(new Date(item.date_time)) === getLocalDateStr();
             })()}
           />
         </div>
