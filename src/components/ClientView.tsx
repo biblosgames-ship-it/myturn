@@ -1023,8 +1023,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 }}
                 style={{ flex: 2, fontWeight: 900 }}
               >
-                {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESEÃ      {/* Chat Modal (Simplified) */}
-      {showChat && (
+                  {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESEÃ‘A'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chat Modal (Simplified) */}
+        {showChat && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '1rem', zIndex: 1300 }}>
           <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '360px', height: '60vh', minHeight: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)' }}>
             <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
