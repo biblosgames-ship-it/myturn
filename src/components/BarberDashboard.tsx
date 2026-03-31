@@ -384,17 +384,31 @@ const getPlanCapabilities = (planName: string) => {
     setShowAddForm(false);
   };
 
-  const moveUp = (idx: number) => {
-    if (idx <= 1) return;
-    const newApts = [...appointments];
-    const temp = newApts[idx];
-    newApts[idx] = newApts[idx - 1];
-    newApts[idx - 1] = temp;
-    
-    setAppointments(newApts.map((apt, i) => ({
-      ...apt,
-      time: i === 0 ? apt.time : `${14 + Math.floor((30 + i * 45) / 60)}:${String((30 + i * 45) % 60).padStart(2, '0')}`
-    })));
+  const moveUp = async (idx: number) => {
+    // Find the waiting appointments for the selected date sorted as displayed
+    const waitingToday = appointments.filter(a => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
+    if (idx <= 0) return; // already at top
+    const current = waitingToday[idx];
+    const prev = waitingToday[idx - 1];
+    if (!current || !prev || prev.status === 'attending') return; // can't swap past the person being attended
+
+    // Swap their date_time values in the DB so sorting order flips
+    const currentDateTime = appointments.find(a => a.id === current.id);
+    const prevDateTime = appointments.find(a => a.id === prev.id);
+    if (!currentDateTime || !prevDateTime) return;
+
+    // We need the raw date_time strings - get them from Supabase
+    const [{ data: curData }, { data: prevData }] = await Promise.all([
+      supabase.from('appointments').select('date_time').eq('id', current.id).single(),
+      supabase.from('appointments').select('date_time').eq('id', prev.id).single(),
+    ]);
+    if (!curData || !prevData) return;
+
+    await Promise.all([
+      supabase.from('appointments').update({ date_time: prevData.date_time }).eq('id', current.id),
+      supabase.from('appointments').update({ date_time: curData.date_time }).eq('id', prev.id),
+    ]);
+    // Realtime channel will refresh the list automatically
   };
 
   const removeApt = async (id: string) => {
@@ -913,6 +927,18 @@ const getPlanCapabilities = (planName: string) => {
                             )}
                           </>
                         )}
+                        {apt.status === 'waiting' && (() => {
+                            const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
+                            const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
+                            return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
+                              <button
+                                title="Adelantar en la fila"
+                                className="btn btn-outline"
+                                onClick={() => moveUp(myIdx)}
+                                style={{ color: 'var(--primary)', borderColor: 'var(--primary)', padding: '0.25rem 0.5rem' }}
+                              >↑</button>
+                            ) : null;
+                          })()}
                         <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)' }}><X size={14} /></button>
                       </div>
                     </div>
