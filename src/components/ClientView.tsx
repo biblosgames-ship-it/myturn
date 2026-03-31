@@ -647,41 +647,130 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           >
             <Bell size={18} />
           </button>
-          <button 
-            className="btn btn-outline" 
-            style={{ padding: '0.4rem', borderRadius: '50%', position: 'relative' }} 
-            title="Chat con el negocio"
-            onClick={() => {
-              setShowChat(!showChat);
-              if (!showChat) {
-                localStorage.setItem('myturn_chat_last_seen', new Date().toISOString());
-                setUnreadCount(0);
-              }
-            }}
-          >
-            <MessageSquare size={18} />
-            {unreadCount > 0 && (
-              <span style={{ 
+          <div style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-outline" 
+              style={{ padding: '0.4rem', borderRadius: '50%' }} 
+              title="Chat con el negocio"
+              onClick={() => {
+                setShowChat(!showChat);
+                if (!showChat) {
+                  localStorage.setItem('myturn_chat_last_seen', new Date().toISOString());
+                  setUnreadCount(0);
+                }
+              }}
+            >
+              <MessageSquare size={18} />
+              {unreadCount > 0 && (
+                <span style={{ 
+                  position: 'absolute', 
+                  top: '-4px', 
+                  right: '-4px', 
+                  background: '#ff3b30', 
+                  color: 'white', 
+                  borderRadius: '50%', 
+                  width: '18px', 
+                  height: '18px', 
+                  fontSize: '10px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontWeight: 900,
+                  border: '2px solid var(--background)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Chat Dropdown Window */}
+            {showChat && (
+              <div className="card animate-scale-in" style={{ 
                 position: 'absolute', 
-                top: '-4px', 
-                right: '-4px', 
-                background: '#ff3b30', 
-                color: 'white', 
-                borderRadius: '50%', 
-                width: '18px', 
-                height: '18px', 
-                fontSize: '10px', 
+                top: 'calc(100% + 10px)', 
+                right: '0', 
+                width: '320px', 
+                height: '420px', 
                 display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                fontWeight: 900,
-                border: '2px solid var(--background)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                flexDirection: 'column', 
+                overflow: 'hidden', 
+                boxShadow: '0 20px 40px rgba(0,0,0,0.4)', 
+                borderRadius: '1.5rem', 
+                border: '1px solid var(--border)', 
+                background: 'var(--surface)',
+                zIndex: 1300
               }}>
-                {unreadCount}
-              </span>
+                <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
+                    <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Chat de Atención</span>
+                  </div>
+                  <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
+                  {chatMessages.length === 0 ? (
+                    <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Alguna duda sobre tu turno?</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((m, idx) => (
+                      <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '90%' }}>
+                        <div style={{ 
+                          padding: '0.6rem 0.9rem', 
+                          borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
+                          background: m.is_broadcast ? 'rgba(245,158,11,0.15)' : m.is_from_client ? 'var(--primary)' : 'var(--surface)',
+                          color: m.is_broadcast ? 'var(--primary)' : m.is_from_client ? 'black' : 'var(--text)',
+                          border: m.is_broadcast ? '1px solid var(--primary)' : 'none',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          boxShadow: 'var(--shadow-sm)'
+                        }}>
+                          {m.image_url && (
+                            <img 
+                              src={m.image_url} 
+                              alt="Ad" 
+                              style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'block' }} 
+                              onLoad={(e) => {
+                                 const target = e.target as any;
+                                 target.parentNode.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                            />
+                          )}
+                          {m.is_broadcast ? (
+                            <div className="rich-content" dangerouslySetInnerHTML={{ __html: m.content }} />
+                          ) : (
+                            m.content
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder="Escribe aquí..."
+                    style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
+                  />
+                  <button 
+                    onClick={sendMessage}
+                    disabled={!chatInput.trim()}
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', color: 'black', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
             )}
-          </button>
+          </div>
 
         </div>
       </div>
@@ -1066,80 +1155,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
         )}
 
-        {/* Chat Window (Persistent Popup) */}
-        {showChat && (
-          <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1300 }}>
-            <div className="card animate-scale-in" style={{ width: '320px', height: '420px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', borderRadius: '1.5rem', border: '1px solid var(--border)', background: 'var(--surface)' }}>
-              <div style={{ padding: '1rem 1.25rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Chat de Atención</span>
-                </div>
-                <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={20} />
-                </button>
-              </div>
-              
-              <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
-                {chatMessages.length === 0 ? (
-                  <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Alguna duda sobre tu turno?</p>
-                  </div>
-                ) : (
-                  chatMessages.map((m, idx) => (
-                    <div key={m.id || idx} style={{ alignSelf: m.is_from_client ? 'flex-end' : 'flex-start', maxWidth: '90%' }}>
-                      <div style={{ 
-                        padding: '0.6rem 0.9rem', 
-                        borderRadius: m.is_from_client ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0', 
-                        background: m.is_broadcast ? 'rgba(245,158,11,0.15)' : m.is_from_client ? 'var(--primary)' : 'var(--surface)',
-                        color: m.is_broadcast ? 'var(--primary)' : m.is_from_client ? 'black' : 'var(--text)',
-                        border: m.is_broadcast ? '1px solid var(--primary)' : 'none',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        boxShadow: 'var(--shadow-sm)'
-                      }}>
-                        {m.image_url && (
-                          <img 
-                            src={m.image_url} 
-                            alt="Ad" 
-                            style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.5rem', display: 'block' }} 
-                            onLoad={(e) => {
-                               const target = e.target as any;
-                               target.parentNode.scrollIntoView({ behavior: 'smooth' });
-                            }}
-                          />
-                        )}
-                        {m.is_broadcast ? (
-                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: m.content }} />
-                        ) : (
-                          m.content
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
 
-              <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Escribe aquí..."
-                  style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.85rem' }}
-                />
-                <button 
-                  onClick={sendMessage}
-                  disabled={!chatInput.trim()}
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', color: 'black', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
 
     </div>
