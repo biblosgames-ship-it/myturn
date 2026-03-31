@@ -123,6 +123,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
   const [approvedReviews, setApprovedReviews] = useState<any[]>([]);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
 
   const fetchApprovedReviews = useCallback(async () => {
     if (!dbBusiness?.id) return;
@@ -821,7 +823,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         
         {approvedReviews.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            {approvedReviews.map(r => (
+            {approvedReviews.slice(0, showAllReviews ? undefined : 3).map(r => (
               <div key={r.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{r.client_name}</span>
@@ -832,6 +834,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, fontStyle: 'italic' }}>"{r.comment}"</p>
               </div>
             ))}
+            
+            {approvedReviews.length > 3 && (
+              <button 
+                onClick={() => setShowAllReviews(!showAllReviews)}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', padding: '0.5rem 0' }}
+              >
+                {showAllReviews ? 'Ver menos ↑' : `Ver todas (${approvedReviews.length}) ↓`}
+              </button>
+            )}
           </div>
         ) : (
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>Aún no hay reseñas aprobadas. ¡Sé el primero en opinar!</p>
