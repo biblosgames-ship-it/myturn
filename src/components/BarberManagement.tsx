@@ -125,6 +125,8 @@ export const BarberManagement: React.FC = () => {
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
   const [broadcastFile, setBroadcastFile] = useState<File | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+
 
 
 
@@ -170,7 +172,9 @@ export const BarberManagement: React.FC = () => {
       if (user) {
         const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
         if (userData?.tenant_id) {
+          setCurrentTenantId(userData.tenant_id);
           const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
+
           if (tenant) {
             setBrand({
               name: tenant.name || '',
@@ -246,41 +250,38 @@ export const BarberManagement: React.FC = () => {
   }, []);
 
   const handleSendReply = async () => {
-    if (!chatReply.trim() || !selectedSessionId) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-    if (userData?.tenant_id) {
-       const msg = chatReply;
-       setChatReply('');
-       await supabase.from('messages').insert({
-         tenant_id: userData.tenant_id,
-         session_id: selectedSessionId,
-         content: msg,
-         is_from_client: false
-       });
+    if (!chatReply.trim() || !selectedSessionId || !currentTenantId) return;
+    
+    const msg = chatReply;
+    try {
+      setChatReply('');
+      const { error } = await supabase.from('messages').insert({
+        tenant_id: currentTenantId,
+        session_id: selectedSessionId,
+        content: msg,
+        is_from_client: false
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      alert('Error enviando respuesta: ' + (err.message || 'Error desconocido'));
+      setChatReply(msg);
     }
   };
 
   const handleSendBroadcast = async () => {
-    if (!broadcastData.content.trim()) return;
+    if (!broadcastData.content.trim() || !currentTenantId) return;
     setIsSendingBroadcast(true);
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-      if (!userData?.tenant_id) return;
-
       let finalImageUrl = broadcastData.imageUrl;
 
-      // Upload image if file is selected
       if (broadcastFile) {
         const fileExt = broadcastFile.name.split('.').pop();
         const fileName = `broadcast_${Date.now()}.${fileExt}`;
-        const filePath = `${userData.tenant_id}/${fileName}`;
+        const filePath = `${currentTenantId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('logos') // Using 'logos' bucket for now as it's already configured
+          .from('logos')
           .upload(filePath, broadcastFile);
 
         if (!uploadError) {
@@ -291,8 +292,8 @@ export const BarberManagement: React.FC = () => {
         }
       }
 
-      await supabase.from('messages').insert({
-        tenant_id: userData.tenant_id,
+      const { error } = await supabase.from('messages').insert({
+        tenant_id: currentTenantId,
         session_id: 'broadcast',
         content: broadcastData.content,
         image_url: finalImageUrl || null,
@@ -301,6 +302,9 @@ export const BarberManagement: React.FC = () => {
         customer_name: 'PROMOCIÓN'
       });
 
+      if (error) throw error;
+
+      alert('🚀 Mensaje de difusión enviado con éxito a todos los clientes.');
       setBroadcastData({ content: '', imageUrl: '' });
       setBroadcastFile(null);
       setShowPreview(false);
