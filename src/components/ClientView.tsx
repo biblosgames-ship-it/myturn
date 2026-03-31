@@ -611,22 +611,24 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
               {business?.title}
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button 
-                  onClick={() => setShowReviewModal(true)}
-                  style={{ background: 'var(--primary)', color: 'black', border: 'none', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
-                >
-                  <MessageSquare size={14} fill="black" /> DEJAR OPINIÓN
-                </button>
-            </div>
             {business?.showReviews && (
               <div 
-                onClick={() => setShowReviewModal(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.8rem', cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.8rem' }}
               >
-                <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                <span style={{ color: 'var(--text)', fontWeight: 800 }}>{business?.rating}</span>
-                <span style={{ fontWeight: 600 }}>({business?.reviews} reseñas)</span>
+                <div 
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
+                >
+                  <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                  <span style={{ color: 'var(--text)', fontWeight: 800 }}>{business?.rating}</span>
+                  <span style={{ fontWeight: 600 }}>({business?.reviews} reseñas)</span>
+                </div>
+                <button 
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
+                >
+                  Dejar opinión
+                </button>
               </div>
             )}
           </div>
@@ -853,18 +855,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             }}
           >
             Cancelar Turno
-          </button>
-          <button 
-            className="btn btn-outline" 
-            style={{ padding: '1rem' }}
-            onClick={() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
-              const apt = queueItems.find(q => q.id === myId);
-              setReviewData({ ...reviewData, name: apt?.client_name.split(' (')[0] || '' });
-              setShowReviewModal(true);
-            }}
-          >
-            <MessageSquare size={20} />
           </button>
         </div>
       )}
