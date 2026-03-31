@@ -48,10 +48,40 @@ const RichTextEditor: React.FC<{
   placeholder?: string 
 }> = ({ value, onChange, placeholder }) => {
   const [isClient, setIsClient] = React.useState(false);
-  React.useEffect(() => setIsClient(true), []);
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  const lastValueRef = React.useRef(value);
+
+  React.useEffect(() => {
+    setIsClient(true);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = value;
+    }
+  }, []);
+
+  // Update innerHTML only when value changes externally
+  React.useEffect(() => {
+    if (editorRef.current && value !== lastValueRef.current) {
+      editorRef.current.innerHTML = value;
+      lastValueRef.current = value;
+    }
+  }, [value]);
 
   const exec = (cmd: string, val?: string) => {
     document.execCommand(cmd, false, val);
+    // Trigger change after command
+    if (editorRef.current) {
+      const newContent = editorRef.current.innerHTML;
+      lastValueRef.current = newContent;
+      onChange(newContent);
+    }
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      const newContent = editorRef.current.innerHTML;
+      lastValueRef.current = newContent;
+      onChange(newContent);
+    }
   };
 
   if (!isClient) return null;
@@ -72,15 +102,17 @@ const RichTextEditor: React.FC<{
         <input type="color" defaultValue="#ffffff" onChange={(e) => exec('foreColor', e.target.value)} style={{ width: '24px', height: '24px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }} />
       </div>
       <div 
+        ref={editorRef}
         contentEditable
-        onInput={(e) => onChange(e.currentTarget.innerHTML)}
-        onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+        onInput={handleInput}
+        onBlur={handleInput}
         style={{ padding: '1rem', minHeight: '100px', outline: 'none', fontSize: '1rem', color: 'var(--text)', lineHeight: '1.5' }}
-        dangerouslySetInnerHTML={{ __html: value }}
+        data-placeholder={placeholder}
       />
     </div>
   );
 };
+
 
 
 export const BarberManagement: React.FC = () => {
