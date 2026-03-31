@@ -296,6 +296,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     
     // Fetch Approved Reviews
     const fetchApprovedReviews = async () => {
+      if (!dbBusiness?.id) return;
       const { data } = await supabase
         .from('reviews')
         .select('*')
@@ -306,9 +307,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     };
     fetchApprovedReviews();
 
-    const chan = supabase.channel('realtime:client_queue').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${dbBusiness.id}` }, fetchQueue).subscribe();
+    if (!dbBusiness?.id) return;
+
+    const chan = supabase.channel('realtime:client_queue').on('postgres_changes', { 
+      event: '*', 
+      schema: 'public', 
+      table: 'appointments', 
+      filter: `tenant_id=eq.${dbBusiness.id}` 
+    }, fetchQueue).subscribe();
     
-    // Realtime listener for business open/close status
     const tenantChan = supabase.channel('realtime:tenant_status').on('postgres_changes', { 
       event: 'UPDATE', 
       schema: 'public', 
@@ -320,10 +327,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         setDbBusiness(prev => prev ? ({ ...prev, isOpen: updated.is_open ?? true }) : null);
       }
     }).subscribe();
+    
+    const reviewChan = supabase.channel('realtime:reviews').on('postgres_changes', { 
+      event: '*', 
+      schema: 'public', 
+      table: 'reviews', 
+      filter: `tenant_id=eq.${dbBusiness.id}` 
+    }, fetchApprovedReviews).subscribe();
 
     return () => { 
       supabase.removeChannel(chan); 
       supabase.removeChannel(tenantChan);
+      supabase.removeChannel(reviewChan);
     };
   }, [dbBusiness?.id]);
 
@@ -787,9 +802,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       </div>
 
       {/* Reviews Section */}
-      {approvedReviews.length > 0 && (
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <h3 style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Testimonios de Clientes</h3>
+      <div id="testimonios-section" className="card" style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Testimonios de Clientes</h3>
+          <button 
+            onClick={() => setShowReviewModal(true)}
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Escribir Reseña
+          </button>
+        </div>
+        
+        {approvedReviews.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
             {approvedReviews.map(r => (
               <div key={r.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
@@ -803,8 +827,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>Aún no hay reseñas aprobadas. ¡Sé el primero en opinar!</p>
+        )}
+      </div>
 
       {/* Info & Support */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
