@@ -27,7 +27,15 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
 
-  const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'];
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let h = 8; h <= 22; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+      slots.push(`${String(h).padStart(2, '0')}:30`);
+    }
+    return slots;
+  };
+  const timeSlots = generateTimeSlots();
 
   React.useEffect(() => {
     const loadCatalog = async () => {
