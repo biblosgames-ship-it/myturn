@@ -403,7 +403,8 @@ const getPlanCapabilities = (planName: string) => {
       setAppointments([...appointments, newApt]);
     }
 
-    setNewClient({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
+    const firstService = dbServices[0]?.name || 'Servicio';
+    setNewClient({ name: '', service: firstService, staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
     setShowAddForm(false);
   };
 
@@ -1320,7 +1321,10 @@ const getPlanCapabilities = (planName: string) => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 800 }}>Total a Cobrar:</span>
                 <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>
-                  ${selectedAptForComplete.service.includes('+') ? '35.00' : '25.00'}
+                  ${(() => {
+                    const s = dbServices.find(sv => sv.name === selectedAptForComplete?.service);
+                    return s ? Number(s.price).toFixed(2) : '0.00';
+                  })()}
                 </span>
               </div>
             </div>

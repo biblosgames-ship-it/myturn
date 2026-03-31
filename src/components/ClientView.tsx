@@ -28,6 +28,7 @@ interface BusinessData {
   color?: string;
   slogan?: string;
   isOpen: boolean;
+  schedule?: any[];
 }
 
 const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isGlobalPaused }) => {
@@ -199,15 +200,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             awards: [],
             services: serviceList,
             logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-            rating: 5.0,
-            reviews: 1,
+            rating: tenant.rating_value || 5.0,
+            reviews: tenant.reviews_count || 1,
             address: tenant.address || 'Ubicación local',
-            mapUrl: '#',
+            mapUrl: tenant.map_url || '#',
             showReviews: tenant.show_reviews ?? false,
             bookingMode: (tenant.booking_mode as any) || 'online',
             color: tenant.color || '#f59e0b',
             slogan: tenant.slogan || '',
-            isOpen: tenant.is_open ?? true
+            isOpen: tenant.is_open ?? true,
+            schedule: tenant.schedule || []
           });
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
@@ -761,7 +763,17 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <Calendar size={16} color="var(--primary)" />
             <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Horario</span>
           </div>
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>09:00 - 18:00</p>
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>
+            {(() => {
+              if (!business?.schedule) return "Consulta el Horario";
+              const now = new Date();
+              const dayNameRaw = now.toLocaleDateString('es-ES', { weekday: 'long' });
+              const dayName = dayNameRaw.charAt(0).toUpperCase() + dayNameRaw.slice(1);
+              const sched = business.schedule.find(s => s.day === dayName);
+              if (!sched?.isOpen) return "Cerrado hoy";
+              return sched.hours || "09:00 - 18:00";
+            })()}
+          </p>
         </div>
       </div>
 
