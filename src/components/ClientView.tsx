@@ -624,13 +624,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               if (apt && myIdx !== -1) {
                 // 1. Wait based on people ahead
                 const queueWait = queueItems.slice(0, myIdx).reduce((acc, item) => {
-                  let waitTime = item.duration || 30;
-                  if (item.active && item.started_at) {
-                    const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
-                    waitTime = Math.max(0, waitTime - elapsedMinutes);
-                  }
-                  return acc + waitTime;
-                }, 0);
+                    const baseDuration = item.duration || 30;
+                    if (item.active && item.started_at) {
+                      const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
+                      // If overtime (elapsed > duration), propagate the extra delay instead of clamping to 0
+                      const remaining = baseDuration - elapsedMinutes;
+                      return acc + remaining; // can be negative (overtime), reducing wait for this client but propagating to total
+                    }
+                    return acc + baseDuration;
+                  }, 0);
+                  const adjustedQueueWait = Math.max(0, queueWait); // final clamp so we never show negative minutes
                 
                 // 2. Wait based on scheduled time
                 const scheduledDate = new Date(apt.date_time);
@@ -638,7 +641,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 const timeUntilScheduled = Math.max(0, Math.floor((scheduledDate.getTime() - now.getTime()) / 60000));
                 
                 // Return whichever is longer (ensures timer doesn't go to 0 if I am next but it is too early)
-                return Math.max(queueWait, timeUntilScheduled);
+                return Math.max(adjustedQueueWait, timeUntilScheduled);
               }
               return queueInfo.wait;
             })()} 
