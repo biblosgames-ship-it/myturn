@@ -215,7 +215,26 @@ export const BarberDashboard: React.FC = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(tenantChannel); };
-  }, []);
+  }, [tenantId]); // Added tenantId to dependency to ensure listeners refresh if it changes
+
+  // AUTO-CLOSE Logic: Check every minute if current time >= closingTime
+  useEffect(() => {
+    if (!tenantId || !isOpen || !closingTime) return;
+
+    const checkAutoClose = async () => {
+      const now = new Date();
+      const currentStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      if (currentStr >= closingTime) {
+        setIsOpen(false);
+        await supabase.from('tenants').update({ is_open: false }).eq('id', tenantId);
+      }
+    };
+
+    const interval = setInterval(checkAutoClose, 60000);
+    checkAutoClose();
+    return () => clearInterval(interval);
+  }, [tenantId, isOpen, closingTime]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
