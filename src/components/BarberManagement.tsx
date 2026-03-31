@@ -1068,10 +1068,17 @@ export const BarberManagement: React.FC = () => {
                             background: m.is_from_client ? 'var(--surface)' : 'var(--primary)',
                             color: m.is_from_client ? 'var(--text)' : 'black',
                             fontSize: '0.85rem',
-                            fontWeight: 600
+                            fontWeight: 600,
+                            direction: 'ltr',
+                            textAlign: 'left'
                           }}>
-                            {m.content}
+                            {m.is_broadcast ? (
+                              <div dangerouslySetInnerHTML={{ __html: m.content }} />
+                            ) : (
+                              m.content
+                            )}
                           </div>
+
                           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.2rem', textAlign: m.is_from_client ? 'left' : 'right' }}>
                             {new Date(m.created_at).toLocaleTimeString()}
                           </div>
