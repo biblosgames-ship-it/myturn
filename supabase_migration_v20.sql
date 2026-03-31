@@ -13,10 +13,12 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
 -- Lectura condicionada: El público solo ve las aprobadas
+DROP POLICY IF EXISTS "Allow public read approved reviews" ON public.reviews;
 CREATE POLICY "Allow public read approved reviews" ON public.reviews
     FOR SELECT USING (is_approved = TRUE);
 
 -- Los dueños/empleados del tenant pueden ver todas las de su negocio
+DROP POLICY IF EXISTS "Allow owners read all reviews" ON public.reviews;
 CREATE POLICY "Allow owners read all reviews" ON public.reviews
     FOR SELECT TO authenticated
     USING (
@@ -26,10 +28,12 @@ CREATE POLICY "Allow owners read all reviews" ON public.reviews
     );
 
 -- Inserción abierta para cualquier usuario (clientes de MyTurn)
+DROP POLICY IF EXISTS "Allow public insert reviews" ON public.reviews;
 CREATE POLICY "Allow public insert reviews" ON public.reviews
     FOR INSERT WITH CHECK (true);
 
 -- Actualización solo para dueños (para aprobar/rechazar)
+DROP POLICY IF EXISTS "Allow owners update reviews" ON public.reviews;
 CREATE POLICY "Allow owners update reviews" ON public.reviews
     FOR UPDATE TO authenticated
     USING (
@@ -38,5 +42,10 @@ CREATE POLICY "Allow owners update reviews" ON public.reviews
         )
     );
 
--- Habilitar Realtime para la tabla de reseñas
-ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
+-- Habilitar Realtime para la tabla de reseñas (esto puede fallar si ya está, pero no detiene el proceso)
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'reviews') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
+    END IF;
+END $$;
