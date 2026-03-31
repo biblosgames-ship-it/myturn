@@ -61,7 +61,11 @@ export const BarberManagement: React.FC = () => {
     slogan: '',
     showReviews: true,
     bookingMode: 'online' as 'online' | 'manual' | 'hybrid',
-    closingTime: '20:00'
+    closingTime: '20:00',
+    address: '',
+    mapUrl: '',
+    ratingValue: 5.0,
+    reviewsCount: 1
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -88,7 +92,11 @@ export const BarberManagement: React.FC = () => {
               slogan: tenant.slogan || '',
               showReviews: tenant.show_reviews ?? true,
               bookingMode: (tenant.booking_mode as any) || 'online',
-              closingTime: tenant.closing_time || '20:00'
+              closingTime: tenant.closing_time || '20:00',
+              address: tenant.address || '',
+              mapUrl: tenant.map_url || '',
+              ratingValue: tenant.rating_value || 5.0,
+              reviewsCount: tenant.reviews_count || 1
             });
             if (tenant.schedule) setWeeksSchedule(tenant.schedule);
             if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
@@ -171,6 +179,10 @@ export const BarberManagement: React.FC = () => {
         show_reviews: brand.showReviews,
         booking_mode: brand.bookingMode,
         closing_time: brand.closingTime,
+        address: brand.address,
+        map_url: brand.mapUrl,
+        rating_value: brand.ratingValue,
+        reviews_count: brand.reviewsCount,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
       }).eq('id', userData.tenant_id);
@@ -354,37 +366,66 @@ export const BarberManagement: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>COLOR DE MARCA (PRIMARY)</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input 
-                    type="color" 
-                    value={brand.color}
-                    onChange={(e) => setBrand({...brand, color: e.target.value})}
-                    style={{ padding: '0', width: '48px', height: '42px', border: 'none', background: 'transparent', cursor: 'pointer' }}
-                  />
-                  <input 
-                    type="text" 
-                    value={brand.color}
-                    onChange={(e) => setBrand({...brand, color: e.target.value})}
-                    style={{ flex: 1, padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem', textTransform: 'uppercase' }}
-                  />
-                </div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>DIRECCIÓN FÍSICA</label>
+                <input 
+                  type="text" 
+                  placeholder="Ej. Calle Principal #123"
+                  value={brand.address}
+                  onChange={(e) => setBrand({...brand, address: e.target.value})}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>GOOGLE MAPS URL</label>
+                <input 
+                  type="text" 
+                  placeholder="https://goo.gl/maps/..."
+                  value={brand.mapUrl}
+                  onChange={(e) => setBrand({...brand, mapUrl: e.target.value})}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                />
               </div>
             </div>
 
-            <div style={{ padding: '1rem', background: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Habilitar Reseñas Públicas</h4>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Permite que los clientes vean tu calificación y reseñas en su perfil.</p>
+            <div style={{ padding: '1rem', background: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: brand.showReviews ? '1rem' : 0 }}>
+                <div>
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Habilitar Reseñas Públicas</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Muestra tu calificación y reseñas en el perfil público.</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={brand.showReviews}
+                  onChange={(e) => setBrand({...brand, showReviews: e.target.checked})}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
               </div>
-              <input 
-                type="checkbox" 
-                checked={brand.showReviews}
-                onChange={(e) => setBrand({...brand, showReviews: e.target.checked})}
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-              />
+              
+              {brand.showReviews && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(59,130,246,0.2)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>CALIFICACIÓN (ESTRELLAS)</label>
+                    <input 
+                      type="number" step="0.1" min="1" max="5"
+                      value={brand.ratingValue}
+                      onChange={(e) => setBrand({...brand, ratingValue: parseFloat(e.target.value)})}
+                      style={{ width: '100%', padding: '0.5rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontWeight: 700 }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>CANTIDAD DE RESEÑAS</label>
+                    <input 
+                      type="number"
+                      value={brand.reviewsCount}
+                      onChange={(e) => setBrand({...brand, reviewsCount: parseInt(e.target.value)})}
+                      style={{ width: '100%', padding: '0.5rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)' }}>
