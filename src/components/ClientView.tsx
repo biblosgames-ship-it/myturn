@@ -637,8 +637,14 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                   style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
                 >
                   <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                  <span style={{ color: 'var(--text)', fontWeight: 800 }}>{business?.rating}</span>
-                  <span style={{ fontWeight: 600 }}>({business?.reviews} reseñas)</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 800 }}>
+                    {approvedReviews.length > 0 
+                      ? (approvedReviews.reduce((acc, r) => acc + r.rating, 0) / approvedReviews.length).toFixed(1)
+                      : (business?.rating || 5.0)}
+                  </span>
+                  <span style={{ fontWeight: 600 }}>
+                    ({approvedReviews.length} {approvedReviews.length === 1 ? 'reseña' : 'reseñas'})
+                  </span>
                 </div>
                 <button 
                   onClick={() => setShowReviewModal(true)}
