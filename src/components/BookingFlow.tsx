@@ -27,6 +27,7 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
+  const [lunchBreak, setLunchBreak] = useState<any>(null);
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -38,19 +39,51 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
     return sensible.reduce((prev, curr) => Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev);
   }, [dbServices]);
 
-  const generateTimeSlots = (intervalMinutes: number) => {
+  const generateTimeSlots = (intervalMinutes: number, dateStr: string, schedule: any[], lunch: any) => {
+    if (!schedule || schedule.length === 0) return [];
+    
+    const date = new Date(dateStr + 'T00:00:00');
+    const dayNameRaw = date.toLocaleDateString('es-ES', { weekday: 'long' });
+    const dayName = dayNameRaw.charAt(0).toUpperCase() + dayNameRaw.slice(1);
+    const daySched = schedule.find(s => s.day === dayName);
+    
+    if (!daySched || !daySched.isOpen || !daySched.hours) return [];
+
+    const [startHStr, endHStr] = daySched.hours.split('-').map((s: string) => s.trim());
+    const [startH, startM] = startHStr.split(':').map(Number);
+    const [endH, endM] = endHStr.split(':').map(Number);
+
     const slots = [];
-    let totalMinutes = 8 * 60; // Start at 8:00 AM
-    const end = 22 * 60 + 30;  // End at 22:30 (10:30 PM)
-    while (totalMinutes <= end) {
-      const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
-      const m = String(totalMinutes % 60).padStart(2, '0');
-      slots.push(`${h}:${m}`);
-      totalMinutes += intervalMinutes;
+    let currentTotalMinutes = startH * 60 + startM;
+    const endTotalMinutes = endH * 60 + endM;
+
+    // Parse lunch break
+    let lunchStart = -1;
+    let lunchEnd = -1;
+    if (lunch && lunch.isOpen) {
+      const [lsH, lsM] = lunch.start.split(':').map(Number);
+      const [leH, leM] = lunch.end.split(':').map(Number);
+      lunchStart = lsH * 60 + lsM;
+      lunchEnd = leH * 60 + leM;
+    }
+
+    while (currentTotalMinutes + intervalMinutes <= endTotalMinutes) {
+      // Check if slot falls within lunch break
+      const isLunch = currentTotalMinutes >= lunchStart && currentTotalMinutes < lunchEnd;
+      
+      if (!isLunch) {
+        const h = String(Math.floor(currentTotalMinutes / 60)).padStart(2, '0');
+        const m = String(currentTotalMinutes % 60).padStart(2, '0');
+        slots.push(`${h}:${m}`);
+      }
+      currentTotalMinutes += intervalMinutes;
     }
     return slots;
   };
-  const timeSlots = generateTimeSlots(slotIntervalMinutes);
+
+  const timeSlots = React.useMemo(() => 
+    generateTimeSlots(slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak),
+  [slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak]);
 
   React.useEffect(() => {
     const loadCatalog = async () => {
@@ -65,10 +98,11 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
         })));
       }
 
-      // 1b. Fetch Schedule
-      const { data: tData } = await supabase.from('tenants').select('schedule').eq('id', tenantId).single();
-      if (tData?.schedule) {
-        setBusinessSchedule(tData.schedule);
+      // 1b. Fetch Schedule & Lunch Break
+      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break').eq('id', tenantId).single();
+      if (tData) {
+        if (tData.schedule) setBusinessSchedule(tData.schedule);
+        if (tData.lunch_break) setLunchBreak(tData.lunch_break);
       }
 
       // 2. Fetch Staff
