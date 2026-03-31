@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -123,6 +123,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
   const [approvedReviews, setApprovedReviews] = useState<any[]>([]);
+
+  const fetchApprovedReviews = useCallback(async () => {
+    if (!dbBusiness?.id) return;
+    const { data } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('tenant_id', dbBusiness.id)
+      .eq('is_approved', true)
+      .order('created_at', { ascending: false });
+    if (data) setApprovedReviews(data);
+  }, [dbBusiness?.id]);
+
 
   // Profile & Appointment Sync
   useEffect(() => {
@@ -293,18 +305,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     };
 
     fetchQueue();
-    
-    // Fetch Approved Reviews
-    const fetchApprovedReviews = async () => {
-      if (!dbBusiness?.id) return;
-      const { data } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('tenant_id', dbBusiness.id)
-        .eq('is_approved', true)
-        .order('created_at', { ascending: false });
-      if (data) setApprovedReviews(data);
-    };
     fetchApprovedReviews();
 
     if (!dbBusiness?.id) return;
@@ -631,7 +631,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.8rem' }}
               >
                 <div 
-                  onClick={() => setShowReviewModal(true)}
+                  onClick={() => document.getElementById('testimonios-section')?.scrollIntoView({ behavior: 'smooth' })}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
                 >
                   <Star size={12} color="#f59e0b" fill="#f59e0b" />
@@ -643,6 +643,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                   style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
                 >
                   Dejar opinión
+                </button>
+                <button 
+                  onClick={() => fetchApprovedReviews()}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0, marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                  <RefreshCw size={12} /> Actualizar
                 </button>
               </div>
             )}
