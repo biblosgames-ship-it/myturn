@@ -206,7 +206,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
           <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>Reportes</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <button onClick={() => setShowReport('cierre')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <ImageIcon size={24} color="var(--primary)" />
+              <FileText size={24} color="var(--primary)" />
               <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Cierre de Caja</span>
             </button>
             <button 
@@ -340,53 +340,62 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
       {showReport !== 'none' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
           <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <div className="print-only" style={{ padding: '1rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                {logoUrl ? (
-                  <img src={logoUrl} alt={businessName} style={{ height: '50px', objectFit: 'contain', marginBottom: '1rem' }} />
-                ) : (
-                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#eee', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                    <FileText size={24} />
-                  </div>
-                )}
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>{businessName}</h3>
-                <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase' }}>Cierre de Caja Diario</p>
-                <p style={{ fontSize: '0.85rem', color: '#666' }}>Fecha: {new Date().toLocaleDateString()} | ID: #RT-{Math.floor(1000 + Math.random() * 9000)}</p>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                  <span style={{ fontWeight: 700 }}>INGRESOS TOTALES</span>
-                  <span style={{ fontWeight: 900, color: '#10b981' }}>${totals.income.toLocaleString()}</span>
+            <div className="print-only">
+              <div style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 2rem', background: 'white' }}>
+                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={businessName} style={{ height: '70px', objectFit: 'contain', marginBottom: '1rem' }} />
+                  ) : (
+                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#eee', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                      <FileText size={24} />
+                    </div>
+                  )}
+                  <h3 style={{ fontSize: '1.75rem', fontWeight: 900 }}>{businessName}</h3>
+                  <div style={{ height: '2px', width: '60px', background: '#f59e0b', margin: '0.75rem auto' }} />
+                  <p style={{ fontSize: '1rem', fontWeight: 800, color: '#333', textTransform: 'uppercase', letterSpacing: '1px' }}>Reporte de Cierre de Caja</p>
+                  <p style={{ fontSize: '0.9rem', color: '#666' }}>Documento Oficial | Generado el {new Date().toLocaleDateString()} a las {new Date().toLocaleTimeString()}</p>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                  <span style={{ fontWeight: 700 }}>GASTOS / SALIDAS</span>
-                  <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense.toLocaleString()}</span>
+  
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '3rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.25rem', border: '1px solid #eee', borderRadius: '8px' }}>
+                    <span style={{ fontWeight: 700, color: '#666' }}>INGRESOS TOTALES</span>
+                    <span style={{ fontWeight: 900, color: '#10b981', fontSize: '1.1rem' }}>${totals.income.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.25rem', border: '1px solid #eee', borderRadius: '8px' }}>
+                    <span style={{ fontWeight: 700, color: '#666' }}>GASTOS / SALIDAS</span>
+                    <span style={{ fontWeight: 900, color: '#ef4444', fontSize: '1.1rem' }}>-${totals.expense.toLocaleString()}</span>
+                  </div>
+                  {totals.discounts > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 1.25rem', border: '1px dashed #f59e0b', borderRadius: '8px', background: '#fffbeb' }}>
+                      <span style={{ fontWeight: 700, color: '#d97706', fontSize: '0.9rem' }}>TOTAL DESCUENTOS</span>
+                      <span style={{ fontWeight: 800, color: '#d97706' }}>-${totals.discounts.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1.25rem', background: '#222', color: 'white', borderRadius: '8px', marginTop: '0.5rem' }}>
+                    <span style={{ fontWeight: 800, fontSize: '1.25rem' }}>BALANCE EN CAJA</span>
+                    <span style={{ fontWeight: 900, fontSize: '1.5rem', color: '#f59e0b' }}>${balance.toLocaleString()}</span>
+                  </div>
                 </div>
-                {totals.discounts > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(245,158,11,0.05)', borderRadius: '8px', color: '#d97706', border: '1px dashed #f59e0b' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>DESCUENTOS APLICADOS</span>
-                    <span style={{ fontWeight: 800 }}>-${totals.discounts.toFixed(2)}</span>
+  
+                <div style={{ fontSize: '0.95rem', marginBottom: '2.5rem' }}>
+                  <h4 style={{ fontWeight: 800, marginBottom: '1rem', borderBottom: '2px solid #333', paddingBottom: '0.5rem', textTransform: 'uppercase' }}>Desglose por Método de Pago</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '0.5rem' }}>
+                      <span style={{ color: '#555' }}>Efectivo:</span> <span style={{ fontWeight: 700 }}>${totals.efectivo.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '0.5rem' }}>
+                      <span style={{ color: '#555' }}>Tarjeta de Débito/Crédito:</span> <span style={{ fontWeight: 700 }}>${totals.tarjeta.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '0.5rem' }}>
+                      <span style={{ color: '#555' }}>Transferencias Bancarias:</span> <span style={{ fontWeight: 700 }}>${totals.transferencia.toLocaleString()}</span>
+                    </div>
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1rem', background: '#333', color: 'white', borderRadius: '8px', borderLeft: '5px solid #f59e0b' }}>
-                  <span style={{ fontWeight: 800, fontSize: '1.125rem' }}>EFECTIVO EN CAJA</span>
-                  <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance.toLocaleString()}</span>
                 </div>
-              </div>
-
-              <div style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
-                <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', borderBottom: '1px solid #eee' }}>Desglose de Operaciones</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                    <span>Efectivo:</span> <span>${totals.efectivo}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                    <span>Tarjeta:</span> <span>${totals.tarjeta}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
-                    <span>Transferencias:</span> <span>${totals.transferencia}</span>
-                  </div>
+  
+                <div style={{ marginTop: '5rem', borderTop: '1px solid #eee', paddingTop: '2rem', textAlign: 'center' }}>
+                  <div style={{ width: '200px', height: '1px', background: '#333', margin: '0 auto 0.5rem' }} />
+                  <p style={{ fontSize: '0.8rem', fontWeight: 700 }}>Firma de Responsable / Gerencia</p>
+                  <p style={{ fontSize: '0.7rem', color: '#999', marginTop: '3rem' }}>Documento generado por el sistema financiero MyTurn SaaS</p>
                 </div>
               </div>
             </div>
