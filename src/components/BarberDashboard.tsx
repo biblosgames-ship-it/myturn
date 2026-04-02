@@ -1524,6 +1524,8 @@ const getPlanCapabilities = (planName: string) => {
               transactions={[...getFilteredTxs('ingreso'), ...getFilteredTxs('egreso')]} 
               setTransactions={setTransactions} 
               staff={staff} 
+              businessName={businessName}
+              logoUrl={logoUrl}
             />
           </div>
         ) : activeTab === 'staff' ? (
@@ -2416,14 +2418,19 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       )}
       {showReceiptModal && lastProcessedTx && (
-        <div className="no-print" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
             <div className="print-only" style={{ padding: '2rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--success)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                  <CheckCircle2 size={32} />
-                </div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)' }}>Pago Exitoso</h3>
+                {logoUrl ? (
+                  <img src={logoUrl} alt={businessName} style={{ height: '60px', objectFit: 'contain', marginBottom: '1rem' }} />
+                ) : (
+                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--success)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <CheckCircle2 size={32} />
+                  </div>
+                )}
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)' }}>{businessName}</h3>
+                <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Recibo de Pago</p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date().toLocaleString()}</p>
               </div>
 

@@ -24,9 +24,11 @@ interface FinanceProps {
   transactions: Transaction[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   staff: StaffMember[];
+  businessName: string;
+  logoUrl: string;
 }
 
-export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTransactions, staff }) => {
+export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTransactions, staff, businessName, logoUrl }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReport, setShowReport] = useState<'none' | 'pdf' | 'img' | 'cierre'>('none');
   const [newTx, setNewTx] = useState<Partial<Transaction>>({ type: 'ingreso', method: 'efectivo', amount: 0, category: 'Varios', description: '', staffId: '' });
@@ -324,36 +326,37 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
 
       {showReport !== 'none' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <img src="/logo-myturn.png" alt="Logo" style={{ width: '30px' }} />
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, letterSpacing: '-0.5px' }}>MyTurn <span style={{ color: '#aaa', fontWeight: 400 }}>REPORTE</span></h3>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+            <div className="print-only" style={{ padding: '1rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                {logoUrl ? (
+                  <img src={logoUrl} alt={businessName} style={{ height: '50px', objectFit: 'contain', marginBottom: '1rem' }} />
+                ) : (
+                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#eee', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <FileText size={24} />
+                  </div>
+                )}
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>{businessName}</h3>
+                <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase' }}>Cierre de Caja Diario</p>
+                <p style={{ fontSize: '0.85rem', color: '#666' }}>Fecha: {new Date().toLocaleDateString()} | ID: #RT-{Math.floor(1000 + Math.random() * 9000)}</p>
               </div>
-              <button onClick={() => setShowReport('none')} style={{ background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
 
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Cierre de Caja Diario</h2>
-              <p style={{ color: '#666' }}>Fecha: {new Date().toLocaleDateString()} | ID: #RT-7721</p>
-            </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                  <span style={{ fontWeight: 700 }}>INGRESOS TOTALES</span>
+                  <span style={{ fontWeight: 900, color: '#10b981' }}>${totals.income.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                  <span style={{ fontWeight: 700 }}>GASTOS / SALIDAS</span>
+                  <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1rem', background: '#333', color: 'white', borderRadius: '8px', borderLeft: '5px solid #f59e0b' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.125rem' }}>EFECTIVO EN CAJA</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance.toLocaleString()}</span>
+                </div>
+              </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                <span style={{ fontWeight: 700 }}>INGRESOS TOTALES</span>
-                <span style={{ fontWeight: 900, color: '#10b981' }}>${totals.income.toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                <span style={{ fontWeight: 700 }}>GASTOS / SALIDAS</span>
-                <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense.toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1rem', background: '#333', color: 'white', borderRadius: '8px', borderLeft: '5px solid #f59e0b' }}>
-                <span style={{ fontWeight: 800, fontSize: '1.125rem' }}>EFECTIVO EN CAJA</span>
-                <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance.toLocaleString()}</span>
-              </div>
-            </div>
-
-              <div style={{ fontSize: '0.875rem', marginBottom: '2rem' }}>
+              <div style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
                 <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', borderBottom: '1px solid #eee' }}>Desglose de Operaciones</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666' }}>
@@ -367,30 +370,31 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                   </div>
                 </div>
               </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-               className="btn" 
-               style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-               onClick={() => alert('¡Imprimiendo en impresora térmica WiFi!')}
-              >
-                <Printer size={18} /> Imprimir
-              </button>
-              <button 
-                className="btn" 
-                style={{ flex: 1, background: '#f59e0b', color: 'black', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
-                onClick={() => alert('¡Reporte guardado como PDF en descargas!')}
-              >
-                <FileText size={18} /> Guardar PDF
-              </button>
             </div>
-            
-            <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#aaa', marginTop: '1.5rem' }}>
-              Generado por MyTurn SaaS - Inteligencia para tu negocio
-            </p>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                 className="btn" 
+                 style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                 onClick={() => window.print()}
+                >
+                  <Printer size={18} /> Imprimir
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ flex: 1, background: '#f59e0b', color: 'black', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                  onClick={() => alert('¡Reporte guardado como PDF en descargas!')}
+                >
+                  <FileText size={18} /> Guardar PDF
+                </button>
+              </div>
+              
+              <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#aaa', marginTop: '1.5rem' }}>
+                Generado por MyTurn SaaS - Inteligencia para tu negocio
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };

@@ -214,21 +214,55 @@ header {
   }
 }
 
+/* Premium Input Styling */
+input[type="date"], 
+input[type="month"], 
+input[type="number"],
+input[type="time"] {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 0.5rem 0.75rem !important;
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+input[type="date"]:focus, 
+input[type="month"]:focus, 
+input[type="number"]:focus,
+input[type="time"]:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+}
+
+/* Custom Calendar Icon Color for Chrome/Safari */
+::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(100%) saturate(500%) hue-rotate(10deg);
+  cursor: pointer;
+}
+
 @media print {
   body * {
     visibility: hidden;
   }
   .print-only, .print-only * {
-    visibility: visible;
+    visibility: visible !important;
   }
   .print-only {
-    position: absolute;
+    position: fixed;
     left: 0;
-    top: 50px;
+    top: 0;
     width: 100%;
+    height: auto;
     background: white !important;
     color: black !important;
-    padding: 20px;
+    padding: 0;
+    margin: 0;
+    z-index: 9999;
+    display: block !important;
   }
   .no-print {
     display: none !important;
