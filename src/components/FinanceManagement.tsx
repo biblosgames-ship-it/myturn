@@ -214,12 +214,12 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                 const text = `📊 *REPORTE DE CIERRE - ${businessName}*%0A%0A` +
                   `Fecha: ${new Date().toLocaleDateString()}%0A` +
                   `-------------------%0A` +
-                  `Ingresos: $${totals.income}%0A` +
-                  `Gastos: $${totals.expense}%0A` +
+                  `Ingresos: $${totals.income.toFixed(2)}%0A` +
+                  `Gastos: $${totals.expense.toFixed(2)}%0A` +
                   `Descuentos: $${totals.discounts.toFixed(2)}%0A` +
                   `-------------------%0A` +
-                  `*CAJA FINAL: $${balance}*%0A%0A` +
-                  `Generado por MyTurn`;
+                  `*CAJA FINAL: $${balance.toFixed(2)}*%0A%0A` +
+                  `Generado por MyTurn SaaS`;
                 window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
               }} 
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}

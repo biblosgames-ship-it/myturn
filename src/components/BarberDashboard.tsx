@@ -2485,13 +2485,18 @@ const getPlanCapabilities = (planName: string) => {
                     style={{ flex: 1, background: '#25D366', color: 'white', fontWeight: 900 }}
                     onClick={() => {
                       const extrasText = lastProcessedTx.extras?.map((ex: any) => `- ${ex.name}: $${ex.price}`).join('%0A') || '';
-                      const text = `📄 *RECIBO DIGITAL*%0A%0A` +
+                      const discountText = lastProcessedTx.discountPercent > 0 
+                        ? `-------------------%0ASubtotal: $${lastProcessedTx.subtotal.toFixed(2)}%0ADescuento: $${(lastProcessedTx.subtotal - lastProcessedTx.amount).toFixed(2)} (${lastProcessedTx.discountPercent}%)%0A` 
+                        : '';
+                      
+                      const text = `📄 *RECIBO DIGITAL - ${businessName}*%0A%0A` +
                         `Cliente: ${lastProcessedTx.clientName}%0A` +
                         `Servicio: ${lastProcessedTx.mainService} ($${lastProcessedTx.mainPrice})%0A` +
                         (extrasText ? `Extras:%0A${extrasText}%0A` : '') +
+                        discountText +
                         `-------------------%0A` +
-                        `TOTAL: $${lastProcessedTx.amount.toFixed(2)}%0A%0A` +
-                        `¡Gracias por tu preferencia!`;
+                        `*TOTAL: $${lastProcessedTx.amount.toFixed(2)}*%0A%0A` +
+                        `Gracias por usar nuestros servicios. ✨`;
                       window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
                     }}
                   >
