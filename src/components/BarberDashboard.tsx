@@ -430,6 +430,8 @@ export const BarberDashboard: React.FC = () => {
           method: t.payment_method,
           category: t.category,
           description: t.description,
+          subtotal: t.subtotal || t.amount,
+          discountPercent: t.discount_percent || 0,
           date: new Date(t.created_at).toISOString().split('T')[0],
           staffId: t.staff_id
         })));
@@ -802,6 +804,8 @@ const getPlanCapabilities = (planName: string) => {
       const { data: tx, error: txError } = await supabase.from('transactions').insert({
         appointment_id: selectedAptForComplete.id,
         amount: finalAmount,
+        subtotal: totalAmount,
+        discount_percent: discountPercent,
         type: 'ingreso',
         payment_method: paymentMethod,
         staff_id: selectedAptForComplete.staffId || null,
@@ -840,10 +844,12 @@ const getPlanCapabilities = (planName: string) => {
         setAppointments(appointments.filter((a: Appointment) => a.id !== selectedAptForComplete.id));
       }
       
-      const newTxForState: Transaction = {
+      const newTxForState = {
         id: tx.id,
         type: 'ingreso' as const,
         amount: finalAmount,
+        subtotal: totalAmount,
+        discountPercent: discountPercent,
         method: paymentMethod as any,
         category: allServiceNames,
         description: `Cliente: ${selectedAptForComplete.clientName}`,

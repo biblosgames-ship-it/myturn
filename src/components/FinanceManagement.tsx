@@ -6,6 +6,8 @@ export interface Transaction {
   id: string;
   type: 'ingreso' | 'egreso';
   amount: number;
+  subtotal?: number;
+  discountPercent?: number;
   method: 'efectivo' | 'tarjeta' | 'transferencia' | 'credito';
   category: string;
   description: string;
@@ -36,6 +38,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
   const totals = transactions.reduce((acc, t) => {
     if (t.type === 'ingreso') {
       acc.income += t.amount;
+      acc.discounts += (t.subtotal || t.amount) - t.amount;
       const m = t.method as keyof typeof acc;
       if (m in acc) (acc as any)[m] += t.amount;
       else acc.otro += t.amount;
@@ -43,7 +46,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
       acc.expense += t.amount;
     }
     return acc;
-  }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0, otro: 0 });
+  }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0, otro: 0, discounts: 0 });
 
   const balance = totals.income - totals.expense;
 
@@ -200,23 +203,33 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
         )}
 
         <div className="card" style={{ padding: '1.5rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>Prueba de Reportes</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>Reportes</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <button onClick={() => setShowReport('img')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button onClick={() => setShowReport('cierre')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
               <ImageIcon size={24} color="var(--primary)" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Cierre (Imagen)</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Cierre de Caja</span>
             </button>
-            <button onClick={() => setShowReport('pdf')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <FileText size={24} color="#3b82f6" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Reporte (PDF)</span>
+            <button 
+              onClick={() => {
+                const text = `📊 *REPORTE DE CIERRE - ${businessName}*%0A%0A` +
+                  `Fecha: ${new Date().toLocaleDateString()}%0A` +
+                  `-------------------%0A` +
+                  `Ingresos: $${totals.income}%0A` +
+                  `Gastos: $${totals.expense}%0A` +
+                  `Descuentos: $${totals.discounts.toFixed(2)}%0A` +
+                  `-------------------%0A` +
+                  `*CAJA FINAL: $${balance}*%0A%0A` +
+                  `Generado por MyTurn`;
+                window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+              }} 
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              <Share2 size={24} color="#25D366" />
+              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Compartir</span>
             </button>
-            <button onClick={() => setShowReport('img')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button onClick={() => window.print()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', gridColumn: 'span 2' }}>
               <Printer size={24} color="var(--success)" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Imprimir WiFi</span>
-            </button>
-            <button style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <Share2 size={24} color="#a855f7" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>WhatsApp</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Imprimir Reporte</span>
             </button>
           </div>
         </div>
@@ -350,6 +363,12 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                   <span style={{ fontWeight: 700 }}>GASTOS / SALIDAS</span>
                   <span style={{ fontWeight: 900, color: '#ef4444' }}>-${totals.expense.toLocaleString()}</span>
                 </div>
+                {totals.discounts > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(245,158,11,0.05)', borderRadius: '8px', color: '#d97706', border: '1px dashed #f59e0b' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>DESCUENTOS APLICADOS</span>
+                    <span style={{ fontWeight: 800 }}>-${totals.discounts.toFixed(2)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5rem 1rem', background: '#333', color: 'white', borderRadius: '8px', borderLeft: '5px solid #f59e0b' }}>
                   <span style={{ fontWeight: 800, fontSize: '1.125rem' }}>EFECTIVO EN CAJA</span>
                   <span style={{ fontWeight: 900, fontSize: '1.25rem' }}>${balance.toLocaleString()}</span>
@@ -372,7 +391,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
               </div>
             </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
                 <button 
                  className="btn" 
                  style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
@@ -383,7 +402,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                 <button 
                   className="btn" 
                   style={{ flex: 1, background: '#f59e0b', color: 'black', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
-                  onClick={() => alert('¡Reporte guardado como PDF en descargas!')}
+                  onClick={() => window.print()}
                 >
                   <FileText size={18} /> Guardar PDF
                 </button>
