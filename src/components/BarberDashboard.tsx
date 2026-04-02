@@ -2426,7 +2426,7 @@ const getPlanCapabilities = (planName: string) => {
       {showReceiptModal && lastProcessedTx && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
-            <div className="print-only" style={{ padding: '2rem' }}>
+            <div className="print-only" style={{ padding: '0.5rem 2rem 2rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                 {logoUrl ? (
                   <img src={logoUrl} alt={businessName} style={{ height: '60px', objectFit: 'contain', marginBottom: '1rem' }} />

@@ -372,7 +372,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
             >
               <X size={20} />
             </button>
-            <div className="print-only" ref={reportRef} style={{ padding: '2rem', background: 'white', color: 'black' }}>
+            <div className="print-only" ref={reportRef} style={{ padding: '0.5rem 2rem 2rem', background: 'white', color: 'black' }}>
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                 {logoUrl ? (
                   <img src={logoUrl} alt={businessName} style={{ height: '60px', objectFit: 'contain', marginBottom: '1rem' }} />
@@ -432,6 +432,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                  className="btn" 
                  style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                  onClick={() => window.print()}
+                >
+                  <Printer size={18} /> Imprimir
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  onClick={() => window.print()}
                 >
                   <Printer size={18} /> Imprimir
                 </button>
