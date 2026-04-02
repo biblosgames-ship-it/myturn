@@ -340,6 +340,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
       {showReport !== 'none' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
           <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+            <button 
+              className="no-print"
+              onClick={() => setShowReport('none')} 
+              style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#eee', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+            >
+              <X size={20} />
+            </button>
             <div className="print-only">
               <div style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 2rem', background: 'white' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -416,6 +423,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                   <FileText size={18} /> Guardar PDF
                 </button>
               </div>
+              <button 
+                className="btn no-print" 
+                style={{ width: '100%', marginTop: '0.75rem', background: '#f5f5f5', color: '#666', border: '1px solid #ddd' }}
+                onClick={() => setShowReport('none')}
+              >
+                Cerrar Reporte
+              </button>
               
               <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#aaa', marginTop: '1.5rem' }}>
                 Generado por MyTurn SaaS - Inteligencia para tu negocio
