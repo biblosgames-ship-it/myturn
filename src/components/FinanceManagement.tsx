@@ -364,7 +364,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
 
       {showReport !== 'none' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', background: 'white', color: 'black', padding: '2rem', position: 'relative' }}>
             <button 
               className="no-print"
               onClick={() => setShowReport('none')} 
@@ -427,36 +427,21 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
               </div>
             </div>
 
-              <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
-                <button 
-                 className="btn" 
-                 style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                 onClick={() => window.print()}
-                >
-                  <Printer size={18} /> Imprimir
-                </button>
-                <button 
-                  className="btn" 
-                  style={{ flex: 1, background: '#333', color: 'white', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                  onClick={() => window.print()}
-                >
-                  <Printer size={18} /> Imprimir
-                </button>
+              <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowReport('none')}>Cerrar</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>
+                    <Printer size={18} /> Imprimir
+                  </button>
+                </div>
                 <button 
                   className="btn" 
-                  style={{ flex: 1, background: '#f59e0b', color: 'black', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                  style={{ width: '100%', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
                   onClick={handleDownloadPDF}
                 >
-                  <FileText size={18} /> Descargar PDF
+                  <FileText size={18} /> Descargar PDF (Carpeta)
                 </button>
               </div>
-              <button 
-                className="btn no-print" 
-                style={{ width: '100%', marginTop: '0.75rem', background: '#f5f5f5', color: '#666', border: '1px solid #ddd' }}
-                onClick={() => setShowReport('none')}
-              >
-                Cerrar Reporte
-              </button>
               
               <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#aaa', marginTop: '1.5rem' }}>
                 Generado por MyTurn SaaS - Inteligencia para tu negocio
