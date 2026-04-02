@@ -430,23 +430,54 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button 
                     className="btn" 
-                    style={{ flex: 1, background: '#111', color: 'white', fontWeight: 800, border: '2px solid #000' }} 
+                    style={{ 
+                      flex: 1, 
+                      backgroundColor: '#000000', 
+                      color: '#ffffff', 
+                      fontWeight: '900', 
+                      padding: '1rem',
+                      border: '3px solid #000000',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'block'
+                    }} 
                     onClick={() => setShowReport('none')}
                   >
-                    Cerrar Pantalla
+                    CERRAR REPORTE
                   </button>
                   <button 
                     className="btn" 
-                    style={{ flex: 1, background: 'var(--primary)', color: 'black', fontWeight: 800 }} 
+                    style={{ 
+                      flex: 1, 
+                      backgroundColor: 'var(--primary)', 
+                      color: '#000000', 
+                      fontWeight: '900',
+                      padding: '1rem',
+                      border: '3px solid #000000',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }} 
                     onClick={() => window.print()}
                   >
-                    <Printer size={18} /> Imprimir 
+                    <Printer size={18} /> IMPRIMIR 
                   </button>
                 </div>
                 
                 <button 
                   className="btn" 
-                  style={{ width: '100%', background: '#f3f4f6', color: '#111', border: '1px solid #ccc', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                  style={{ 
+                    width: '100%', 
+                    background: '#f3f4f6', 
+                    color: '#000000', 
+                    border: '1px solid #ccc', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.5rem', 
+                    fontWeight: '700' 
+                  }}
                   onClick={handleDownloadPDF}
                 >
                   <FileText size={18} /> Descargar PDF (Carpeta)

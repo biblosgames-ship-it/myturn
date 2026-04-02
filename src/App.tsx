@@ -215,7 +215,7 @@ function App() {
 
   return (
     <div className="app-container">
-       <header>
+       <header className="no-print">
         <div className="logo" onClick={() => { handleSetView('landing'); setIsMenuOpen(false); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img src="/logo-myturn.png" alt="MyTurn Logo" style={{ height: '32px', width: 'auto' }} />
           {!isSmallScreen && <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>}
@@ -306,7 +306,7 @@ function App() {
 
       {renderView()}
 
-      <footer style={{ 
+      <footer className="no-print" style={{ 
         padding: '2rem', 
         borderTop: '1px solid var(--border)', 
         textAlign: 'center',

@@ -2466,23 +2466,53 @@ const getPlanCapabilities = (planName: string) => {
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button 
                   className="btn" 
-                  style={{ flex: 1, background: '#000', color: '#fff', fontWeight: 900, border: '2px solid #000' }} 
+                  style={{ 
+                    flex: 1, 
+                    backgroundColor: '#000000', 
+                    color: '#ffffff', 
+                    fontWeight: '900', 
+                    padding: '1rem',
+                    border: '3px solid #000000',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'block'
+                  }} 
                   onClick={() => setShowReceiptModal(false)}
                 >
-                  Cerrar
+                  CERRAR
                 </button>
                 <button 
                   className="btn" 
-                  style={{ flex: 1, background: 'var(--primary)', color: 'black', fontWeight: 900 }} 
+                  style={{ 
+                    flex: 1, 
+                    backgroundColor: 'var(--primary)', 
+                    color: '#000000', 
+                    fontWeight: '900',
+                    padding: '1rem',
+                    border: '3px solid #000000',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }} 
                   onClick={() => window.print()}
                 >
-                  <Printer size={18} /> Imprimir 
+                  <Printer size={18} /> IMPRIMIR 
                 </button>
               </div>
               
               <button 
                 className="btn" 
-                style={{ width: '100%', background: '#25D366', color: 'white', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                style={{ 
+                  width: '100%', 
+                  background: '#25D366', 
+                  color: 'white', 
+                  fontWeight: '900', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '0.5rem',
+                  padding: '1rem',
+                  borderRadius: '8px'
+                }}
                 onClick={() => {
                   if (!lastProcessedTx) return;
                   const phone = lastProcessedTx.clientPhone?.replace(/\D/g, '');
