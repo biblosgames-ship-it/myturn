@@ -372,71 +372,81 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
             >
               <X size={20} />
             </button>
-            <div className="print-only" ref={reportRef} style={{ padding: '0.5rem 2rem 2rem', background: 'white', color: 'black' }}>
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div className="print-only" ref={reportRef} style={{ padding: '0', background: 'white', color: 'black' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 {logoUrl ? (
-                  <img src={logoUrl} alt={businessName} style={{ height: '60px', objectFit: 'contain', marginBottom: '1rem' }} />
+                  <img src={logoUrl} alt={businessName} style={{ height: '50px', objectFit: 'contain', marginBottom: '0.5rem' }} />
                 ) : (
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#eee', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', border: '2px solid black' }}>
-                    <FileText size={32} />
-                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{businessName}</div>
                 )}
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'black' }}>{businessName}</h3>
-                <p style={{ fontSize: '1rem', fontWeight: 800, color: 'black', textTransform: 'uppercase', marginBottom: '0.5rem', borderBottom: '2px solid black', display: 'inline-block', padding: '0 1rem' }}>Reporte de Cierre de Caja</p>
-                <p style={{ fontSize: '0.85rem', color: 'black', fontWeight: 600 }}>{new Date().toLocaleString()}</p>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'black', margin: '0' }}>{businessName}</h3>
+                <div style={{ fontSize: '0.9rem', fontWeight: 900, borderTop: '1px solid black', borderBottom: '1px solid black', margin: '0.5rem 0', padding: '2px 0' }}>REPORTE DE CIERRE</div>
+                <div style={{ fontSize: '0.7rem', color: 'black' }}>{new Date().toLocaleString()}</div>
               </div>
 
-              <div style={{ borderTop: '2px solid black', borderBottom: '2px solid black', padding: '1.5rem 0', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <span style={{ color: 'black', fontSize: '0.9rem', fontWeight: 700 }}>Ingresos Totales:</span>
-                  <span style={{ fontWeight: 900, color: 'black' }}>${totals.income.toFixed(2)}</span>
+              <div style={{ borderBottom: '1px dashed black', padding: '0.5rem 0', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.8rem' }}>Ingresos:</span>
+                  <span style={{ fontWeight: 800 }}>${totals.income.toFixed(2)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <span style={{ color: 'black', fontSize: '0.9rem', fontWeight: 700 }}>Gastos / Salidas:</span>
-                  <span style={{ fontWeight: 900, color: 'black' }}>-${totals.expense.toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.8rem' }}>Gastos:</span>
+                  <span style={{ fontWeight: 800 }}>-${totals.expense.toFixed(2)}</span>
                 </div>
                 {totals.discounts > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: 'black' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>Descuentos:</span>
-                    <span style={{ fontWeight: 900 }}>-${totals.discounts.toFixed(2)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.8rem' }}>Descuentos:</span>
+                    <span style={{ fontWeight: 800 }}>-${totals.discounts.toFixed(2)}</span>
                   </div>
                 )}
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid black' }}>
-                  <span style={{ fontWeight: 900, fontSize: '1.2rem', color: 'black' }}>TOTAL EN CAJA</span>
-                  <span style={{ fontWeight: 900, fontSize: '1.6rem', color: 'black' }}>${balance.toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', borderTop: '1px solid black', paddingTop: '0.3rem' }}>
+                  <span style={{ fontWeight: 900, fontSize: '0.9rem' }}>TOTAL CAJA:</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>${balance.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'black' }}>
-                <p style={{ fontSize: '0.85rem', color: 'black', marginBottom: '0.75rem', fontWeight: 900, textTransform: 'uppercase' }}>Desglose de Métodos</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #ddd' }}>
-                  <span style={{ fontWeight: 600 }}>Efectivo:</span> <span style={{ fontWeight: 800 }}>${totals.efectivo.toFixed(2)}</span>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.3rem' }}>Métodos de Pago</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span>Efectivo:</span> <span>${totals.efectivo.toFixed(2)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #ddd' }}>
-                  <span style={{ fontWeight: 600 }}>Tarjeta:</span> <span style={{ fontWeight: 800 }}>${totals.tarjeta.toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span>Tarjeta:</span> <span>${totals.tarjeta.toFixed(2)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #ddd' }}>
-                  <span style={{ fontWeight: 600 }}>Transferencia:</span> <span style={{ fontWeight: 800 }}>${totals.transferencia.toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span>Transfer:</span> <span>${totals.transferencia.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div style={{ marginTop: '4rem', textAlign: 'center', color: 'black' }}>
-                <p style={{ fontSize: '0.9rem', fontWeight: 700 }}>Gracias por usar nuestros servicios. ✨</p>
-                <p style={{ fontSize: '0.7rem', color: 'black', marginTop: '1rem', opacity: 0.8 }}>ID de Reporte: #RT-{Math.floor(1000 + Math.random() * 9000)} | {businessName}</p>
+              <div style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px solid black', paddingTop: '0.5rem' }}>
+                <div style={{ height: '30px', margin: '1rem auto' }} />
+                <p style={{ fontSize: '0.7rem', fontWeight: 800 }}>FIRMA AUTORIZADA</p>
+                <p style={{ fontSize: '0.6rem', marginTop: '1rem' }}>Gracias por su preferencia ✨</p>
+                <p style={{ fontSize: '0.5rem', opacity: 0.7 }}>Ref: #RT-{Math.floor(1000 + Math.random() * 9000)}</p>
               </div>
             </div>
 
               <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowReport('none')}>Cerrar</button>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>
-                    <Printer size={18} /> Imprimir
+                  <button 
+                    className="btn" 
+                    style={{ flex: 1, background: '#111', color: 'white', fontWeight: 800, border: '2px solid #000' }} 
+                    onClick={() => setShowReport('none')}
+                  >
+                    Cerrar Pantalla
+                  </button>
+                  <button 
+                    className="btn" 
+                    style={{ flex: 1, background: 'var(--primary)', color: 'black', fontWeight: 800 }} 
+                    onClick={() => window.print()}
+                  >
+                    <Printer size={18} /> Imprimir 
                   </button>
                 </div>
+                
                 <button 
                   className="btn" 
-                  style={{ width: '100%', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
+                  style={{ width: '100%', background: '#f3f4f6', color: '#111', border: '1px solid #ccc', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 700 }}
                   onClick={handleDownloadPDF}
                 >
                   <FileText size={18} /> Descargar PDF (Carpeta)

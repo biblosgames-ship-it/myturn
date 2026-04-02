@@ -2423,108 +2423,79 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </div>
       )}
+
       {showReceiptModal && lastProcessedTx && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
-            <div className="print-only" style={{ padding: '0.5rem 2rem 2rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '320px', padding: 0, overflow: 'hidden', background: 'white', color: 'black' }}>
+            {/* Contenido imprimible - Optimizado para Térmica y A4 */}
+            <div className="print-only" style={{ padding: '0', background: 'white', color: 'black' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 {logoUrl ? (
-                  <img src={logoUrl} alt={businessName} style={{ height: '60px', objectFit: 'contain', marginBottom: '1rem' }} />
+                  <img src={logoUrl} alt={businessName} style={{ height: '50px', objectFit: 'contain', marginBottom: '0.5rem' }} />
                 ) : (
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--success)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                    <CheckCircle2 size={32} />
-                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{businessName}</div>
                 )}
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)' }}>{businessName}</h3>
-                <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Recibo de Pago</p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date().toLocaleString()}</p>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, margin: '0' }}>{businessName}</h3>
+                <div style={{ fontSize: '0.8rem', fontWeight: 900, borderTop: '1px solid black', borderBottom: '1px solid black', margin: '0.5rem 0', padding: '2px 0' }}>COMPROBANTE DE PAGO</div>
+                <div style={{ fontSize: '0.7rem' }}>{new Date().toLocaleString()}</div>
               </div>
 
-              <div style={{ borderTop: '1px dashed var(--border)', borderBottom: '1px dashed var(--border)', padding: '1.5rem 0', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Cliente:</span>
-                  <span style={{ fontWeight: 700 }}>{lastProcessedTx.clientName}</span>
+              <div style={{ borderBottom: '1px dashed black', padding: '0.5rem 0', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span style={{ fontSize: '0.8rem' }}>CLIENTE:</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.8rem' }}>{lastProcessedTx.clientName}</span>
                 </div>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.4rem', textTransform: 'uppercase', fontWeight: 800 }}>Servicios</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
-                    <span>{lastProcessedTx.mainService}</span>
-                    <span style={{ fontWeight: 600 }}>${lastProcessedTx.mainPrice.toFixed(2)}</span>
-                  </div>
-                  {lastProcessedTx.extras?.map((ex: any, i: number) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
-                      <span>+ {ex.name}</span>
-                      <span>${Number(ex.price).toFixed(2)}</span>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span style={{ fontSize: '0.8rem' }}>SERVICIO:</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.8rem' }}>{lastProcessedTx.description}</span>
                 </div>
-
-                {lastProcessedTx.discountPercent > 0 && (
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--primary)' }}>
-                     <span style={{ fontSize: '0.9rem' }}>Descuento ({lastProcessedTx.discountPercent}%):</span>
-                     <span style={{ fontWeight: 700 }}>-${(lastProcessedTx.subtotal - lastProcessedTx.amount).toFixed(2)}</span>
-                   </div>
-                )}
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>TOTAL</span>
-                  <span style={{ fontWeight: 900, fontSize: '1.5rem', color: 'var(--primary)' }}>${lastProcessedTx.amount.toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', borderTop: '1px solid black', paddingTop: '0.3rem' }}>
+                  <span style={{ fontWeight: 900, fontSize: '1rem' }}>TOTAL:</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.2rem' }}>${lastProcessedTx.amount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowReceiptModal(false)}>Cerrar</button>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}><Printer size={18} /> Imprimir</button>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button 
-                    className="btn" 
-                    style={{ flex: 1, background: '#25D366', color: 'white', fontWeight: 900 }}
-                    onClick={() => {
-                      const extrasText = lastProcessedTx.extras?.map((ex: any) => `- ${ex.name}: $${ex.price}`).join('%0A') || '';
-                      const discountText = lastProcessedTx.discountPercent > 0 
-                        ? `-------------------%0ASubtotal: $${lastProcessedTx.subtotal.toFixed(2)}%0ADescuento: $${(lastProcessedTx.subtotal - lastProcessedTx.amount).toFixed(2)} (${lastProcessedTx.discountPercent}%)%0A` 
-                        : '';
-                      
-                      const text = `📄 *RECIBO DIGITAL - ${businessName}*%0A%0A` +
-                        `Cliente: ${lastProcessedTx.clientName}%0A` +
-                        `Servicio: ${lastProcessedTx.mainService} ($${lastProcessedTx.mainPrice})%0A` +
-                        (extrasText ? `Extras:%0A${extrasText}%0A` : '') +
-                        discountText +
-                        `-------------------%0A` +
-                        `*TOTAL: $${lastProcessedTx.amount.toFixed(2)}*%0A%0A` +
-                        `Gracias por usar nuestros servicios. ✨`;
-                      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
-                    }}
-                  >
-                    <Share2 size={18} /> WhatsApp
-                  </button>
-                  {lastProcessedTx.sessionId && (
-                    <button 
-                      className="btn" 
-                      style={{ flex: 1, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', fontWeight: 900 }}
-                      onClick={sendReceiptToChat}
-                    >
-                      <MessageCircle size={18} /> Al Chat
-                    </button>
-                  )}
-                </div>
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <p style={{ fontSize: '0.75rem', fontWeight: 800 }}>¡Gracias por visitarnos!</p>
+                <p style={{ fontSize: '0.6rem', marginTop: '0.5rem' }}>ID: #TX-{lastProcessedTx.id.slice(0, 8)}</p>
+              </div>
+            </div>
 
+            {/* Controles del Modal - No se imprimen */}
+            <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button 
-                  className="btn btn-outline" 
-                  style={{ width: '100%', fontSize: '0.75rem' }}
-                  onClick={() => {
-                    const text = `*Recibo de Pago*\n\nCliente: ${lastProcessedTx.clientName}\nTotal: $${lastProcessedTx.amount.toFixed(2)}`;
-                    navigator.clipboard.writeText(text);
-                    alert("Copiado al portapapeles.");
-                  }}
+                  className="btn" 
+                  style={{ flex: 1, background: '#000', color: '#fff', fontWeight: 900, border: '2px solid #000' }} 
+                  onClick={() => setShowReceiptModal(false)}
                 >
-                  <Copy size={14} /> Copiar Resumen
+                  Cerrar
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ flex: 1, background: 'var(--primary)', color: 'black', fontWeight: 900 }} 
+                  onClick={() => window.print()}
+                >
+                  <Printer size={18} /> Imprimir 
                 </button>
               </div>
+              
+              <button 
+                className="btn" 
+                style={{ width: '100%', background: '#25D366', color: 'white', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                onClick={() => {
+                  if (!lastProcessedTx) return;
+                  const phone = lastProcessedTx.clientPhone?.replace(/\D/g, '');
+                  const message = encodeURIComponent(`📄 *RECIBO DE PAGO - ${businessName}*\n\n` + 
+                    `*Cliente:* ${lastProcessedTx.clientName}\n` +
+                    `*Servicio:* ${lastProcessedTx.description}\n` +
+                    `*Total:* $${lastProcessedTx.amount.toFixed(2)}\n\n` +
+                    `¡Gracias por su preferencia! ✨`);
+                  window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                }}
+              >
+                <Share2 size={18} /> WhatsApp
+              </button>
             </div>
           </div>
         </div>
