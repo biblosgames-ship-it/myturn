@@ -14,7 +14,12 @@ const getTodayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queueInfo: { wait: number, clients: number, nextTurn: number } }> = ({ onClose, tenantId, queueInfo }) => {
+export const BookingFlow: React.FC<{ 
+  onClose: () => void, 
+  tenantId: string, 
+  sessionId: string,
+  queueInfo: { wait: number, clients: number, nextTurn: number } 
+}> = ({ onClose, tenantId, sessionId, queueInfo }) => {
   const [step, setStep] = useState(1);
   const [dbServices, setDbServices] = useState<Service[]>([]);
   const [dbStaff, setDbStaff] = useState<any[]>([]);
@@ -195,7 +200,8 @@ export const BookingFlow: React.FC<{ onClose: () => void, tenantId: string, queu
           date_time: aptDate.toISOString(),
           status: 'waiting',
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
-          client_user_id: session?.user?.id || null
+          client_user_id: session?.user?.id || null,
+          session_id: sessionId
         }).select('id').single();
 
         if (data?.id) {

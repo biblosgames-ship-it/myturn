@@ -52,13 +52,13 @@ const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isG
   }, [item.active, item.started_at, item.duration]);
 
   React.useEffect(() => {
-    if (item.active && !isGlobalPaused) {
+    if (item.active && !isGlobalPaused && !item.isStalled) {
       const interval = setInterval(() => {
         setLocalTimer(prev => (prev > 0 ? prev - 1 : 0));
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isGlobalPaused, item.active]);
+  }, [isGlobalPaused, item.active, item.isStalled]);
 
   const fmt = (s: number) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2, '0')}`;
 
@@ -94,10 +94,11 @@ const QueueItem: React.FC<{ item: any, isGlobalPaused: boolean }> = ({ item, isG
           {item.label}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <p style={{ fontSize: '0.75rem', color: item.active ? 'var(--success)' : item.arrived ? 'var(--primary)' : 'var(--text-muted)', fontWeight: (item.active || item.arrived) ? 700 : 400, margin: 0 }}>
-            {item.active ? `Atendiendo... ⏳ ${fmt(localTimer)}` : item.status}
+          <p style={{ fontSize: '0.75rem', color: (item.active || item.isStalled) ? 'var(--success)' : item.arrived ? 'var(--primary)' : 'var(--text-muted)', fontWeight: (item.active || item.arrived || item.isStalled) ? 700 : 400, margin: 0 }}>
+            {item.isStalled ? `Esperando... 🕒 ${fmt(localTimer)}` : item.active ? `Atendiendo... ⏳ ${fmt(localTimer)}` : item.status}
           </p>
-          {item.arrived && !item.active && <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>LLEGÓ</span>}
+          {item.isStalled && <span className="blinking-timer" style={{ fontSize: '0.65rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 900 }}>RETRASADO</span>}
+          {item.arrived && !item.active && !item.isStalled && <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>LLEGÓ</span>}
           {item.source === 'walkin' && !item.isUser && <span style={{ fontSize: '0.65rem', background: 'rgba(99,102,241,0.12)', color: '#818cf8', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>📍 REFERIDO</span>}
         </div>
       </div>
@@ -137,6 +138,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     return id;
   });
 
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isSmallScreen = windowWidth < 480;
 
   const business = dbBusiness;
 
@@ -375,6 +386,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       if (payload.new) {
         const updated = payload.new as any;
         setDbBusiness(prev => prev ? ({ ...prev, isOpen: updated.is_open ?? true }) : null);
+        if (updated.is_paused !== undefined) setIsGlobalPaused(updated.is_paused);
       }
     }).subscribe();
     
@@ -419,6 +431,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   };
 
   const queueInfo = getMyQueueInfo();
+  
+  // Logic for stalling: If the first item in queue is overdue and NOT being attended
+  const firstItem = queueItems[0];
+  const isQueueStalled = !!(firstItem && !firstItem.active && new Date().getTime() > new Date(firstItem.date_time).getTime());
 
   const handleSaveToHub = async () => {
     if (!dbBusiness || !linkData.name) return;
@@ -475,10 +491,19 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   }
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
+    <div className="animate-fade-in" style={{ 
+      width: '100%',
+      maxWidth: '600px', 
+      margin: '0 auto', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: isSmallScreen ? '1rem' : '1.5rem', 
+      padding: isSmallScreen ? '0 0.25rem 2rem' : '0 0 2rem' 
+    }}>
       {showBooking && (
         <BookingFlow 
           tenantId={business.id}
+          sessionId={sessionId}
           queueInfo={queueInfo}
           onClose={() => { 
             setShowBooking(false); 
@@ -594,59 +619,41 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           localStorage.setItem('myturn_last_view', 'landing');
           setSelectedBusinessSlug(null);
         }}>
-          <ChevronLeft size={20} />
+          <ChevronLeft size={24} />
         </button>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        
+        <div style={{ 
+          display: 'flex', 
+          gap: isSmallScreen ? '0.5rem' : '1rem', 
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          marginRight: '0.25rem'
+        }}>
           <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setShowLinkModal(true)} title="Vincularme a este negocio">
-            <Plus size={18} />
+            <Plus size={isSmallScreen ? 20 : 18} />
           </button>
+          
           <button 
             className="btn btn-outline" 
             style={{ padding: '0.4rem', borderRadius: '50%' }} 
             title="Compartir este negocio"
             onClick={() => setShowShareModal(true)}
           >
-            <Share2 size={18} />
+            <Share2 size={isSmallScreen ? 20 : 18} />
           </button>
+          
           <button 
             className="btn btn-outline" 
             style={{ padding: '0.4rem', borderRadius: '50%' }} 
             title="Activar alertas de turno"
             onClick={async () => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
-              const apt = queueItems.find(q => q.id === myId);
-              if (!apt?.date_time) { alert('No tienes un turno activo para alertar.'); return; }
-              
               const granted = await Notification.requestPermission();
-              if (granted !== 'granted') { alert('Por favor, permite las notificaciones en tu navegador para activar las alertas.'); return; }
-              
-              const aptTime = new Date(apt.date_time).getTime();
-              const now = Date.now();
-              const alertTimes = [
-                { mins: 30, label: '30 minutos' },
-                { mins: 10, label: '10 minutos' },
-                { mins: 5,  label: '5 minutos' },
-              ];
-              let scheduled = 0;
-              alertTimes.forEach(({ mins, label }) => {
-                const delay = aptTime - mins * 60000 - now;
-                if (delay > 0) {
-                  setTimeout(() => {
-                    new Notification(`MyTurn – Tu turno en ${business?.name || 'el negocio'}`, {
-                      body: `⏰ Faltan ${label} para tu cita. ¡Prepárate!`,
-                      icon: '/favicon.ico'
-                    });
-                  }, delay);
-                  scheduled++;
-                }
-              });
-              alert(scheduled > 0 
-                ? `✅ Alertas activadas. Te avisaremos 30, 10 y 5 minutos antes de tu turno.` 
-                : `⚠️ Tu turno está muy próximo. ¡Dirígete al local ahora!`);
+              if (granted === 'granted') alert('Alertas activadas');
             }}
           >
-            <Bell size={18} />
+            <Bell size={isSmallScreen ? 20 : 18} />
           </button>
+
           <div style={{ position: 'relative' }}>
             <button 
               className="btn btn-outline" 
@@ -660,7 +667,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 }
               }}
             >
-              <MessageSquare size={18} />
+              <MessageSquare size={isSmallScreen ? 20 : 18} />
               {unreadCount > 0 && (
                 <span style={{ 
                   position: 'absolute', 
@@ -688,10 +695,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             {showChat && (
               <div className="card animate-scale-in" style={{ 
                 position: 'absolute', 
-                top: 'calc(100% + 10px)', 
+                top: 'calc(100% + 4px)', 
                 right: '0', 
-                width: '320px', 
-                height: '420px', 
+                width: 'min(350px, calc(100vw - 32px))', 
+                height: 'min(450px, 70vh)', 
                 display: 'flex', 
                 flexDirection: 'column', 
                 overflow: 'hidden', 
@@ -727,7 +734,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                           border: m.is_broadcast ? '1px solid var(--primary)' : 'none',
                           fontSize: '0.85rem',
                           fontWeight: 600,
-                          boxShadow: 'var(--shadow-sm)'
+                          boxShadow: 'var(--shadow-sm)',
+                          direction: 'ltr',
+                          textAlign: 'left'
                         }}>
                           {m.image_url && (
                             <img 
@@ -776,20 +785,30 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       </div>
 
       {/* Header Profile */}
-      <div className="card" style={{ padding: '1.5rem', background: 'linear-gradient(135deg, var(--surface) 0%, rgba(245,158,11,0.05) 100%)' }}>
-        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+      <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', background: 'linear-gradient(135deg, var(--surface) 0%, rgba(245,158,11,0.05) 100%)' }}>
+        <div style={{ display: 'flex', gap: isSmallScreen ? '0.75rem' : '1.25rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <img 
               src={business?.logo} 
               alt={business?.name} 
-              style={{ width: '84px', height: '84px', borderRadius: 'var(--radius-lg)', objectFit: 'cover', border: '2px solid var(--primary)' }} 
+              style={{ width: isSmallScreen ? '64px' : '84px', height: isSmallScreen ? '64px' : '84px', borderRadius: 'var(--radius-lg)', objectFit: 'cover', border: '2px solid var(--primary)' }} 
             />
             <div style={{ position: 'absolute', bottom: '-8px', right: '-8px', background: 'var(--primary)', color: 'black', padding: '4px', borderRadius: '50%', border: '2px solid var(--surface)' }}>
               <Award size={14} />
             </div>
           </div>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.5px', margin: 0 }}>{business?.name}</h2>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 style={{ 
+              fontSize: '1.5rem', 
+              fontWeight: 900, 
+              letterSpacing: '-0.5px', 
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }} title={business?.name}>
+              {business?.name}
+            </h2>
             <div style={{ color: 'var(--primary)', fontSize: '0.875rem', fontWeight: 800, marginTop: '0.2rem', textTransform: 'uppercase' }}>
               {business?.professional}
             </div>
@@ -836,12 +855,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       {hasAppointment ? (
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {isGlobalPaused && (
-            <div className="card animate-pulse" style={{ background: 'rgba(239,68,68,0.1)', borderColor: '#ef4444', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div className="pulse-danger" style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-              <p style={{ fontSize: '0.875rem', fontWeight: 800, color: '#ef4444', margin: 0 }}>EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE</p>
+            <div className="card animate-pulse" style={{ background: 'rgba(239,68,68,0.1)', borderColor: '#ef4444', padding: isSmallScreen ? '0.75rem' : '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="pulse-danger" style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+              <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ef4444', margin: 0, lineHeight: 1.2 }}>EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE</p>
             </div>
           )}
-          <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="card" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'var(--success)', padding: isSmallScreen ? '0.75rem' : '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <CheckCircle2 color="var(--success)" size={20} />
             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>
               {(() => {
@@ -871,20 +890,17 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                     const baseDuration = item.duration || 30;
                     if (item.active && item.started_at) {
                       const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
-                      // If overtime (elapsed > duration), propagate the extra delay instead of clamping to 0
                       const remaining = baseDuration - elapsedMinutes;
-                      return acc + remaining; // can be negative (overtime), reducing wait for this client but propagating to total
+                      return acc + remaining; 
                     }
                     return acc + baseDuration;
                   }, 0);
-                  const adjustedQueueWait = Math.max(0, queueWait); // final clamp so we never show negative minutes
+                  const adjustedQueueWait = Math.max(0, queueWait);
                 
-                // 2. Wait based on scheduled time
                 const scheduledDate = new Date(apt.date_time);
                 const now = new Date();
                 const timeUntilScheduled = Math.max(0, Math.floor((scheduledDate.getTime() - now.getTime()) / 60000));
                 
-                // Return whichever is longer (ensures timer doesn't go to 0 if I am next but it is too early)
                 return Math.max(adjustedQueueWait, timeUntilScheduled);
               }
               return queueInfo.wait;
@@ -902,11 +918,14 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             status={(() => {
               const myId = localStorage.getItem('myturn_active_appointment_id');
               const item = queueItems.find(q => q.id === myId);
+              const myIdx = queueItems.findIndex(q => q.id === myId);
               if (item?.active) return 'in_progress';
+              if (myIdx === 0) return 'next';
               return 'waiting';
             })()}
             isPaused={isGlobalPaused}
-            isOpen={dbBusiness?.isOpen}
+            isStalled={isQueueStalled}
+            isOpen={dbBusiness.isOpen}
             isToday={(() => {
               const myId = localStorage.getItem('myturn_active_appointment_id');
               const item = queueItems.find(q => q.id === myId);
@@ -916,7 +935,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           />
         </div>
       ) : (
-        <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
+        <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', textAlign: 'center' }}>
           <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>
             {business.bookingMode === 'manual' ? '📍 Orden de Llegada' : '¿Listo para tu cita?'}
           </h3>
@@ -937,7 +956,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       )}
 
       {/* Live Queue Section */}
-      <section className="card" style={{ padding: '1.5rem', border: '1px solid var(--border)' }}>
+      <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             <LayoutGrid size={20} color="var(--primary)" /> En Vivo: La Cola

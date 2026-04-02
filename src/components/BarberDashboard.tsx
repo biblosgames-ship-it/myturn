@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { BarberManagement } from './BarberManagement';
 import { InventoryManagement } from './InventoryManagement';
 import { FinanceManagement, Transaction, StaffMember } from './FinanceManagement';
 import { StaffManagement } from './StaffManagement';
+import { MessagingCenter } from './MessagingCenter';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2 } from 'lucide-react';
+
 
 interface Appointment {
   id: string;
@@ -15,6 +17,7 @@ interface Appointment {
   status: 'waiting' | 'attending' | 'finished' | 'cancelled';
   arrived?: boolean;
   staffId?: string;
+  sessionId?: string;
 }
 
 interface Subscription {
@@ -31,7 +34,31 @@ const getTodayStr = () => {
 // All appointments are now strictly database-driven.
 
 export const BarberDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile' | 'customers'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile' | 'customers' | 'messages'>('queue');
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [regFilterType, setRegFilterType] = useState<'day' | 'week' | 'month' | 'year' | 'range'>('day');
+  const [regFilterValue, setRegFilterValue] = useState(getTodayStr());
+  const [regStartDate, setRegStartDate] = useState(getTodayStr());
+  const [regEndDate, setRegEndDate] = useState(getTodayStr());
+
+  // Security & Record Management
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [targetAptAction, setTargetAptAction] = useState<{ type: 'edit' | 'delete', apt: Appointment } | null>(null);
+  const [editingApt, setEditingApt] = useState<Appointment | null>(null);
+  const [verifiedPin, setVerifiedPin] = useState('');
+  const [extraServices, setExtraServices] = useState<any[]>([]);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [lastProcessedTx, setLastProcessedTx] = useState<any>(null);
+  const [discountPercent, setDiscountPercent] = useState(0);
+
+  useEffect(() => {
+    if (tenantId) {
+      setVerifiedPin(localStorage.getItem(`myturn_pin_${tenantId}`) || '');
+    }
+  }, [tenantId]);
+
   const [userEmail, setUserEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,10 +68,24 @@ export const BarberDashboard: React.FC = () => {
   const [businessName, setBusinessName] = useState('Cargando...');
   const [logoUrl, setLogoUrl] = useState('');
   const [shareUrl, setShareUrl] = useState('');
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [savedCustomers, setSavedCustomers] = useState<any[]>([]);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState<boolean | null>(null);
   const [closingTime, setClosingTime] = useState('20:00');
+  const [weeksSchedule, setWeeksSchedule] = useState<{day: string, isOpen: boolean, hours: string}[]>([]);
+  const [lastAutoCloseDate, setLastAutoCloseDate] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const manualToggleTimeRef = React.useRef<number>(0);
+
+  const isMobile = windowWidth < 1024;
+
 
 
   // Supabase Real-time Sync for Appointments
@@ -74,7 +115,8 @@ export const BarberDashboard: React.FC = () => {
             date: localDateStr,
             status: d.status === 'arrived' ? 'waiting' : d.status as any,
             arrived: d.status === 'attending' || d.status === 'arrived',
-            staffId: d.staff_id || undefined
+            staffId: d.staff_id || undefined,
+            sessionId: d.session_id || undefined
           };
         }));
       } else {
@@ -83,12 +125,6 @@ export const BarberDashboard: React.FC = () => {
     };
 
     fetchAppointments();
-
-    const fetchSavedCustomers = async () => {
-      const { data } = await supabase.from('saved_tenants').select('*').eq('tenant_id', tenantId);
-      if (data) setSavedCustomers(data);
-    };
-    fetchSavedCustomers();
 
     const channel = supabase.channel('realtime:appointments')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${tenantId}` }, () => {
@@ -99,32 +135,9 @@ export const BarberDashboard: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [tenantId]);
 
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [dbServices, setDbServices] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load Staff and Services
+  // 1. Resolve Tenant Identity (Only once on mount)
   useEffect(() => {
-    const loadMetadata = async () => {
-      // 1. Fetch Staff
-      const { data: staffData } = await supabase.from('staff_members').select('*');
-      if (staffData) {
-        setStaff(staffData.map(s => ({
-          id: s.id,
-          name: s.name,
-          role: s.role || 'Barbero',
-          commission: s.commission_rate || 50
-        })));
-      }
-
-      // 2. Fetch Services
-      const { data: servicesData } = await supabase.from('services').select('*');
-      if (servicesData) {
-        setDbServices(servicesData);
-      }
-
-      // 3. Fetch Tenant/Business Info (SaaS Branding)
-      // First, get the current user's tenant_id to ensure privacy
+    const resolveIdentity = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || '');
@@ -132,7 +145,6 @@ export const BarberDashboard: React.FC = () => {
           const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
           let currentTenantId = userData?.tenant_id;
 
-          // self-healing: if user has no tenant_id, link them to the first one found
           if (!currentTenantId) {
             const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
             if (allTenants && allTenants.length > 0) {
@@ -148,93 +160,252 @@ export const BarberDashboard: React.FC = () => {
 
           if (currentTenantId) {
             setTenantId(currentTenantId);
-            const { data: tenant } = await supabase.from('tenants').select('*').eq('id', currentTenantId).single();
-            if (tenant) {
-              setIsOpen(tenant.is_open ?? true);
-              setClosingTime(tenant.closing_time || '20:00');
-              setBusinessName(tenant.name);
-              setLogoUrl(tenant.logo || '');
-              if (tenant.color) {
-                document.documentElement.style.setProperty('--primary', tenant.color);
-              }
-              setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
-              setSubscription({
-                plan: (tenant.plan_id as any) || 'Free',
-                expiryDate: tenant.expiry_date || '2026-12-31',
-                status: (tenant.status as any) || 'active'
-              });
-            }
+          } else {
+            setIsLoading(false); // No tenant found even after healing
           }
         } catch (error) {
-          console.error("Critical identity error:", error);
+          console.error("Critical identity resolver error:", error);
+          setIsLoading(false); 
         }
+      } else {
+        setIsLoading(false); 
       }
-      setIsLoading(false);
+    };
+    resolveIdentity();
+  }, []);
+
+  // 2. Real-time unread messages count
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_from_client', true)
+        .eq('is_read', false);
+      setUnreadMessages(count || 0);
+    };
+    fetchUnread();
+
+    const msgChan = supabase.channel('dashboard-unread-messages')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'messages', 
+        filter: `tenant_id=eq.${tenantId}` 
+      }, () => {
+        fetchUnread();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(msgChan); };
+  }, [tenantId]);
+
+
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [dbServices, setDbServices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 3. Load Metadata & Setup Listeners (Once tenantId is known)
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const loadMetadata = async () => {
+      try {
+        // 1. Fetch Staff
+        const { data: staffData } = await supabase.from('staff_members').select('*');
+        if (staffData) {
+          setStaff(staffData.map(s => ({
+            id: s.id,
+            name: s.name,
+            role: s.role || 'Barbero',
+            commission: s.commission_rate || 50
+          })));
+        }
+
+        // 2. Fetch Services
+        const { data: servicesData } = await supabase.from('services').select('*');
+        if (servicesData) {
+          setDbServices(servicesData);
+        }
+
+        // 3. Fetch Tenant Info
+        const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).single();
+        if (tenant) {
+          setIsOpen(tenant.is_open ?? true);
+          setClosingTime(tenant.closing_time || '20:00');
+          if (tenant.schedule) setWeeksSchedule(tenant.schedule);
+          setLastAutoCloseDate(tenant.last_auto_close_date || null);
+          setBusinessName(tenant.name);
+          setLogoUrl(tenant.logo || '');
+          if (tenant.color) {
+            document.documentElement.style.setProperty('--primary', tenant.color);
+          }
+          setShareUrl(`${window.location.origin}/${tenant.slug || tenant.id}`);
+          setSubscription({
+            plan: (tenant.plan_id as any) || 'Free',
+            expiryDate: tenant.expiry_date || '2026-12-31',
+            status: (tenant.status as any) || 'active'
+          });
+        }
+      } catch (error) {
+        console.error("Critical metadata loader error:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadMetadata();
 
-    // 4. Realtime Sync for Branding & Status (Tenant specific)
+    const fetchSavedCustomers = async () => {
+      const { data } = await supabase.from('saved_tenants').select('*').eq('tenant_id', tenantId);
+      if (data) setSavedCustomers(data);
+    };
+    fetchSavedCustomers();
+
+    // Setup Realtime Sync
     const tenantChannel = supabase.channel('tenant-sync')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tenants' }, (payload) => {
-        const updated = payload.new as any;
-        setBusinessName(updated.name);
-        setLogoUrl(updated.logo || '');
-        if (updated.color) {
-          document.documentElement.style.setProperty('--primary', updated.color);
-        }
-        if (updated.plan_id || updated.status) {
-          setSubscription(prev => prev ? ({
-            ...prev,
-            plan: updated.plan_id || prev.plan,
-            status: updated.status || prev.status,
-            expiryDate: updated.expiry_date || prev.expiryDate
-          }) : null);
-        }
-      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, () => {
-        loadMetadata(); // Refresh staff
+        loadMetadata();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_tenants', filter: `tenant_id=eq.${tenantId}` }, () => {
-        const fetchC = async () => {
-          const { data } = await supabase.from('saved_tenants').select('*').eq('tenant_id', tenantId);
-          if (data) setSavedCustomers(data);
-        };
-        fetchC();
+        fetchSavedCustomers();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
-        loadMetadata(); // Refresh services
+        loadMetadata();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` }, (payload) => {
-        if (payload.new) {
-          const updated = payload.new as any;
-          setIsOpen(updated.is_open);
-          if (updated.closing_time) setClosingTime(updated.closing_time);
-        }
+          if (payload.new) {
+            const updated = payload.new as any;
+            if (updated.is_open !== undefined) setIsOpen(updated.is_open);
+            if (updated.closing_time) setClosingTime(updated.closing_time);
+            if (updated.schedule) setWeeksSchedule(updated.schedule);
+            if (updated.last_auto_close_date !== undefined) setLastAutoCloseDate(updated.last_auto_close_date);
+            if (updated.name) setBusinessName(updated.name);
+            if (updated.logo !== undefined) setLogoUrl(updated.logo || '');
+            if (updated.color) document.documentElement.style.setProperty('--primary', updated.color);
+            if (updated.plan_id || updated.status || updated.expiry_date) {
+              setSubscription(prev => prev ? ({
+                ...prev,
+                plan: updated.plan_id || prev.plan,
+                status: updated.status || prev.status,
+                expiryDate: updated.expiry_date || prev.expiryDate
+              }) : null);
+            }
+          }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(tenantChannel); };
-  }, [tenantId]); // Added tenantId to dependency to ensure listeners refresh if it changes
+  }, [tenantId]);
 
-  // AUTO-CLOSE Logic: Check every minute if current time >= closingTime
+  // 1-Year Data Retention Cleanup
   useEffect(() => {
-    if (!tenantId || !isOpen || !closingTime) return;
+    if (!tenantId) return;
+    const cleanupOldData = async () => {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const isoThreshold = oneYearAgo.toISOString();
+      
+      try {
+        const { error } = await supabase
+          .from('appointments')
+          .delete()
+          .eq('tenant_id', tenantId)
+          .lt('date_time', isoThreshold);
+        
+        if (error) console.log("[Cleanup] Failed or restricted:", error.message);
+      } catch (e) {}
+    };
+    cleanupOldData();
+  }, [tenantId]);
+
+  // AUTO-CLOSE Logic: Check every minute if current time >= closingTime (Day-specific)
+  useEffect(() => {
+    // Only run when metadata is fully loaded and business is currently open
+    // BUT SKIP if a manual open happened in the last 10 minutes (Session guard)
+    if (!tenantId || isOpen !== true || !weeksSchedule.length) return;
+    
+    if (Date.now() - manualToggleTimeRef.current < 600000) { // 10 minute grace
+       console.log("[AutoClose] Session-level manual override is active. Skipping check.");
+       return;
+    }
 
     const checkAutoClose = async () => {
       const now = new Date();
-      const currentStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      // YYYY-MM-DD local
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
-      if (currentStr >= closingTime) {
+      // 1. Skip if already auto-closed today (Manual override support)
+      const localLastClose = localStorage.getItem(`myturn_last_autoclose_${tenantId}`);
+      
+      if (lastAutoCloseDate === todayStr || localLastClose === todayStr) {
+        // console.log(`[AutoClose] Already auto-closed today. Manual overrides are now respected.`);
+        return;
+      }
+
+      // 2. Normalizar día de la semana (Español, sin acentos)
+      const normalize = (s: string) => (s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      const todayInSpanish = dayNames[now.getDay()];
+      const todayNormalized = normalize(todayInSpanish);
+      
+      // 3. Find today's schedule with normalization (and fallback to English matching if needed)
+      const dayNamesEng = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const todayNormalizedEng = dayNamesEng[now.getDay()];
+
+      const todaySched = weeksSchedule.find(s => {
+        const schedDay = normalize(s.day);
+        return schedDay === todayNormalized || schedDay === todayNormalizedEng;
+      });
+      
+      // 4. Identify target closing time
+      let targetClosingTime = null;
+      
+      if (todaySched && todaySched.isOpen && todaySched.hours) {
+        const timeRegex = /(\d{2}:\d{2})\s*$/;
+        const match = todaySched.hours.match(timeRegex);
+        if (match) targetClosingTime = match[1];
+      }
+
+      const currentStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      console.log(`[AutoClose] Checking: Day=${todayNormalized}, ScheduleTime=${targetClosingTime}, LocalTime=${currentStr}`);
+
+      if (!targetClosingTime) return;
+      
+      // We close if it's STRICTLY PAST the closing time (e.g. if close is 22:27, we close at 22:28)
+      // to give a 1-minute buffer for users setting the time "now".
+      if (currentStr > targetClosingTime) {
+        console.warn(`[AutoClose] CLOSING BUSINESS: ${currentStr} > ${targetClosingTime}`);
+        
         setIsOpen(false);
-        await supabase.from('tenants').update({ is_open: false }).eq('id', tenantId);
+        setLastAutoCloseDate(todayStr);
+        localStorage.setItem(`myturn_last_autoclose_${tenantId}`, todayStr);
+        
+        try {
+          await supabase.from('tenants').update({ 
+            is_open: false, 
+            last_auto_close_date: todayStr 
+          }).eq('id', tenantId);
+        } catch (e) {
+          console.error("[AutoClose] DB update failed, falling back to local state only.", e);
+          // Fallback: still try to update is_open at least
+          await supabase.from('tenants').update({ is_open: false }).eq('id', tenantId);
+        }
       }
     };
 
-    const interval = setInterval(checkAutoClose, 60000);
-    checkAutoClose();
-    return () => clearInterval(interval);
-  }, [tenantId, isOpen, closingTime]);
+    // Buffer to avoid race conditions with loading
+    const timeout = setTimeout(() => {
+      const interval = setInterval(checkAutoClose, 60000);
+      checkAutoClose();
+      return () => clearInterval(interval);
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [tenantId, isOpen, closingTime, weeksSchedule, lastAutoCloseDate]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
@@ -244,7 +415,7 @@ export const BarberDashboard: React.FC = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAptForComplete, setSelectedAptForComplete] = useState<Appointment | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'otro'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'credito'>('efectivo');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Load Transactions
@@ -450,25 +621,196 @@ const getPlanCapabilities = (planName: string) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getFilteredApts = () => {
+    return appointments.filter(a => {
+      if (a.status !== 'finished') return false;
+      if (regFilterType === 'day') return a.date === regFilterValue;
+      if (regFilterType === 'week') {
+        const d = new Date(regFilterValue + 'T00:00:00');
+        const day = d.getDay(); 
+        const diffToMon = (day === 0 ? -6 : 1) - day;
+        const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const monStr = mon.toISOString().split('T')[0];
+        const sunStr = sun.toISOString().split('T')[0];
+        return a.date >= monStr && a.date <= sunStr;
+      }
+      if (regFilterType === 'month') return a.date.startsWith(regFilterValue);
+      if (regFilterType === 'year') return a.date.startsWith(regFilterValue.substring(0, 4));
+      if (regFilterType === 'range') return a.date >= regStartDate && a.date <= regEndDate;
+      return false;
+    });
+  };
+
+  const getFilteredTxs = (type: 'ingreso' | 'egreso') => {
+    return transactions.filter(t => {
+      if (t.type !== type) return false;
+      if (regFilterType === 'day') return t.date === regFilterValue;
+      if (regFilterType === 'week') {
+        const d = new Date(regFilterValue + 'T00:00:00');
+        const day = d.getDay(); 
+        const diffToMon = (day === 0 ? -6 : 1) - day;
+        const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const monStr = mon.toISOString().split('T')[0];
+        const sunStr = sun.toISOString().split('T')[0];
+        return t.date >= monStr && t.date <= sunStr;
+      }
+      if (regFilterType === 'month') return t.date.startsWith(regFilterValue);
+      if (regFilterType === 'year') return t.date.startsWith(regFilterValue.substring(0, 4));
+      if (regFilterType === 'range') return t.date >= regStartDate && t.date <= regEndDate;
+      return false;
+    });
+  };
+
+  const downloadReport = () => {
+    const filtered = getFilteredApts();
+    if (filtered.length === 0) {
+      alert("No hay datos para exportar en este periodo.");
+      return;
+    }
+
+    const headers = ["Fecha", "Cliente", "Servicio", "Profesional", "Hora"];
+    const rows = filtered.map(a => [
+      a.date,
+      a.clientName,
+      a.service,
+      staff.find(s => s.id === a.staffId)?.name || 'N/A',
+      a.time
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    const fileNameSuffix = regFilterType === 'range' ? `${regStartDate}_a_${regEndDate}` : regFilterValue;
+    link.setAttribute("download", `reporte_myturn_${fileNameSuffix}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadPDF = () => {
+    const filtered = getFilteredApts();
+    if (filtered.length === 0) {
+      alert("No hay datos para imprimir.");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Reporte MyTurn - ${regFilterType === 'range' ? `${regStartDate} a ${regEndDate}` : regFilterValue}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            h1 { color: #f59e0b; margin-bottom: 5px; }
+            .header-info { margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: left; background: #f9f9f9; padding: 12px; border-bottom: 2px solid #ddd; font-size: 12px; text-transform: uppercase; }
+            td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+            .total-box { margin-top: 30px; text-align: right; font-weight: bold; font-size: 1.2rem; }
+            .footer { margin-top: 50px; font-size: 10px; color: #999; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header-info">
+            <h1>${businessName}</h1>
+            <p>Reporte de Actividad: <strong>${
+              regFilterType === 'day' ? regFilterValue : 
+              regFilterType === 'month' ? regFilterValue : 
+              regFilterType === 'year' ? 'Año ' + regFilterValue : 
+              regFilterType === 'range' ? 'De ' + regStartDate + ' a ' + regEndDate :
+              (() => {
+                const d = new Date(regFilterValue + 'T00:00:00');
+                const day = d.getDay(); 
+                const diffToMon = (day === 0 ? -6 : 1) - day;
+                const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                return `Semana del ${mon.toLocaleDateString()} al ${sun.toLocaleDateString()}`;
+              })()
+            }</strong></p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Servicio</th>
+                <th>Profesional</th>
+                <th>Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map(a => {
+                const s = dbServices.find(sv => sv.name === a.service);
+                return `
+                  <tr>
+                    <td>${a.date}</td>
+                    <td>${a.clientName}</td>
+                    <td>${a.service}</td>
+                    <td>${staff.find(st => st.id === a.staffId)?.name || 'N/A'}</td>
+                    <td>$${s ? Number(s.price).toFixed(2) : '0.00'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="total-box">
+            Total Ingresos: $${getFilteredTxs('ingreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
+          </div>
+          <p style="font-size: 14px; margin-top: 5px;">Total Atendidos: ${filtered.length}</p>
+          <div class="footer">Generado por MyTurn Business Automation - ${new Date().toLocaleString()}</div>
+          <script>window.print(); setTimeout(() => window.close(), 500);</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+  const addExtraService = (service: any) => {
+    setExtraServices([...extraServices, service]);
+  };
+
+  const removeExtraService = (index: number) => {
+    setExtraServices(extraServices.filter((_, i) => i !== index));
+  };
+
   const finalizeService = async () => {
     if (!selectedAptForComplete) return;
     
-    // 1. Dynamic Pricing from DB Services
-    const serviceObj = dbServices.find(s => s.name === selectedAptForComplete.service);
-    const amount = serviceObj ? Number(serviceObj.price) : (selectedAptForComplete.service.includes('+') ? 35 : 25);
-    
-    // 2. Insert Transaction
-    const { data: tx, error: txError } = await supabase.from('transactions').insert({
-      appointment_id: selectedAptForComplete.id,
-      amount,
-      type: 'ingreso',
-      payment_method: paymentMethod,
-      staff_id: selectedAptForComplete.staffId || null,
-      category: selectedAptForComplete.service,
-      description: `Cliente: ${selectedAptForComplete.clientName}`
-    }).select().single();
+    try {
+      // 1. Dynamic Pricing from All Services
+      const mainServiceObj = dbServices.find(s => s.name === selectedAptForComplete.service);
+      let totalAmount = mainServiceObj ? Number(mainServiceObj.price) : 25;
+      
+      // Add extra services
+      extraServices.forEach(s => {
+        totalAmount += Number(s.price);
+      });
 
-    if (!txError) {
+      const discountAmount = totalAmount * (discountPercent / 100);
+      const finalAmount = totalAmount - discountAmount;
+
+      const allServiceNames = [selectedAptForComplete.service, ...extraServices.map(s => s.name)].join(', ');
+      
+      // 2. Insert Transaction
+      const { data: tx, error: txError } = await supabase.from('transactions').insert({
+        appointment_id: selectedAptForComplete.id,
+        amount: finalAmount,
+        type: 'ingreso',
+        payment_method: paymentMethod,
+        staff_id: selectedAptForComplete.staffId || null,
+        category: allServiceNames,
+        description: `Cliente: ${selectedAptForComplete.clientName}${discountPercent > 0 ? ` (Dcto ${discountPercent}%)` : ''}`
+      }).select().single();
+
+      if (txError) throw txError;
+
       // 3. Automatic Inventory Deduction
       try {
         const { data: invItems } = await supabase.from('inventory').select('*');
@@ -492,32 +834,91 @@ const getPlanCapabilities = (planName: string) => {
       }
 
       // 4. Mark Appointment as Finished
-
-      // Mark Appointment as Finished
       await supabase.from('appointments').update({ status: 'finished' }).eq('id', selectedAptForComplete.id);
       
-      setAppointments(appointments.filter((a: Appointment) => a.id !== selectedAptForComplete.id));
-      setTransactions([{
+      if (appointments) {
+        setAppointments(appointments.filter((a: Appointment) => a.id !== selectedAptForComplete.id));
+      }
+      
+      const newTxForState: Transaction = {
         id: tx.id,
-        type: 'ingreso',
-        amount,
+        type: 'ingreso' as const,
+        amount: finalAmount,
         method: paymentMethod as any,
-        category: selectedAptForComplete.service,
+        category: allServiceNames,
         description: `Cliente: ${selectedAptForComplete.clientName}`,
         date: getTodayStr(),
         staffId: selectedAptForComplete.staffId
-      }, ...transactions]);
+      };
       
+      setTransactions([newTxForState, ...transactions]);
+      
+      // 6. Open Receipt Modal
+      setLastProcessedTx({
+        ...newTxForState,
+        clientName: selectedAptForComplete.clientName,
+        mainService: selectedAptForComplete.service,
+        mainPrice: mainServiceObj ? Number(mainServiceObj.price) : 25,
+        extras: extraServices,
+        sessionId: selectedAptForComplete.sessionId,
+        discountPercent,
+        subtotal: totalAmount
+      });
+      
+      setShowReceiptModal(true);
       setShowCompleteModal(false);
+      setExtraServices([]);
       setSelectedAptForComplete(null);
       setPaymentMethod('efectivo');
-    } else {
-      console.error("Finanza no guardada:", txError);
+      setDiscountPercent(0);
+    } catch (err: any) {
+      console.error("Finalize error:", err);
+      alert("Error al finalizar el cobro: " + (err.message || "Error desconocido"));
     }
   };
 
-  return (
-    <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', position: 'relative' }}>
+  const sendReceiptToChat = async () => {
+    if (!lastProcessedTx || !lastProcessedTx.sessionId || !tenantId) {
+      alert("No se pudo identificar el chat del cliente para enviar el recibo.");
+      return;
+    }
+
+    try {
+      const extrasText = lastProcessedTx.extras?.map((ex: any) => `- ${ex.name}: $${ex.price}`).join('\n') || '';
+      const receiptContent = `📄 *RECIBO DIGITAL*\n\n` +
+        `Cliente: ${lastProcessedTx.clientName}\n` +
+        `Servicio: ${lastProcessedTx.mainService} ($${lastProcessedTx.mainPrice})\n` +
+        (extrasText ? `Extras:\n${extrasText}\n` : '') +
+        `-------------------\n` +
+        `TOTAL: $${lastProcessedTx.amount.toFixed(2)}\n\n` +
+        `¡Gracias por tu preferencia!`;
+
+      const { error } = await supabase.from('messages').insert({
+        tenant_id: tenantId,
+        session_id: lastProcessedTx.sessionId,
+        content: receiptContent,
+        is_from_client: false,
+        customer_name: lastProcessedTx.clientName
+      });
+
+      if (error) throw error;
+      alert("✅ Recibo enviado al chat del cliente.");
+    } catch (err: any) {
+      console.error("Send chat error:", err);
+      alert("Error al enviar al chat: " + (err.message || "Error desconocido"));
+    }
+  };
+
+   return (
+    <div className={`animate-fade-in ${isMobile ? 'stack-on-mobile' : ''}`} style={{ 
+      display: 'flex', 
+      flexDirection: isMobile ? 'column' : 'row', 
+      gap: isMobile ? '1rem' : '2rem', 
+      position: 'relative',
+      width: '100%',
+      maxWidth: '100vw',
+      overflowX: 'hidden'
+    }}>
       {!tenantId && !isLoading && (
         <div style={{ 
           position: 'fixed', 
@@ -554,19 +955,27 @@ const getPlanCapabilities = (planName: string) => {
           </button>
         </div>
       )}
-      <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
-              {activeTab === 'queue' ? 'Cola de Hoy' : 
+       <section style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row', 
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'flex-start' : 'center', 
+          marginBottom: '2rem',
+          gap: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
+              {activeTab === 'queue' ? '' : 
                activeTab === 'agenda' ? 'Agenda de Citas' :
                activeTab === 'management' ? 'Gestión de Local' : 
                activeTab === 'inventory' ? 'Inventario Inteligente' :
                activeTab === 'staff' ? 'Equipo de Trabajo' : 
-               activeTab === 'customers' ? 'Registro Diario' : 'Finanzas y Reportes'}
+               activeTab === 'messages' ? 'Mensajería de Clientes' :
+               activeTab === 'customers' ? 'Reporte de Actividad' : 'Finanzas y Reportes'}
             </h2>
           </div>
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {(activeTab === 'queue' || activeTab === 'agenda') && (
               <>
                 <button 
@@ -581,13 +990,30 @@ const getPlanCapabilities = (planName: string) => {
                     alignItems: 'center',
                     gap: '0.4rem'
                   }}
-                  onClick={() => setIsPaused(!isPaused)}
+                  onClick={async () => {
+                    const newPaused = !isPaused;
+                    setIsPaused(newPaused);
+                    if (tenantId) {
+                      await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
+                    }
+                  }}
                 >
                   {isPaused ? '▶️ REANUDAR' : '⏸️ EN PAUSA'}
                 </button>
               </>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--surface)', padding: '0.4rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflowX: 'auto', maxWidth: '100%' }}>
+             <div style={{ 
+              display: 'flex', 
+              gap: '0.5rem', 
+              background: 'var(--surface)', 
+              padding: '0.4rem', 
+              borderRadius: 'var(--radius-lg)', 
+              border: '1px solid var(--border)', 
+              overflowX: 'auto', 
+              maxWidth: '100%',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}>
               <button 
                 className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
                 onClick={() => handleTabClick('queue')}
@@ -626,8 +1052,21 @@ const getPlanCapabilities = (planName: string) => {
                 onClick={() => handleTabClick('customers')}
                 style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
               >
-                <Users size={18} />
-                <span>Registro</span>
+                <BarChart2 size={18} />
+                <span>Reporte</span>
+              </button>
+              <button 
+                className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
+                onClick={() => handleTabClick('messages')}
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', position: 'relative' }}
+              >
+                <MessageCircle size={18} />
+                <span>Mensajería</span>
+                {unreadMessages > 0 && (
+                  <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 900, padding: '0.05rem 0.35rem', borderRadius: 'var(--radius-full)', marginLeft: '4px' }}>
+                    {unreadMessages}
+                  </span>
+                )}
               </button>
             </div>
           </div>
@@ -697,7 +1136,19 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
         {(activeTab === 'queue' || activeTab === 'agenda') && (
-          <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem', scrollbarWidth: 'none' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: '0.6rem', 
+            overflowX: 'auto', 
+            paddingBottom: '0.5rem', 
+            marginBottom: '1rem', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            width: '100%',
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }}>
             {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
               const date = new Date();
               date.setDate(date.getDate() + offset);
@@ -754,11 +1205,23 @@ const getPlanCapabilities = (planName: string) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 {/* Open/Close status badge — clickable toggle */}
-                <button
+                <button 
+                  className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
                   onClick={async () => {
-                    const newStatus = !isOpen;
-                    setIsOpen(newStatus);
-                    await supabase.from('tenants').update({ is_open: newStatus }).eq('id', tenantId);
+                    const newState = !isOpen;
+                    // 1. Update main is_open status (Critical)
+                    setIsOpen(newState);
+                    if (newState) {
+                      manualToggleTimeRef.current = Date.now();
+                    }
+                    await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
+                    
+                    // 2. Clear auto-close guard when opening manually 
+                    // (Optional: if you want it to close AGAIN later if the hour hasn't passed, 
+                    // but here we just ensure the 400 error is gone)
+                    if (newState) {
+                      // No-op for DB guard to avoid 400 error
+                    }
                   }}
                   title={isOpen ? 'Haz clic para cerrar el negocio' : 'Haz clic para abrir el negocio'}
                   style={{
@@ -784,23 +1247,6 @@ const getPlanCapabilities = (planName: string) => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  onClick={async () => {
-                    if (confirm('¿Deseas limpiar todos los turnos pendientes de hoy?')) {
-                      const { error } = await supabase.from('appointments').delete()
-                        .eq('tenant_id', tenantId)
-                        .in('status', ['waiting', 'attending', 'arrived']);
-                      if (!error) {
-                        setAppointments(prev => prev.filter(a => a.status === 'finished'));
-                        alert('Cola limpiada correctamente.');
-                      }
-                    }
-                  }}
-                  className="btn btn-outline" 
-                  style={{ fontSize: '0.75rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', fontWeight: 700 }}
-                >
-                  Limpiar Cola
-                </button>
                 <button 
                   className="btn btn-primary" 
                   onClick={() => setShowAddForm(!showAddForm)}
@@ -933,101 +1379,358 @@ const getPlanCapabilities = (planName: string) => {
                           )}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: isMobile ? 'column-reverse' : 'row', 
+                        gap: '0.4rem',
+                        alignItems: isMobile ? 'flex-end' : 'center'
+                      }}>
                         {isCancelled ? (
-                           <button className="btn btn-outline" style={{ fontSize: '0.7rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => removeApt(apt.id)}>Quitar Alerta</button>
+                           <button className="btn btn-outline" style={{ fontSize: '0.7rem', borderColor: '#ef4444', color: '#ef4444', width: isMobile ? '100%' : 'auto' }} onClick={() => removeApt(apt.id)}>Quitar Alerta</button>
                         ) : (
-                          <>
-                            <button className="btn btn-outline" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '0.4rem', width: isMobile ? '100%' : 'auto' }}>
+                            <button className="btn btn-outline" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={async () => {
                               const newStatus = apt.arrived ? 'waiting' : 'arrived';
                               await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
                             }}>{apt.arrived ? '📍 LLEGÓ' : 'LLEGADA'}</button>
                             {apt.status === 'waiting' ? (
-                              <button className="btn btn-primary" style={{ fontSize: '0.7rem' }} onClick={async () => {
+                              <button className="btn btn-primary" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={async () => {
                                 await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
                                 await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
                               }}>Atender</button>
                             ) : (
-                              <button className="btn btn-success" style={{ fontSize: '0.7rem' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
+                              <button className="btn btn-success" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
                             )}
-                          </>
+                          </div>
                         )}
-                        {apt.status === 'waiting' && (() => {
-                            const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
-                            const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
-                            return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
-                              <button
-                                title="Adelantar en la fila"
-                                className="btn btn-outline"
-                                onClick={() => moveUp(myIdx)}
-                                style={{ color: 'var(--primary)', borderColor: 'var(--primary)', padding: '0.25rem 0.5rem' }}
-                              >↑</button>
-                            ) : null;
-                          })()}
-                        <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)' }}><X size={14} /></button>
+                        <div style={{ display: 'flex', gap: '0.4rem', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-end' : 'flex-start' }}>
+                          {apt.status === 'waiting' && (() => {
+                              const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
+                              const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
+                              return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
+                                <button
+                                  title="Adelantar en la fila"
+                                  className="btn btn-outline"
+                                  onClick={() => moveUp(myIdx)}
+                                  style={{ color: 'var(--primary)', borderColor: 'var(--primary)', padding: '0.25rem 0.5rem', flex: isMobile ? 1 : 'none' }}
+                                >↑</button>
+                              ) : null;
+                            })()}
+                          <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)', padding: '0.25rem 0.5rem', flex: isMobile ? 1 : 'none' }}><X size={14} /></button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )})}
               </div>
-            )}
+        )}
           </div>
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
         ) : activeTab === 'finance' ? (
-          <FinanceManagement transactions={transactions} setTransactions={setTransactions} staff={staff} />
+          <div className="animate-fade-in">
+             <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', background: 'var(--background)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  {(['day', 'week', 'month', 'year', 'range'] as const).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        setRegFilterType(type);
+                        if (type === 'day' || type === 'week') setRegFilterValue(getTodayStr());
+                        else if (type === 'month') setRegFilterValue(getTodayStr().substring(0, 7));
+                        else if (type === 'year') setRegFilterValue(getTodayStr().substring(0, 4));
+                      }}
+                      style={{
+                        padding: '0.4rem 1rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: 'none',
+                        background: regFilterType === type ? 'var(--primary)' : 'transparent',
+                        color: regFilterType === type ? 'black' : 'var(--text-muted)',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      {type === 'day' ? 'Día' : type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : type === 'year' ? 'Año' : 'Rango'}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  {(regFilterType === 'day' || regFilterType === 'week') && (
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type="date" 
+                        value={regFilterValue}
+                        onChange={(e) => setRegFilterValue(e.target.value)}
+                        className="input"
+                        style={{ padding: '0.5rem', width: '100%' }}
+                      />
+                      {regFilterType === 'week' && (
+                        <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, marginTop: '0.2rem', textTransform: 'uppercase' }}>
+                          📅 Semana Completa
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {regFilterType === 'month' && (
+                    <input 
+                      type="month" 
+                      value={regFilterValue}
+                      onChange={(e) => setRegFilterValue(e.target.value)}
+                      className="input"
+                      style={{ padding: '0.5rem', width: '100%' }}
+                    />
+                  )}
+                  {regFilterType === 'year' && (
+                    <input 
+                      type="number" 
+                      min="2024" 
+                      max="2100"
+                      value={regFilterValue}
+                      onChange={(e) => setRegFilterValue(e.target.value)}
+                      className="input"
+                      style={{ padding: '0.5rem', width: '100%' }}
+                    />
+                  )}
+                  {regFilterType === 'range' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>DESDE</label>
+                        <input 
+                          type="date" 
+                          value={regStartDate}
+                          onChange={(e) => setRegStartDate(e.target.value)}
+                          className="input"
+                          style={{ padding: '0.4rem', width: '100%', fontSize: '0.85rem' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>HASTA</label>
+                        <input 
+                          type="date" 
+                          value={regEndDate}
+                          onChange={(e) => setRegEndDate(e.target.value)}
+                          className="input"
+                          style={{ padding: '0.4rem', width: '100%', fontSize: '0.85rem' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            <FinanceManagement 
+              transactions={[...getFilteredTxs('ingreso'), ...getFilteredTxs('egreso')]} 
+              setTransactions={setTransactions} 
+              staff={staff} 
+            />
+          </div>
         ) : activeTab === 'staff' ? (
           <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} />
         ) : activeTab === 'customers' ? (
           <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
               <div>
-                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px' }}>Registro Diario</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Citas finalizadas para el día seleccionado.</p>
+                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px', margin: 0 }}>Reporte de Actividad</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Análisis de clientes y finanzas por periodo.</p>
               </div>
-              <div className="card" style={{ padding: '0.75rem 1.5rem', background: 'var(--success)', color: 'white', fontWeight: 800, borderRadius: 'var(--radius-lg)' }}>
-                {appointments.filter(a => a.date === selectedDate && a.status === 'finished').length} Atendidos
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <button 
+                  onClick={() => downloadReport()}
+                  className="btn btn-outline"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem' }}
+                >
+                  <FileText size={18} /> CSV
+                </button>
+                <button 
+                  onClick={downloadPDF}
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem' }}
+                >
+                  <Printer size={18} /> PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
+              <div style={{ display: 'flex', background: 'var(--background)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                {(['day', 'week', 'month', 'year', 'range'] as const).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setRegFilterType(type);
+                      if (type === 'day' || type === 'week') setRegFilterValue(getTodayStr());
+                      else if (type === 'month') setRegFilterValue(getTodayStr().substring(0, 7));
+                      else if (type === 'year') setRegFilterValue(getTodayStr().substring(0, 4));
+                    }}
+                    style={{
+                      padding: '0.4rem 1rem',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: regFilterType === type ? 'var(--primary)' : 'transparent',
+                      color: regFilterType === type ? 'black' : 'var(--text-muted)',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    {type === 'day' ? 'Día' : type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : type === 'year' ? 'Año' : 'Rango'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                {(regFilterType === 'day' || regFilterType === 'week') && (
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="date" 
+                      value={regFilterValue}
+                      onChange={(e) => setRegFilterValue(e.target.value)}
+                      className="input"
+                      style={{ padding: '0.5rem', width: '100%' }}
+                    />
+                    {regFilterType === 'week' && (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, marginTop: '0.2rem', textTransform: 'uppercase' }}>
+                        📅 Semana Completa
+                      </div>
+                    )}
+                  </div>
+                )}
+                {regFilterType === 'month' && (
+                  <input 
+                    type="month" 
+                    value={regFilterValue}
+                    onChange={(e) => setRegFilterValue(e.target.value)}
+                    className="input"
+                    style={{ padding: '0.5rem', width: '100%' }}
+                  />
+                )}
+                {regFilterType === 'year' && (
+                  <input 
+                    type="number" 
+                    min="2024" 
+                    max="2100"
+                    value={regFilterValue}
+                    onChange={(e) => setRegFilterValue(e.target.value)}
+                    className="input"
+                    style={{ padding: '0.5rem', width: '100%' }}
+                  />
+                )}
+                {regFilterType === 'range' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>DESDE</label>
+                      <input 
+                        type="date" 
+                        value={regStartDate}
+                        onChange={(e) => setRegStartDate(e.target.value)}
+                        className="input"
+                        style={{ padding: '0.4rem', width: '100%', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>HASTA</label>
+                      <input 
+                        type="date" 
+                        value={regEndDate}
+                        onChange={(e) => setRegEndDate(e.target.value)}
+                        className="input"
+                        style={{ padding: '0.4rem', width: '100%', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Stats Period */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+              <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Clientes Atendidos</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, color: 'var(--primary)' }}>{getFilteredApts().length}</p>
+              </div>
+              <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Ingresos Periodo</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, color: 'var(--success)' }}>
+                  ${getFilteredTxs('ingreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Gastos Periodo</p>
+                <p style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, color: '#ef4444' }}>
+                  ${getFilteredTxs('egreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
+                </p>
               </div>
             </div>
 
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cliente</th>
-                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Servicio x Barbero</th>
-                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hora</th>
-                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {appointments.filter(a => a.date === selectedDate && a.status === 'finished').map((apt) => (
-                    <tr key={apt.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span style={{ fontWeight: 600 }}>{apt.clientName}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name}`}
-                      </td>
-                      <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {apt.time}
-                      </td>
-                      <td style={{ padding: '1rem', textAlign: 'right' }}>
-                        <span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.7rem' }}>FINALIZADO</span>
-                      </td>
-                    </tr>
-                  ))}
-                  {appointments.filter(a => a.date === selectedDate && a.status === 'finished').length === 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+                  <thead style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                        No hay clientes registrados como finalizados en esta fecha.
-                      </td>
+                      <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fecha</th>
+                      <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cliente</th>
+                      <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Servicio x Barbero</th>
+                      <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Monto</th>
+                      <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {getFilteredApts().map((apt) => {
+                      const serviceData = dbServices.find(s => s.name === apt.service);
+                      return (
+                        <tr key={apt.id} style={{ borderBottom: '1px solid var(--border)', background: 'transparent' }}>
+                          <td style={{ padding: '1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{apt.date}</td>
+                          <td style={{ padding: '1rem' }}>
+                            <span style={{ fontWeight: 600 }}>{apt.clientName}</span>
+                          </td>
+                          <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                            {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name}`}
+                          </td>
+                          <td style={{ padding: '1rem', textAlign: 'right' }}>
+                            <span style={{ fontWeight: 800, color: 'var(--success)' }}>
+                              ${serviceData ? Number(serviceData.price).toFixed(2) : '0.00'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '1rem', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                              <button 
+                                onClick={() => {
+                                  setTargetAptAction({ type: 'edit', apt });
+                                  setShowPinModal(true);
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.4rem' }}
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setTargetAptAction({ type: 'delete', apt });
+                                  setShowPinModal(true);
+                                }}
+                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.4rem' }}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {getFilteredApts().length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                          <BarChart2 size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                          <p>No hay registros finalizados para este periodo.</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         ) : activeTab === 'profile' ? (
@@ -1085,14 +1788,22 @@ const getPlanCapabilities = (planName: string) => {
                 </div>
              </div>
           </div>
+        ) : activeTab === 'messages' ? (
+          <MessagingCenter tenantId={tenantId || ''} />
         ) : (
           <BarberManagement />
         )}
+
       </main>
       </section>
 
-      <aside style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Sidebar Nav */}
+      <aside className={isMobile ? 'full-width-on-mobile' : ''} style={{ 
+        width: isMobile ? '100%' : '320px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '1.5rem',
+        marginTop: isMobile ? '2rem' : 0
+      }}>
         <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: subscription?.status === 'suspended' ? 0.3 : 1 }}>
           <button 
             onClick={() => handleTabClick('queue')}
@@ -1131,6 +1842,25 @@ const getPlanCapabilities = (planName: string) => {
             <Settings size={20} /> Mi Marca
           </button>
           <button 
+            onClick={() => handleTabClick('messages')}
+            className={`btn ${activeTab === 'messages' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', position: 'relative' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><MessageCircle size={20} /> Mensajería</div>
+            {unreadMessages > 0 && (
+              <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 900, padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-full)', minWidth: '1.2rem', textAlign: 'center' }}>
+                {unreadMessages}
+              </span>
+            )}
+          </button>
+          <button 
+            onClick={() => handleTabClick('customers')}
+            className={`btn ${activeTab === 'customers' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
+          >
+            <BarChart2 size={20} /> Reporte
+          </button>
+          <button 
             onClick={() => handleTabClick('staff')}
             className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
@@ -1146,6 +1876,7 @@ const getPlanCapabilities = (planName: string) => {
             <User size={20} /> Mi Perfil
           </button>
         </nav>
+        
 
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1288,10 +2019,10 @@ const getPlanCapabilities = (planName: string) => {
               <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.6rem' }}>FORMATO DE PAGO</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 {[
-                  { id: 'cash', label: '💵 EFECTIVO' },
-                  { id: 'card', label: '💳 TARJETA' },
-                  { id: 'deposit', label: '📲 TRANSF.' },
-                  { id: 'credit', label: '📝 CRÉDITO' }
+                  { id: 'efectivo', label: '💵 EFECTIVO' },
+                  { id: 'tarjeta', label: '💳 TARJETA' },
+                  { id: 'transferencia', label: '📲 TRANSF.' },
+                  { id: 'credito', label: '📝 CRÉDITO' }
                 ].map(method => (
                   <button
                     key={method.id}
@@ -1313,19 +2044,66 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '2rem', border: '1px solid var(--border)' }}>
+            <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Servicio:</span>
+                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Servicio Principal:</span>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{selectedAptForComplete.service}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              
+              {extraServices.map((ex, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => removeExtraService(idx)}
+                      style={{ color: '#ef4444', border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontSize: '1rem' }}
+                    >×</button>
+                    <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>{ex.name}:</span>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>${Number(ex.price).toFixed(2)}</span>
+                </div>
+              ))}
+
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border)' }}>
+                <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>AÑADIR OTRO SERVICIO</label>
+                <select 
+                  onChange={(e) => {
+                    const s = dbServices.find(sv => sv.id === e.target.value);
+                    if (s) addExtraService(s);
+                    e.target.value = "";
+                  }}
+                  style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.75rem' }}
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {dbServices.filter(s => s.name !== selectedAptForComplete.service).map(s => (
+                    <option key={s.id} value={s.id}>{s.name} (${s.price})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 800 }}>Total a Cobrar:</span>
                 <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>
                   ${(() => {
-                    const s = dbServices.find(sv => sv.name === selectedAptForComplete?.service);
-                    return s ? Number(s.price).toFixed(2) : '0.00';
+                    if (!dbServices || dbServices.length === 0) return 'Calculando...';
+                    const mainS = dbServices.find(sv => sv.name.toLowerCase() === selectedAptForComplete?.service.toLowerCase());
+                    let base = mainS ? Number(mainS.price) : 25;
+                    extraServices.forEach(ex => base += Number(ex.price));
+                    const disc = base * (discountPercent / 100);
+                    return (base - disc).toFixed(2);
                   })()}
                 </span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Descuento (%):</span>
+                <input 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  value={discountPercent} 
+                  onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                  style={{ width: '60px', padding: '0.3rem', borderRadius: '4px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)', textAlign: 'right', fontWeight: 800 }}
+                />
               </div>
             </div>
 
@@ -1457,6 +2235,282 @@ const getPlanCapabilities = (planName: string) => {
       <div style={{ position: 'fixed', bottom: '1rem', left: '1rem', opacity: 0.2, fontSize: '0.6rem', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 9999 }}>
         ADMIN_TENANT_ID: {tenantId || 'LOADING...'}
       </div>
+
+      {/* Security PIN Modal */}
+      {showPinModal && (
+        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '360px', padding: '2rem', textAlign: 'center' }}>
+            <div style={{ background: 'rgba(245,158,11,0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--primary)' }}>
+              <Lock size={30} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginBottom: '0.5rem' }}>
+              {verifiedPin ? 'Seguridad Requerida' : 'Configurar PIN de Reportes'}
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              {verifiedPin 
+                ? 'Ingresa tu PIN para autorizar esta acción en el historial.' 
+                : 'Crea un PIN de 4 dígitos para proteger la edición de tus reportes.'}
+            </p>
+            
+            <input 
+              type="password"
+              maxLength={4}
+              placeholder="0 0 0 0"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+              style={{ 
+                width: '100%', 
+                padding: '1rem', 
+                fontSize: '1.5rem', 
+                textAlign: 'center', 
+                letterSpacing: '1rem', 
+                background: 'var(--background)', 
+                border: '2px solid var(--border)', 
+                borderRadius: 'var(--radius-lg)',
+                fontWeight: 900,
+                color: 'var(--primary)',
+                marginBottom: '1.5rem'
+              }}
+              autoFocus
+            />
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                className="btn btn-outline" 
+                style={{ flex: 1 }} 
+                onClick={() => {
+                  setShowPinModal(false);
+                  setPinInput('');
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1 }}
+                disabled={pinInput.length < 1}
+                onClick={async () => {
+                  if (!verifiedPin) {
+                    // SETUP PIN
+                    localStorage.setItem(`myturn_pin_${tenantId}`, pinInput);
+                    setVerifiedPin(pinInput);
+                    setPinInput('');
+                    alert("PIN configurado correctamente.");
+                  } else {
+                    // VALIDATE PIN
+                    if (pinInput === verifiedPin) {
+                      setShowPinModal(false);
+                      setPinInput('');
+                      if (targetAptAction?.type === 'edit') {
+                        setEditingApt(targetAptAction.apt);
+                        setShowEditModal(true);
+                      } else if (targetAptAction?.type === 'delete') {
+                        if (confirm(`¿Seguro que quieres eliminar el registro de ${targetAptAction.apt.clientName}? Esta acción es irreversible.`)) {
+                          try {
+                            // 1. Delete linked transactions first (FK constraint)
+                            await supabase.from('transactions').delete().eq('appointment_id', targetAptAction.apt.id);
+                            
+                            // 2. Delete appointment
+                            const { error } = await supabase.from('appointments').delete().eq('id', targetAptAction.apt.id);
+                            
+                            if (error) {
+                              alert("Error al eliminar: " + error.message);
+                            }
+                          } catch (err) {
+                            console.error("Delete failed:", err);
+                            alert("Ocurrió un error inesperado al intentar eliminar el registro.");
+                          }
+                        }
+                        setTargetAptAction(null);
+                      }
+                    } else {
+                      alert("PIN Incorrecto.");
+                      setPinInput('');
+                    }
+                  }
+                }}
+              >
+                {verifiedPin ? 'Verificar' : 'Registrar PIN'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Record Modal */}
+      {showEditModal && editingApt && (
+        <div className="modal-overlay">
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 900, marginBottom: '1.25rem' }}>Editar Registro</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>CLIENTE</label>
+                <input 
+                  type="text" 
+                  value={editingApt.clientName}
+                  onChange={(e) => setEditingApt({...editingApt, clientName: e.target.value})}
+                  className="input"
+                />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>SERVICIO</label>
+                <select 
+                  value={editingApt.service}
+                  onChange={(e) => setEditingApt({...editingApt, service: e.target.value})}
+                  className="input"
+                >
+                  {dbServices.map(s => <option key={s.id} value={s.name}>{s.name} - ${s.price}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>FECHA</label>
+                  <input 
+                    type="date" 
+                    value={editingApt.date}
+                    onChange={(e) => setEditingApt({...editingApt, date: e.target.value})}
+                    className="input"
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>HORA</label>
+                  <input 
+                    type="time" 
+                    value={editingApt.time}
+                    onChange={(e) => setEditingApt({...editingApt, time: e.target.value})}
+                    className="input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem' }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowEditModal(false)}>Cancelar</button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1 }}
+                onClick={async () => {
+                  const { error } = await supabase.from('appointments').update({
+                    client_name: editingApt.clientName,
+                    service: editingApt.service,
+                    date: editingApt.date,
+                    time: editingApt.time
+                  }).eq('id', editingApt.id);
+
+                  if (!error) {
+                    setShowEditModal(false);
+                    setTargetAptAction(null);
+                    setEditingApt(null);
+                  } else {
+                    alert("Error al actualizar: " + error.message);
+                  }
+                }}
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showReceiptModal && lastProcessedTx && (
+        <div className="no-print" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="print-only" style={{ padding: '2rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--success)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                  <CheckCircle2 size={32} />
+                </div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)' }}>Pago Exitoso</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date().toLocaleString()}</p>
+              </div>
+
+              <div style={{ borderTop: '1px dashed var(--border)', borderBottom: '1px dashed var(--border)', padding: '1.5rem 0', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Cliente:</span>
+                  <span style={{ fontWeight: 700 }}>{lastProcessedTx.clientName}</span>
+                </div>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.4rem', textTransform: 'uppercase', fontWeight: 800 }}>Servicios</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
+                    <span>{lastProcessedTx.mainService}</span>
+                    <span style={{ fontWeight: 600 }}>${lastProcessedTx.mainPrice.toFixed(2)}</span>
+                  </div>
+                  {lastProcessedTx.extras?.map((ex: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                      <span>+ {ex.name}</span>
+                      <span>${Number(ex.price).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {lastProcessedTx.discountPercent > 0 && (
+                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--primary)' }}>
+                     <span style={{ fontSize: '0.9rem' }}>Descuento ({lastProcessedTx.discountPercent}%):</span>
+                     <span style={{ fontWeight: 700 }}>-${(lastProcessedTx.subtotal - lastProcessedTx.amount).toFixed(2)}</span>
+                   </div>
+                )}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>TOTAL</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.5rem', color: 'var(--primary)' }}>${lastProcessedTx.amount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowReceiptModal(false)}>Cerrar</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}><Printer size={18} /> Imprimir</button>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button 
+                    className="btn" 
+                    style={{ flex: 1, background: '#25D366', color: 'white', fontWeight: 900 }}
+                    onClick={() => {
+                      const extrasText = lastProcessedTx.extras?.map((ex: any) => `- ${ex.name}: $${ex.price}`).join('%0A') || '';
+                      const text = `📄 *RECIBO DIGITAL*%0A%0A` +
+                        `Cliente: ${lastProcessedTx.clientName}%0A` +
+                        `Servicio: ${lastProcessedTx.mainService} ($${lastProcessedTx.mainPrice})%0A` +
+                        (extrasText ? `Extras:%0A${extrasText}%0A` : '') +
+                        `-------------------%0A` +
+                        `TOTAL: $${lastProcessedTx.amount.toFixed(2)}%0A%0A` +
+                        `¡Gracias por tu preferencia!`;
+                      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+                    }}
+                  >
+                    <Share2 size={18} /> WhatsApp
+                  </button>
+                  {lastProcessedTx.sessionId && (
+                    <button 
+                      className="btn" 
+                      style={{ flex: 1, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', fontWeight: 900 }}
+                      onClick={sendReceiptToChat}
+                    >
+                      <MessageCircle size={18} /> Al Chat
+                    </button>
+                  )}
+                </div>
+
+                <button 
+                  className="btn btn-outline" 
+                  style={{ width: '100%', fontSize: '0.75rem' }}
+                  onClick={() => {
+                    const text = `*Recibo de Pago*\n\nCliente: ${lastProcessedTx.clientName}\nTotal: $${lastProcessedTx.amount.toFixed(2)}`;
+                    navigator.clipboard.writeText(text);
+                    alert("Copiado al portapapeles.");
+                  }}
+                >
+                  <Copy size={14} /> Copiar Resumen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

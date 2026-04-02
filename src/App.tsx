@@ -16,6 +16,15 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isSmallScreen = windowWidth < 480;
 
   // PWA Install prompt capture
   useEffect(() => {
@@ -41,7 +50,7 @@ function App() {
   // 1. Initial State from LocalStorage (Immediate UI fallback)
   useEffect(() => {
     const savedView = localStorage.getItem('myturn_last_view');
-    if (savedView === 'barber' || savedView === 'superadmin') {
+    if (savedView === 'barber' || savedView === 'superadmin' || savedView === 'client') {
       setView(savedView as AppView);
     }
   }, []);
@@ -183,7 +192,7 @@ function App() {
       case 'reset_password':
         return <PasswordReset onComplete={() => setView('landing')} />;
       default: return (
-        <main className="animate-fade-in" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+        <main style={{ flex: 1, padding: isSmallScreen ? '0.75rem' : '2rem', overflowY: 'auto' }}>
           <h1 style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1.5rem', lineHeight: 1.1 }}>
             Gestiona tu tiempo, <br />
             <span style={{ color: 'var(--primary)' }}>No tu fila.</span>
@@ -206,30 +215,94 @@ function App() {
 
   return (
     <div className="app-container">
-      <header>
-        <div className="logo" onClick={() => handleSetView('landing')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <img src="/logo-myturn.png" alt="MyTurn Logo" style={{ height: '38px', width: 'auto' }} />
-          <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>
+       <header>
+        <div className="logo" onClick={() => { handleSetView('landing'); setIsMenuOpen(false); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <img src="/logo-myturn.png" alt="MyTurn Logo" style={{ height: '32px', width: 'auto' }} />
+          {!isSmallScreen && <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>}
         </div>
         
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           {showInstallBanner && (
             <button 
               onClick={handleInstall}
-              className="btn btn-primary"
-              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', fontWeight: 800, gap: '0.4rem' }}
+              className="btn btn-primary hide-on-mobile"
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', fontWeight: 800, gap: '0.4rem', border: 'none' }}
             >
               📲 Instalar App
             </button>
           )}
-          <div className="badge badge-success" style={{ cursor: 'pointer', background: 'var(--primary)', color: 'black' }} onClick={() => handleSetView(view === 'landing' ? 'client' : 'landing')}>
-            {view === 'landing' ? 'Agendar Turno' : 'Volver al Inicio'}
-          </div>
-          <button className="btn btn-outline" style={{ padding: '0.5rem', borderRadius: 'var(--radius-full)' }} onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <div 
+              className="badge badge-success hide-on-mobile" 
+              style={{ cursor: 'pointer', background: 'var(--primary)', color: 'black', fontSize: '0.8rem', padding: '0.4rem 0.6rem' }} 
+              onClick={() => { handleSetView(view === 'landing' ? 'client' : 'landing'); setIsMenuOpen(false); }}
+            >
+              {view === 'landing' ? 'Agendar Turno' : 'Volver al Inicio'}
+            </div>
+          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: 'var(--radius-full)', border: isSmallScreen ? 'none' : '1px solid var(--border)' }} onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </nav>
       </header>
+
+      {/* Mobile Menu Drawer */}
+      {isMenuOpen && (
+        <div 
+          className="animate-fade-in"
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: 'var(--background)', 
+            zIndex: 9999, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            padding: '5rem 2rem 2rem',
+            gap: '1rem'
+          }}
+        >
+          {/* Close button inside menu for redundancy */}
+          <button 
+            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text)' }}
+            onClick={() => setIsMenuOpen(false)}
+          >
+            <X size={32} />
+          </button>
+
+          {/* Primary View Toggles (Visible only in menu on small screens) */}
+          {isSmallScreen && (
+            <>
+              <button className="btn btn-primary" style={{ padding: '1rem', justifyContent: 'center', fontSize: '1rem' }} onClick={() => { handleSetView(view === 'landing' ? 'client' : 'landing'); setIsMenuOpen(false); }}>
+                {view === 'landing' ? '📅 AGENDAR MI TURNO' : '🏠 VOLVER AL INICIO'}
+              </button>
+              {showInstallBanner && (
+                <button className="btn btn-outline" style={{ padding: '1rem', justifyContent: 'center', color: 'var(--primary)', borderColor: 'var(--primary)' }} onClick={handleInstall}>
+                  📲 INSTALAR APLICACIÓN
+                </button>
+              )}
+              <hr style={{ border: 'none', borderBottom: '1px solid var(--border)', margin: '0.5rem 0' }} />
+            </>
+          )}
+
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('landing'); setIsMenuOpen(false); }}>
+            <ArrowRight size={20} /> Inicio
+          </button>
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}>
+            <User size={20} /> Soy Cliente
+          </button>
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('barber_login'); setIsMenuOpen(false); }}>
+            <LayoutDashboard size={20} /> Soy Profesional
+          </button>
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('superadmin_login'); setIsMenuOpen(false); }}>
+            <ShieldCheck size={20} /> Administración
+          </button>
+          
+          <div style={{ marginTop: 'auto', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+            MYTURN v1.2.5 • SaaS
+          </div>
+        </div>
+      )}
 
       {renderView()}
 

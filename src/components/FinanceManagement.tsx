@@ -6,7 +6,7 @@ export interface Transaction {
   id: string;
   type: 'ingreso' | 'egreso';
   amount: number;
-  method: 'efectivo' | 'tarjeta' | 'transferencia' | 'otro';
+  method: 'efectivo' | 'tarjeta' | 'transferencia' | 'credito';
   category: string;
   description: string;
   date: string;
@@ -41,7 +41,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
       acc.expense += t.amount;
     }
     return acc;
-  }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, otro: 0 });
+  }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0, otro: 0 });
 
   const balance = totals.income - totals.expense;
 
@@ -148,7 +148,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
               { label: 'Efectivo', amount: totals.efectivo, color: 'var(--success)', icon: DollarSign },
               { label: 'Tarjeta (Deb/Cre)', amount: totals.tarjeta, color: '#3b82f6', icon: CreditCard },
               { label: 'Depósitos / Transf.', amount: totals.transferencia, color: 'var(--primary)', icon: Landmark },
-              { label: 'Otros', amount: totals.otro, color: '#a855f7', icon: HelpCircle },
+              { label: 'Crédito / Otros', amount: totals.credito, color: '#a855f7', icon: HelpCircle },
             ].map((m) => (
               <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `${m.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.color }}>
@@ -286,7 +286,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                   <option value="efectivo">Efectivo</option>
                   <option value="tarjeta">Tarjeta</option>
                   <option value="transferencia">Transferencia</option>
-                  {newTx.type === 'ingreso' && <option value="otro">Otro</option>}
+                  <option value="credito">Crédito / Otro</option>
                 </select>
               </div>
 

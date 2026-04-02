@@ -27,13 +27,14 @@
   padding: 0;
 }
 
-body {
+html, body {
   font-family: var(--font-family);
   background-color: var(--background);
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  width: 100%;
 }
 
 /* Animations */
@@ -188,3 +189,48 @@ header {
 .rich-content font[size="5"] { font-size: 24px; }
 .rich-content font[size="6"] { font-size: 32px; }
 .rich-content font[size="7"] { font-size: 48px; }
+
+
+/* Responsive Utilities */
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+  .show-on-mobile {
+    display: flex !important;
+  }
+  .stack-on-mobile {
+    flex-direction: column !important;
+  }
+  .full-width-on-mobile {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .hide-on-desktop {
+    display: none !important;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only, .print-only * {
+    visibility: visible;
+  }
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 50px;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    padding: 20px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

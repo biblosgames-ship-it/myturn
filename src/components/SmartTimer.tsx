@@ -7,6 +7,7 @@ interface SmartTimerProps {
   turnNumber: number;
   status: 'waiting' | 'next' | 'in_progress' | 'completed';
   isPaused?: boolean;
+  isStalled?: boolean;
   isOpen?: boolean;
   isToday?: boolean;
 }
@@ -17,6 +18,7 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
   turnNumber,
   status,
   isPaused = false,
+  isStalled = false,
   isOpen = true,
   isToday = true
 }) => {
@@ -29,7 +31,7 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
 
   useEffect(() => {
     // If it's not today, the timer should not run
-    if (!isToday || status === 'completed' || timeLeft <= 0 || isPaused) return;
+    if (!isToday || status === 'completed' || timeLeft <= 0 || isPaused || isStalled) return;
     
     // Note: We ignore !isOpen here because we want it to run during "receso" if it's today
     const timer = setInterval(() => {
@@ -37,7 +39,7 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status, timeLeft, isToday, isPaused]);
+  }, [status, timeLeft, isToday, isPaused, isStalled]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -46,6 +48,7 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
   };
 
   const getStatusColor = () => {
+    if (isStalled) return '#ef4444';
     switch (status) {
       case 'in_progress': return 'var(--success)';
       case 'next': return 'var(--primary)';
@@ -55,6 +58,15 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
 
   return (
     <div className="card animate-fade-in" style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes blink-red {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        .blinking-timer {
+          animation: blink-red 1s infinite;
+        }
+      `}</style>
       <div style={{ 
         position: 'absolute', 
         top: 0, 
@@ -69,16 +81,25 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         TURNO #{turnNumber}
       </p>
       
-      <div style={{ 
-        fontSize: '4rem', 
-        fontWeight: 800, 
-        margin: '1rem 0', 
-        color: (isPaused || (!isToday)) ? 'var(--text-muted)' : getStatusColor() 
-      }}>
+      <div 
+        className={isStalled ? 'blinking-timer' : ''}
+        style={{ 
+          fontSize: '4rem', 
+          fontWeight: 800, 
+          margin: '1rem 0', 
+          color: (isPaused || (!isToday)) ? 'var(--text-muted)' : getStatusColor() 
+        }}
+      >
         {(isPaused || !isToday) ? '--:--' : formatTime(timeLeft)}
       </div>
       
-      {isPaused && (
+      {isStalled && (
+        <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 900, fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '1px' }}>
+          ⚠️ ESPERANDO SER ATENDIDO
+        </div>
+      )}
+
+      {isPaused && !isStalled && (
         <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
           ⏸️ EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE
         </div>
@@ -96,19 +117,19 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         </div>
       )}
       
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="smart-timer-stats" style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Clock size={16} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.875rem' }}>{Math.ceil(timeLeft / 60)} min restantes</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{Math.ceil(timeLeft / 60)} min restantes</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Users size={16} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.875rem' }}>{remainingClients} clientes antes</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{remainingClients} clientes antes</span>
         </div>
       </div>
 
-      <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)' }}>
-        <span className="badge badge-warning" style={{ textTransform: 'uppercase' }}>
+      <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)' }}>
+        <span className="badge badge-warning" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
           Estado: {status === 'in_progress' ? 'En proceso' : status === 'next' ? 'Próximo' : 'En espera'}
         </span>
       </div>
