@@ -334,9 +334,6 @@ function App() {
             </>
           )}
 
-          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}>
-            <User size={20} /> Mi Turno Hub
-          </button>
           {user && (
             <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', borderColor: 'rgba(245,158,11,0.2)' }} onClick={() => { setShowProfileEditor(true); setIsMenuOpen(false); }}>
               <User size={20} /> Mi Perfil
@@ -347,9 +344,6 @@ function App() {
           </button>
           <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('barber_login'); setIsMenuOpen(false); }}>
             <LayoutDashboard size={20} /> Soy Profesional
-          </button>
-          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('superadmin_login'); setIsMenuOpen(false); }}>
-            <ShieldCheck size={20} /> Administración
           </button>
           
           <div style={{ marginTop: 'auto', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
