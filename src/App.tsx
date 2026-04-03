@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, LayoutDashboard, Menu, X, ArrowRight, Play, Check, Clock, TrendingUp, ShieldCheck } from 'lucide-react';
+import { User, LayoutDashboard, Menu, X, ArrowRight, Play, Check, Clock, TrendingUp, ShieldCheck, Phone, LogOut } from 'lucide-react';
 import { BarberDashboard } from './components/BarberDashboard';
 import { ClientView } from './components/ClientView';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
@@ -17,6 +17,11 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [user, setUser] = useState<any>(null);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [editData, setEditData] = useState({ full_name: '', phone: '' });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -71,8 +76,6 @@ function App() {
       if (path && path !== '') {
         setTenant({ id: path, name: '' });
         setView('client');
-        setLoading(false);
-        return;
       }
 
       // Check current session (Priority 2)
@@ -105,19 +108,34 @@ function App() {
         }
 
         if (userData) {
-          if (userData.role === 'superadmin') {
+          setUser(session.user);
+          setEditData({
+            full_name: session.user.user_metadata.full_name || '',
+            phone: session.user.phone || ''
+          });
+          const savedView = localStorage.getItem('myturn_last_view');
+          
+          if (userData.role === 'superadmin' || userData.role === 'admin') {
             handleSetView('superadmin');
           } else if (userData.role === 'client') {
-            const saved = localStorage.getItem('myturn_last_view');
             const savedSlug = localStorage.getItem('myturn_active_business_slug');
-            if (saved === 'client' && savedSlug) {
+            if (savedView === 'client' && savedSlug) {
               setTenant({ id: savedSlug, name: '' });
               handleSetView('client');
             } else {
               handleSetView('landing');
             }
           } else {
-            handleSetView('barber');
+            // User is owner/professional
+            // If they were in superadmin view and are now just owners, but they came from superadmin_login,
+            // we should allow it if role is admin? Actually, standard owners go to barber.
+            // FIX: If we are already in superadmin view, don't force jump to barber if we just updated.
+            if (savedView === 'superadmin' && userData.role === 'superadmin') {
+               handleSetView('superadmin');
+            } else {
+               handleSetView('barber');
+            }
+            
             if (userData.tenant_id) {
               setTenant({ id: userData.tenant_id, name: '' });
             }
@@ -142,6 +160,13 @@ function App() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        setEditData({
+          full_name: session.user.user_metadata.full_name || '',
+          phone: session.user.phone || ''
+        });
+      }
       if (!session) {
         setView('landing');
         localStorage.removeItem('myturn_last_view');
@@ -155,8 +180,34 @@ function App() {
 
   const handleSetView = (newView: AppView) => {
     setView(newView);
-    if (newView === 'barber' || newView === 'superadmin' || newView === 'landing') {
+    if (newView === 'barber' || newView === 'superadmin' || newView === 'client') {
       localStorage.setItem('myturn_last_view', newView);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    setProfileLoading(true);
+    setProfileError('');
+    try {
+      const { error } = await supabase.from('users').update({
+        full_name: editData.full_name,
+        phone: editData.phone
+      }).eq('id', user.id);
+
+      if (error) throw error;
+      
+      // Update auth metadata too
+      await supabase.auth.updateUser({
+        data: { full_name: editData.full_name }
+      });
+
+      setShowProfileEditor(false);
+      alert('Perfil actualizado correctamente');
+    } catch (err: any) {
+      setProfileError(err.message || 'Error al actualizar');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -165,13 +216,15 @@ function App() {
       <div style={{ 
         height: '100vh', 
         display: 'flex', 
+        flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center', 
-        background: 'var(--background)' 
+        background: 'linear-gradient(135deg, var(--background) 0%, #1c1917 100%)',
+        gap: '2rem'
       }}>
-        <div style={{ textAlign: 'center' }}>
-          <img src="/logo-myturn.png" alt="MyTurn" className="animate-pulse" style={{ height: '60px', marginBottom: '1rem' }} />
-          <div style={{ color: 'var(--primary)', fontWeight: 800, letterSpacing: '2px' }}>CARGANDO SESIÓN...</div>
+        <div style={{ animation: 'logoRise 1.5s ease-out forwards', textAlign: 'center' }}>
+          <img src="/logo-myturn.png" alt="MyTurn" style={{ height: '80px', filter: 'drop-shadow(0 0 20px var(--primary))' }} />
+          <div style={{ marginTop: '1.5rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '4px', fontSize: '0.9rem', opacity: 0.8 }}>MYTURN</div>
         </div>
       </div>
     );
@@ -190,35 +243,18 @@ function App() {
       case 'client': 
         return <ClientView initialSlug={tenant?.id} />;
       case 'reset_password':
-        return <PasswordReset onComplete={() => setView('landing')} />;
-      default: return (
-        <main style={{ flex: 1, padding: isSmallScreen ? '0.75rem' : '2rem', overflowY: 'auto' }}>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1.5rem', lineHeight: 1.1 }}>
-            Gestiona tu tiempo, <br />
-            <span style={{ color: 'var(--primary)' }}>No tu fila.</span>
-          </h1>
-          <p style={{ fontSize: '1.25rem', color: 'var(--text-muted)', marginBottom: '3rem', maxWidth: '600px', margin: '0 auto 3rem' }}>
-            La plataforma inteligente para la gestión de turnos que prioriza la experiencia del cliente y la eficiencia operativa.
-          </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => handleSetView('client')}>
-              Soy Cliente <ArrowRight size={18} />
-            </button>
-            <button className="btn btn-outline" onClick={() => handleSetView('barber_login')}>
-              Soy Profesional
-            </button>
-          </div>
-        </main>
-      );
+        return <PasswordReset onComplete={() => setView('client')} />;
+      default: 
+        return <ClientView initialSlug={tenant?.id} />;
     }
   };
 
   return (
     <div className="app-container">
        <header className="no-print">
-        <div className="logo" onClick={() => { handleSetView('landing'); setIsMenuOpen(false); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="logo" onClick={() => { handleSetView('client'); setIsMenuOpen(false); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img src="/logo-myturn.png" alt="MyTurn Logo" style={{ height: '32px', width: 'auto' }} />
-          {!isSmallScreen && <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>}
+          <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>
         </div>
         
         <nav style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -234,11 +270,24 @@ function App() {
             <div 
               className="badge badge-success hide-on-mobile" 
               style={{ cursor: 'pointer', background: 'var(--primary)', color: 'black', fontSize: '0.8rem', padding: '0.4rem 0.6rem' }} 
-              onClick={() => { handleSetView(view === 'landing' ? 'client' : 'landing'); setIsMenuOpen(false); }}
+              onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}
             >
-              {view === 'landing' ? 'Agendar Turno' : 'Volver al Inicio'}
+              Agendar Turno
             </div>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: 'var(--radius-full)', border: isSmallScreen ? 'none' : '1px solid var(--border)' }} onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button 
+            className="btn btn-outline" 
+            style={{ 
+              padding: '0.4rem', 
+              borderRadius: 'var(--radius-full)', 
+              border: isSmallScreen ? 'none' : '1px solid var(--border)',
+              zIndex: 10001,
+              position: 'relative'
+            }} 
+            onClick={() => {
+              console.log('Toggling menu:', !isMenuOpen);
+              setIsMenuOpen(!isMenuOpen);
+            }}
+          >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </nav>
@@ -273,8 +322,8 @@ function App() {
           {/* Primary View Toggles (Visible only in menu on small screens) */}
           {isSmallScreen && (
             <>
-              <button className="btn btn-primary" style={{ padding: '1rem', justifyContent: 'center', fontSize: '1rem' }} onClick={() => { handleSetView(view === 'landing' ? 'client' : 'landing'); setIsMenuOpen(false); }}>
-                {view === 'landing' ? '📅 AGENDAR MI TURNO' : '🏠 VOLVER AL INICIO'}
+              <button className="btn btn-primary" style={{ padding: '1rem', justifyContent: 'center', fontSize: '1rem' }} onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}>
+                📅 AGENDAR MI TURNO
               </button>
               {showInstallBanner && (
                 <button className="btn btn-outline" style={{ padding: '1rem', justifyContent: 'center', color: 'var(--primary)', borderColor: 'var(--primary)' }} onClick={handleInstall}>
@@ -285,9 +334,14 @@ function App() {
             </>
           )}
 
-          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('landing'); setIsMenuOpen(false); }}>
-            <ArrowRight size={20} /> Inicio
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}>
+            <User size={20} /> Mi Turno Hub
           </button>
+          {user && (
+            <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', borderColor: 'rgba(245,158,11,0.2)' }} onClick={() => { setShowProfileEditor(true); setIsMenuOpen(false); }}>
+              <User size={20} /> Mi Perfil
+            </button>
+          )}
           <button className="btn btn-outline" style={{ justifyContent: 'flex-start', padding: '1.25rem', fontSize: '1.1rem', fontWeight: 700 }} onClick={() => { handleSetView('client'); setIsMenuOpen(false); }}>
             <User size={20} /> Soy Cliente
           </button>
@@ -331,6 +385,70 @@ function App() {
           </button>
         </div>
       </footer>
+
+      {/* Profile Editor Modal */}
+      {showProfileEditor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '1rem' }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', background: 'var(--surface)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 900, margin: 0 }}>Editar Perfil</h3>
+              <button onClick={() => setShowProfileEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>NOMBRE COMPLETO</label>
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                  <input 
+                    type="text" 
+                    value={editData.full_name}
+                    onChange={(e) => setEditData({...editData, full_name: e.target.value})}
+                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>TELÉFONO</label>
+                <div style={{ position: 'relative' }}>
+                  <Phone style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                  <input 
+                    type="tel" 
+                    value={editData.phone}
+                    onChange={(e) => setEditData({...editData, phone: e.target.value})}
+                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+              
+              {profileError && (
+                <p style={{ color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>{profileError}</p>
+              )}
+
+              <button 
+                onClick={handleUpdateProfile}
+                disabled={profileLoading}
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '1rem', fontWeight: 900, marginTop: '1rem' }}
+              >
+                {profileLoading ? 'Guardando...' : 'GUARDAR CAMBIOS'}
+              </button>
+
+              <button 
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = '/';
+                }}
+                className="btn btn-outline" 
+                style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.1)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}
+              >
+                <LogOut size={16} />
+                <span style={{ fontWeight: 800 }}>CERRAR SESIÓN</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

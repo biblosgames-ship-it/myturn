@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, RefreshCw, Send } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, Send, Link2Off } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -13,6 +13,7 @@ const getLocalDateStr = (d?: Date) => {
 
 interface BusinessData {
   id: string;
+  slug?: string;
   name: string;
   professional: string;
   title: string;
@@ -196,12 +197,38 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   };
 
 
+  const [isLinked, setIsLinked] = useState(false);
+
   // Profile & Appointment Sync
   useEffect(() => {
     const fetchProfileAndAppointment = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      const deviceId = localStorage.getItem('myturn_client_device_id') || '';
+
+      // 1. Check if linked & Auto-link it if logged in
+      if (dbBusiness?.id) {
+        const query = session?.user?.id
+          ? supabase.from('saved_tenants').select('id').eq('tenant_id', dbBusiness.id).eq('user_id', session.user.id).maybeSingle()
+          : supabase.from('saved_tenants').select('id').eq('tenant_id', dbBusiness.id).eq('client_device_id', deviceId).maybeSingle();
+        
+        const { data: link } = await query;
+        if (link) {
+          setIsLinked(true);
+        } else if (session?.user) {
+          // Auto-link for logged users visiting via direct link
+          await supabase.from('saved_tenants').upsert({
+            tenant_id: dbBusiness.id,
+            user_id: session.user.id,
+            client_device_id: deviceId
+          });
+          setIsLinked(true);
+        } else {
+          setIsLinked(false);
+        }
+      }
+
       if (session?.user) {
-        // 1. Fetch Profile
+        // 2. Fetch Profile
         const { data: profile } = await supabase
           .from('users')
           .select('full_name, phone')
@@ -215,7 +242,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           });
         }
 
-        // 2. Fetch Active Appointment (Persistence Fix)
+        // 3. Fetch Active Appointment (Persistence Fix)
         if (dbBusiness?.id) {
           const { data: activeApt } = await supabase
             .from('appointments')
@@ -226,13 +253,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             .maybeSingle();
           
           if (activeApt) {
-            localStorage.setItem('myturn_active_appointment_id', activeApt.id);
+            localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, activeApt.id);
             setHasAppointment(true);
           } else {
-            // No active appointment found for this logged user in this business
-            // Only clear it if the current session was supposed to be theirs
-            // For now, let's just clear it to be safe and avoid "phantom" appointments
-            localStorage.removeItem('myturn_active_appointment_id');
+            localStorage.removeItem(`myturn_active_appointment_id_${dbBusiness.id}`);
             setHasAppointment(false);
           }
         }
@@ -240,6 +264,21 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     };
     fetchProfileAndAppointment();
   }, [dbBusiness?.id]);
+
+  const handleUnlink = async () => {
+    if (!dbBusiness?.id) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const deviceId = localStorage.getItem('myturn_client_device_id') || '';
+
+    const query = session?.user?.id
+      ? supabase.from('saved_tenants').delete().eq('tenant_id', dbBusiness.id).eq('user_id', session.user.id)
+      : supabase.from('saved_tenants').delete().eq('tenant_id', dbBusiness.id).eq('client_device_id', deviceId);
+    
+    const { error } = await query;
+    if (!error) {
+      setIsLinked(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedBusinessSlug) {
@@ -337,7 +376,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         .eq('tenant_id', dbBusiness.id);
 
       if (appts) {
-        const myId = localStorage.getItem('myturn_active_appointment_id');
+        const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
         setQueueItems(appts.map((d, index) => {
           const isAttending = d.status === 'attending';
           const isArrived = d.status === 'arrived';
@@ -442,15 +481,17 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     const deviceId = localStorage.getItem('myturn_client_device_id') || crypto.randomUUID();
     localStorage.setItem('myturn_client_device_id', deviceId);
     
+    const { data: { session } } = await supabase.auth.getSession();
+    
     await supabase.from('saved_tenants').upsert({
       client_device_id: deviceId,
       tenant_id: dbBusiness.id,
       client_name: linkData.name,
-      client_contact: linkData.contact
+      client_contact: linkData.contact,
+      user_id: session?.user?.id || null
     });
 
     // Update central users table if logged in
-    const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       await supabase.from('users').update({
         full_name: linkData.name,
@@ -460,6 +501,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     
     setIsLinking(false);
     setShowLinkModal(false);
+    setIsLinked(true);
     alert('¡Negocio guardado en tu panel personal!');
   };
 
@@ -483,8 +525,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
   if (!business) {
     return (
-      <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.5rem', textAlign: 'center' }}>Selecciona un Negocio</h2>
+      <div className="animate-fade-in" style={{ width: '100%', maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
         <ClientUserHub onSelectBusiness={setSelectedBusinessSlug} />
       </div>
     );
@@ -505,19 +546,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           tenantId={business.id}
           sessionId={sessionId}
           queueInfo={queueInfo}
-          onClose={() => { 
-            setShowBooking(false); 
-            setHasAppointment(true); 
-          }} 
+          onClose={() => setShowBooking(false)} 
+          onSuccess={() => setHasAppointment(true)}
         />
       )}
 
       {showShareModal && (() => {
         // Build the canonical business URL (clean link, not the user's current session URL)
-        const businessUrl = `${window.location.origin}/${selectedBusinessSlug || dbBusiness?.id}`;
+        const canonicalSlug = business?.slug || selectedBusinessSlug || dbBusiness?.id;
+        const businessUrl = `${window.location.origin}/${canonicalSlug}`;
         const shareUrl = encodeURIComponent(businessUrl);
         const shareText = encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`);
-        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${shareUrl}&color=000000&bgcolor=ffffff`;
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${shareUrl}&margin=10`;
         const links = [
           { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${shareUrl}` },
           { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
@@ -629,7 +669,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           justifyContent: 'flex-end',
           marginRight: '0.25rem'
         }}>
-          <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => setShowLinkModal(true)} title="Vincularme a este negocio">
+          <button 
+            className="btn btn-outline" 
+            style={{ padding: '0.4rem', borderRadius: '50%' }} 
+            onClick={() => setShowLinkModal(true)} 
+            title="Vincularme a este negocio"
+          >
             <Plus size={isSmallScreen ? 20 : 18} />
           </button>
           
@@ -839,12 +884,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 >
                   Dejar opinión
                 </button>
-                <button 
-                  onClick={() => fetchApprovedReviews()}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0, marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                >
-                  <RefreshCw size={12} /> Actualizar
-                </button>
               </div>
             )}
           </div>
@@ -864,7 +903,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             <CheckCircle2 color="var(--success)" size={20} />
             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--success)', margin: 0 }}>
               {(() => {
-                const myId = localStorage.getItem('myturn_active_appointment_id');
+                const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
                 const apt = queueItems.find(q => q.id === myId);
                 const localToday = getLocalDateStr();
                 const isToday = apt?.date_time ? getLocalDateStr(new Date(apt.date_time)) === localToday : false;
@@ -880,7 +919,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
           <SmartTimer 
             remainingMinutes={(() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const apt = queueItems.find(q => q.id === myId);
               const myIdx = queueItems.findIndex(q => q.id === myId);
               
@@ -906,17 +945,17 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               return queueInfo.wait;
             })()} 
             remainingClients={(() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const myIdx = queueItems.findIndex(q => q.id === myId);
               return myIdx !== -1 ? myIdx : queueInfo.clients;
             })()} 
             turnNumber={(() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const item = queueItems.find(q => q.id === myId);
               return item ? item.pos : queueInfo.nextTurn;
             })()} 
             status={(() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const item = queueItems.find(q => q.id === myId);
               const myIdx = queueItems.findIndex(q => q.id === myId);
               if (item?.active) return 'in_progress';
@@ -927,7 +966,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             isStalled={isQueueStalled}
             isOpen={dbBusiness.isOpen}
             isToday={(() => {
-              const myId = localStorage.getItem('myturn_active_appointment_id');
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const item = queueItems.find(q => q.id === myId);
               if (!item?.date_time) return true; 
               return getLocalDateStr(new Date(item.date_time)) === getLocalDateStr();
@@ -1082,11 +1121,11 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             className="btn btn-outline" 
             style={{ flex: 1, padding: '1rem', borderColor: '#ef4444', color: '#ef4444' }} 
             onClick={async () => { 
-                const myId = localStorage.getItem('myturn_active_appointment_id');
+                const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
                 if (myId) {
                     await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', myId);
                 }
-                localStorage.removeItem('myturn_active_appointment_id'); 
+                localStorage.removeItem(`myturn_active_appointment_id_${dbBusiness.id}`); 
                 setHasAppointment(false); 
             }}
           >
@@ -1170,13 +1209,48 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                   {isSubmittingReview ? 'Enviando...' : 'ENVIAR RESEÑA'}
                 </button>
               </div>
-            </div>
           </div>
-        )}
+        </div>
+      )}
 
-
-
-
+      {/* Bottom Unlink Action */}
+      {isLinked && (
+        <div style={{ 
+          marginTop: '2rem', 
+          padding: '2rem 1rem', 
+          borderTop: '1px solid var(--border)', 
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            ¿Ya no frecuentas este negocio?
+          </p>
+          <button 
+            onClick={() => {
+              if (window.confirm('¿Estás seguro de que quieres desvincularte de este negocio? Ya no aparecerá en tu panel personal.')) {
+                handleUnlink();
+              }
+            }}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: '#ef4444', 
+              fontSize: '0.9rem', 
+              fontWeight: 800, 
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <Link2Off size={16} /> Desvincularme de este negocio
+          </button>
+        </div>
+      )}
     </div>
   );
 };

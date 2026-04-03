@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
   Stethoscope, Palette, Brush, User, Heart, Activity, Car, Smartphone, Zap, Star, 
-  Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, Image as ImageIcon, Eye, X
+  Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, Image as ImageIcon, Eye, X, Minus
 } from 'lucide-react';
 
 
@@ -40,16 +40,16 @@ interface DaySchedule {
   day: string;
   isOpen: boolean;
   hours: string;
+  booking_end_time?: string;
 }
 
 
 
 
 
-export const BarberManagement: React.FC = () => {
+export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) => {
   const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews'>('brand');
-
-  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(tenantId);
 
 
 
@@ -78,7 +78,8 @@ export const BarberManagement: React.FC = () => {
     address: '',
     mapUrl: '',
     ratingValue: 5.0,
-    reviewsCount: 1
+    reviewsCount: 1,
+    category: 'Belleza'
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -90,71 +91,79 @@ export const BarberManagement: React.FC = () => {
   const [showAddReview, setShowAddReview] = useState(false);
   const [newReview, setNewReview] = useState({ client_name: '', rating: 5, comment: '' });
 
-  useEffect(() => {
-    const loadCatalog = async () => {
-      // 1. Load Business Branding & Schedule
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-        if (userData?.tenant_id) {
-          setCurrentTenantId(userData.tenant_id);
-          const { data: tenant } = await supabase.from('tenants').select('*').eq('id', userData.tenant_id).single();
+  const loadCatalog = useCallback(async () => {
+    // 1. Load Business Branding & Schedule
+    if (tenantId) {
+      setCurrentTenantId(tenantId);
+      const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).single();
 
-          if (tenant) {
-            setBrand({
-              name: tenant.name || '',
-              professionalName: tenant.professional_name || '',
-              professionalTitle: tenant.professional_title || '',
-              logo: tenant.logo || '',
-              color: tenant.color || '#f59e0b',
-              slogan: tenant.slogan || '',
-              showReviews: tenant.show_reviews ?? true,
-              bookingMode: (tenant.booking_mode as any) || 'online',
-              closingTime: tenant.closing_time || '20:00',
-              address: tenant.address || '',
-              mapUrl: tenant.map_url || '',
-              ratingValue: tenant.rating_value || 5.0,
-              reviewsCount: tenant.reviews_count || 1
-            });
-            if (tenant.schedule) setWeeksSchedule(tenant.schedule);
-            if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
-            
-            // Fetch Reviews
-            const { data: revs } = await supabase.from('reviews').select('*').eq('tenant_id', userData.tenant_id).order('created_at', { ascending: false });
-            if (revs) setReviews(revs);
-
-
-          }
-        }
+      if (tenant) {
+        setBrand({
+          name: tenant.name || '',
+          professionalName: tenant.professional_name || '',
+          professionalTitle: tenant.professional_title || '',
+          logo: tenant.logo || '',
+          color: tenant.color || '#f59e0b',
+          slogan: tenant.slogan || '',
+          showReviews: tenant.show_reviews ?? true,
+          bookingMode: (tenant.booking_mode as any) || 'online',
+          closingTime: tenant.closing_time || '20:00',
+          address: tenant.address || '',
+          mapUrl: tenant.map_url || '',
+          ratingValue: tenant.rating_value || 5.0,
+          reviewsCount: tenant.reviews_count || 1,
+          category: tenant.category || 'Belleza'
+        });
+        if (tenant.schedule) setWeeksSchedule(tenant.schedule);
+        if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
+        
+        // Fetch Reviews (filtered by tenantId)
+        const { data: revs } = await supabase.from('reviews').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+        if (revs) setReviews(revs);
       }
+    }
 
-      // 2. Load Services from DB
-      const { data: dbServices } = await supabase.from('services').select('*').order('created_at', { ascending: true });
-      if (dbServices && dbServices.length > 0) {
-        setServices(dbServices.map(s => ({
-          id: s.id,
-          name: s.name,
-          price: s.price,
-          duration: s.duration_minutes,
-          icon: s.icon || 'Scissors'
-        })));
-      } else {
-        setServices([]);
-      }
+    // 2. Load Services from DB (STRICTLY FILTERED by tenantId)
+    console.log('Cargando servicios para tenant:', tenantId);
+    const { data: dbServices, error: resError } = await supabase
+      .from('services')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true });
+
+    if (resError) {
+      console.error('Error cargando servicios:', resError);
       setIsLoading(false);
-    };
+      return;
+    }
 
+    if (dbServices) {
+      console.log(`Servicios cargados: ${dbServices.length}`);
+      setServices(dbServices.map(s => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        duration: s.duration_minutes,
+        icon: s.icon || 'Scissors'
+      })));
+    } else {
+      setServices([]);
+    }
+    setIsLoading(false);
+  }, [tenantId]);
+
+  useEffect(() => {
     loadCatalog();
-
-
-  }, []);
+  }, [loadCatalog]);
 
 
 
 
 
   const addService = () => {
-    setServices([...services, { name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
+    // Generate a temporary UUID for the new service to avoid DB null constraint issues during upsert
+    const newId = crypto.randomUUID();
+    setServices([...services, { id: newId, name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
   };
 
   const removeService = (index: number) => {
@@ -170,18 +179,15 @@ export const BarberManagement: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
-      if (!userData?.tenant_id) throw new Error('No tenant found');
+      if (!tenantId) throw new Error('No tenant found');
+      const targetTenantId = tenantId;
 
       let finalLogoUrl = brand.logo;
 
       // 1. Upload Logo if changed
       if (logoFile) {
         const fileExt = logoFile.name.split('.').pop();
-        const fileName = `${userData.tenant_id}.${fileExt}`;
+        const fileName = `${tenantId}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -198,7 +204,7 @@ export const BarberManagement: React.FC = () => {
       }
 
       // 2. Update Tenant Branding & Settings
-      await supabase.from('tenants').update({ 
+      const { error: tenantError } = await supabase.from('tenants').update({ 
         name: brand.name,
         professional_name: brand.professionalName,
         professional_title: brand.professionalTitle,
@@ -212,23 +218,34 @@ export const BarberManagement: React.FC = () => {
         map_url: brand.mapUrl,
         rating_value: brand.ratingValue,
         reviews_count: brand.reviewsCount,
+        category: brand.category,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
-      }).eq('id', userData.tenant_id);
+      }).eq('id', tenantId);
+
+      if (tenantError) {
+        console.error("Error updating tenant:", tenantError);
+        throw new Error(`Error al actualizar configuración: ${tenantError.message}`);
+      }
 
       // 2. Sync Services
       const currentIds = services.filter(s => s.id).map(s => s.id);
-      const { data: existing } = await supabase.from('services').select('id');
+      const { data: existing } = await supabase.from('services').select('id').eq('tenant_id', tenantId);
       
       if (existing) {
         const toDelete = existing.filter(e => !currentIds.includes(e.id)).map(e => e.id);
         if (toDelete.length > 0) {
-          await supabase.from('services').delete().in('id', toDelete);
+          const { error: delError } = await supabase.from('services').delete().in('id', toDelete).eq('tenant_id', tenantId);
+          if (delError) {
+            console.error("Error deleting services:", delError);
+            throw new Error(`Error al limpiar servicios antiguos: ${delError.message}`);
+          }
         }
       }
 
       const toUpsert = services.map(s => ({
-        ...(s.id ? { id: s.id } : {}),
+        id: s.id || crypto.randomUUID(), // Guarantee an ID is always present
+        tenant_id: tenantId,
         name: s.name,
         price: s.price,
         duration_minutes: s.duration,
@@ -236,15 +253,24 @@ export const BarberManagement: React.FC = () => {
       }));
 
       if (toUpsert.length > 0) {
-        await supabase.from('services').upsert(toUpsert);
+        console.log('Realizando upsert de servicios:', toUpsert.length);
+        const { error: upError } = await supabase.from('services').upsert(toUpsert);
+        if (upError) {
+          console.error("Error upserting services:", upError);
+          throw new Error(`Error al guardar catálogo de servicios: ${upError.message}`);
+        }
       }
 
+      console.log('Guardado exitoso. Refrescando catálogo...');
       document.documentElement.style.setProperty('--primary', brand.color);
-      setShowSaved(true);
-      setTimeout(() => setShowSaved(false), 3000);
-    } catch (err) {
-      console.error(err);
-      alert('Hubo un error al guardar. Revisa tu conexión.');
+      
+      // Refresh catalog to ensure state has proper DB IDs
+      await loadCatalog();
+
+      alert("✅ ¡Configuración guardada correctamente!");
+    } catch (err: any) {
+      console.error("CRITICAL SAVE ERROR:", err);
+      alert(`❌ ${err.message || "Error desconocido al guardar"}`);
     } finally {
       setIsSaving(false);
     }
@@ -352,7 +378,7 @@ export const BarberManagement: React.FC = () => {
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <Scissors size={16} />
+                  <ImageIcon size={16} />
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -399,14 +425,88 @@ export const BarberManagement: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SLOGAN / FRASE</label>
+                    <input 
+                      type="text" 
+                      value={brand.slogan}
+                      onChange={(e) => setBrand({...brand, slogan: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>CATEGORÍA DE NEGOCIO</label>
+                    <select 
+                      value={brand.category}
+                      onChange={(e) => setBrand({...brand, category: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem', fontWeight: 600 }}
+                    >
+                      <option value="Belleza">Belleza</option>
+                      <option value="Salud / Bienestar">Salud / Bienestar</option>
+                      <option value="Vehículos">Vehículos</option>
+                      <option value="Servicios Profesionales">Servicios Profesionales</option>
+                      <option value="Educación">Educación</option>
+                      <option value="Servicios del Hogar">Servicios del Hogar</option>
+                      <option value="Eventos/entretenimiento">Eventos/entretenimiento</option>
+                      <option value="Fitness">Fitness</option>
+                      <option value="Servicios especiales">Servicios especiales</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Color Picker Section */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SLOGAN / FRASE</label>
-                  <input 
-                    type="text" 
-                    value={brand.slogan}
-                    onChange={(e) => setBrand({...brand, slogan: e.target.value})}
-                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
-                  />
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>COLOR DE MARCA (BOTONES Y ACENTOS)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ position: 'relative', width: '42px', height: '42px' }}>
+                      <input 
+                        type="color" 
+                        value={brand.color}
+                        onChange={(e) => setBrand({...brand, color: e.target.value})}
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          padding: 0, 
+                          border: 'none', 
+                          borderRadius: '8px', 
+                          background: 'none', 
+                          cursor: 'pointer',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          zIndex: 2,
+                          opacity: 0
+                        }}
+                      />
+                      <div style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        background: brand.color, 
+                        borderRadius: '8px', 
+                        border: '2px solid var(--border)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                      }} />
+                    </div>
+                    <input 
+                      type="text" 
+                      value={brand.color}
+                      onChange={(e) => setBrand({...brand, color: e.target.value})}
+                      placeholder="#000000"
+                      style={{ 
+                        flex: 1, 
+                        padding: '0.75rem', 
+                        background: 'var(--background)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: 'var(--radius-md)', 
+                        color: 'var(--text)', 
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -574,23 +674,59 @@ export const BarberManagement: React.FC = () => {
                     style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 600, width: '100%' }}
                   />
                 </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>$</span>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: '90px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--success)' }}>$</span>
                   <input 
                     type="number" 
                     value={s.price}
-                    onChange={(e) => updateService(idx, 'price', parseFloat(e.target.value))}
-                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', width: '60px' }}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      updateService(idx, 'price', isNaN(val) ? 0 : val);
+                    }}
+                    style={{ 
+                      width: '60px', 
+                      padding: '0.4rem',
+                      background: 'var(--background)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text)',
+                      fontWeight: 700
+                    }}
                   />
                 </div>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem', minWidth: '120px' }}>
+                    <button 
+                      onClick={() => updateService(idx, 'duration', Math.max(1, s.duration - 1))}
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      <Minus size={14} />
+                    </button>
                     <input 
                       type="number" 
                       value={s.duration}
-                      onChange={(e) => updateService(idx, 'duration', parseInt(e.target.value))}
-                      style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', width: '40px' }}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        updateService(idx, 'duration', isNaN(val) ? 0 : val);
+                      }}
+                      style={{ 
+                        width: '40px', 
+                        padding: '0.3rem 0',
+                        background: 'transparent', 
+                        border: 'none',
+                        borderBottom: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.9rem'
+                      }}
                     />
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>min</span>
+                    <button 
+                      onClick={() => updateService(idx, 'duration', s.duration + 1)}
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>MIN</span>
                   </div>
                   <button 
                     onClick={() => removeService(idx)}
@@ -802,9 +938,22 @@ export const BarberManagement: React.FC = () => {
                           newSchedule[idx].hours = e.target.value;
                           setWeeksSchedule(newSchedule);
                         }}
-                        style={{ background: 'var(--surface-hover)', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', textAlign: 'center', width: '120px', color: 'var(--text)' }}
+                        style={{ background: 'var(--surface-hover)', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', textAlign: 'center', width: '100px', color: 'var(--text)', fontSize: '0.75rem' }}
                       />
-                      <button style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}><Clock size={16} /></button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700 }}>AGENDA HASTA</label>
+                        <input 
+                          type="time" 
+                          value={item.booking_end_time || ''}
+                          onChange={(e) => {
+                            const newSchedule = [...weeksSchedule];
+                            newSchedule[idx].booking_end_time = e.target.value;
+                            setWeeksSchedule(newSchedule);
+                          }}
+                          style={{ background: 'var(--surface-hover)', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', textAlign: 'center', width: '105px', color: 'var(--text)', fontSize: '0.85rem', fontWeight: 600 }}
+                        />
+                      </div>
+                      <button style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}><Clock size={14} /></button>
                     </div>
                   )}
                 </div>

@@ -5,7 +5,10 @@ import { InventoryManagement } from './InventoryManagement';
 import { FinanceManagement, Transaction, StaffMember } from './FinanceManagement';
 import { StaffManagement } from './StaffManagement';
 import { MessagingCenter } from './MessagingCenter';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { AnalyticChart } from './ui/AnalyticChart';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send } from 'lucide-react';
 
 
 interface Appointment {
@@ -75,6 +78,58 @@ export const BarberDashboard: React.FC = () => {
   const [lastAutoCloseDate, setLastAutoCloseDate] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const activityReportRef = React.useRef<HTMLDivElement>(null);
+  const [upgradeCode, setUpgradeCode] = useState('');
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const handleUpgradeWithCode = async () => {
+    if (!upgradeCode) { alert('Ingresa un código.'); return; }
+    setIsUpgrading(true);
+    try {
+      let planToApply: 'Professional' | 'Enterprise' = 'Professional';
+      
+      // Master Code Check
+      if (upgradeCode.toUpperCase() === 'MYTURN-99X-2026') {
+        planToApply = 'Professional';
+      } else {
+        // Check for invitation tenant codes
+        const { data: invData, error: invError } = await supabase
+          .from('tenants')
+          .select('id, name')
+          .eq('name', `Invitación: ${upgradeCode.toUpperCase()}`)
+          .single();
+        
+        if (invError || !invData) {
+          throw new Error('Código inválido o ya utilizado.');
+        }
+        
+        planToApply = 'Professional';
+        await supabase.from('tenants').delete().eq('id', invData.id);
+      }
+
+      const nextExpiry = new Date();
+      nextExpiry.setDate(nextExpiry.getDate() + 30);
+
+      const { error: updError } = await supabase
+        .from('tenants')
+        .update({
+          plan_id: planToApply,
+          expiry_date: nextExpiry.toISOString().split('T')[0],
+          status: 'active'
+        })
+        .eq('id', tenantId);
+
+      if (updError) throw updError;
+
+      alert(`¡Felicidades! Tu plan ha sido actualizado a ${planToApply}.`);
+      setShowUpgradeModal(false);
+      window.location.reload();
+    } catch (err: any) {
+      alert('Error al validar código: ' + err.message);
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -408,7 +463,7 @@ export const BarberDashboard: React.FC = () => {
   }, [tenantId, isOpen, closingTime, weeksSchedule, lastAutoCloseDate]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newClient, setNewClient] = useState({ name: '', service: 'Corte Clásico', staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
+  const [newClient, setNewClient] = useState({ name: '', service: '', staffId: '', time: '' });
   const [copied, setCopied] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [activeTimer, setActiveTimer] = useState(25 * 60); // Seconds left for current client
@@ -443,6 +498,31 @@ export const BarberDashboard: React.FC = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportTicket, setSupportTicket] = useState({ category: 'Avería', message: '' });
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+
+  const handleSendTicket = async () => {
+    if (!supportTicket.message.trim()) { alert('Por favor, describe el problema.'); return; }
+    setIsSubmittingTicket(true);
+    try {
+      const { error } = await supabase.from('support_tickets').insert({
+        tenant_id: tenantId,
+        account_type: subscription?.plan,
+        category: supportTicket.category,
+        message: supportTicket.message,
+        status: 'open'
+      });
+      if (error) throw error;
+      alert('¡Ticket enviado! Nuestro equipo lo revisará pronto.');
+      setShowSupportModal(false);
+      setSupportTicket({ category: 'Avería', message: '' });
+    } catch (err: any) {
+      alert('Error al enviar ticket: ' + err.message);
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
 
 
 
@@ -517,7 +597,14 @@ const getPlanCapabilities = (planName: string) => {
 
   const addWalkIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClient.name) return;
+    if (!newClient.name) {
+      alert("Por favor, ingresa el nombre del cliente.");
+      return;
+    }
+    if (!newClient.time) {
+      alert("Por favor, selecciona una hora para la cita.");
+      return;
+    }
 
     // SaaS Plan Limits Validation (Dynamic Fetch)
     const caps = getPlanCapabilities(subscription?.plan || 'Free');
@@ -577,7 +664,7 @@ const getPlanCapabilities = (planName: string) => {
     }
 
     const firstService = dbServices[0]?.name || 'Servicio';
-    setNewClient({ name: '', service: firstService, staffId: '', time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}` });
+    setNewClient({ name: '', service: firstService, staffId: '', time: '' });
     setShowAddForm(false);
   };
 
@@ -707,35 +794,39 @@ const getPlanCapabilities = (planName: string) => {
     const html = `
       <html>
         <head>
-          <title>Reporte MyTurn - ${regFilterType === 'range' ? `${regStartDate} a ${regEndDate}` : regFilterValue}</title>
+          <title>Reporte MyTurn</title>
           <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; }
-            h1 { color: #f59e0b; margin-bottom: 5px; }
-            .header-info { margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { text-align: left; background: #f9f9f9; padding: 12px; border-bottom: 2px solid #ddd; font-size: 12px; text-transform: uppercase; }
-            td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-            .total-box { margin-top: 30px; text-align: right; font-weight: bold; font-size: 1.2rem; }
-            .footer { margin-top: 50px; font-size: 10px; color: #999; text-align: center; }
+            @media print { @page { margin: 0; } }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              margin: 0; 
+              padding: 5mm; 
+              color: black; 
+              background: white; 
+            }
+            .header { text-align: center; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 15px; }
+            h1 { font-size: 1.2rem; font-weight: 900; margin: 0; text-transform: uppercase; }
+            .report-title { font-size: 0.9rem; font-weight: 800; margin: 5px 0; border: 1px solid black; display: inline-block; padding: 2px 10px; }
+            .meta { font-size: 0.7rem; margin-top: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th { text-align: left; background: #eee; padding: 8px; border: 1px solid black; font-size: 10px; text-transform: uppercase; }
+            td { padding: 8px; border: 1px solid black; font-size: 11px; }
+            .total-row { font-weight: 900; background: #f0f0f0; }
+            .footer { margin-top: 30px; font-size: 9px; text-align: center; border-top: 1px solid black; padding-top: 10px; }
           </style>
         </head>
         <body>
-          <div class="header-info">
+          <div class="header">
             <h1>${businessName}</h1>
-            <p>Reporte de Actividad: <strong>${
+            <div class="report-title">REPORTE DE ACTIVIDAD</div>
+            <div class="meta">Periodo: <strong>${
               regFilterType === 'day' ? regFilterValue : 
               regFilterType === 'month' ? regFilterValue : 
               regFilterType === 'year' ? 'Año ' + regFilterValue : 
               regFilterType === 'range' ? 'De ' + regStartDate + ' a ' + regEndDate :
-              (() => {
-                const d = new Date(regFilterValue + 'T00:00:00');
-                const day = d.getDay(); 
-                const diffToMon = (day === 0 ? -6 : 1) - day;
-                const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
-                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-                return `Semana del ${mon.toLocaleDateString()} al ${sun.toLocaleDateString()}`;
-              })()
-            }</strong></p>
+              'Periodo Seleccionado'
+            }</strong></div>
+            <div class="meta">Generado: ${new Date().toLocaleString()}</div>
           </div>
           <table>
             <thead>
@@ -743,36 +834,57 @@ const getPlanCapabilities = (planName: string) => {
                 <th>Fecha</th>
                 <th>Cliente</th>
                 <th>Servicio</th>
-                <th>Profesional</th>
+                <th>Empleado</th>
                 <th>Monto</th>
               </tr>
             </thead>
             <tbody>
-              ${filtered.map(a => {
-                const s = dbServices.find(sv => sv.name === a.service);
-                return `
-                  <tr>
-                    <td>${a.date}</td>
-                    <td>${a.clientName}</td>
-                    <td>${a.service}</td>
-                    <td>${staff.find(st => st.id === a.staffId)?.name || 'N/A'}</td>
-                    <td>$${s ? Number(s.price).toFixed(2) : '0.00'}</td>
-                  </tr>
-                `;
-              }).join('')}
+              ${filtered.map(a => `
+                <tr>
+                  <td>${a.date}</td>
+                  <td>${a.clientName}</td>
+                  <td>${a.service}</td>
+                  <td>${staff.find(st => st.id === a.staffId)?.name || 'N/A'}</td>
+                  <td>$${Number(dbServices.find(s => s.name === a.service)?.price || 0).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="4" style="text-align: right">TOTAL ACUMULADO:</td>
+                <td>$${filtered.reduce((sum, a) => sum + Number(dbServices.find(s => s.name === a.service)?.price || 0), 0).toFixed(2)}</td>
+              </tr>
             </tbody>
           </table>
-          <div class="total-box">
-            Total Ingresos: $${getFilteredTxs('ingreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
+          <div class="footer">
+            <p>Generado por MyTurn SaaS - Inteligencia para tu negocio</p>
           </div>
-          <p style="font-size: 14px; margin-top: 5px;">Total Atendidos: ${filtered.length}</p>
-          <div class="footer">Generado por MyTurn Business Automation - ${new Date().toLocaleString()}</div>
-          <script>window.print(); setTimeout(() => window.close(), 500);</script>
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
         </body>
       </html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
+  };
+
+  const downloadActivityPDF = async () => {
+    if (!activityReportRef.current) return;
+    try {
+      const element = activityReportRef.current;
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Reporte_Actividad_${getTodayStr()}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Error al generar el PDF");
+    }
   };
   const addExtraService = (service: any) => {
     setExtraServices([...extraServices, service]);
@@ -1532,6 +1644,9 @@ const getPlanCapabilities = (planName: string) => {
               staff={staff} 
               businessName={businessName}
               logoUrl={logoUrl}
+              filteredApts={getFilteredApts()}
+              filterType={regFilterType}
+              filterValue={regFilterValue}
             />
           </div>
         ) : activeTab === 'staff' ? (
@@ -1554,9 +1669,16 @@ const getPlanCapabilities = (planName: string) => {
                 <button 
                   onClick={downloadPDF}
                   className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem', background: 'var(--success)', border: 'none' }}
+                >
+                  <Printer size={18} /> Imprimir
+                </button>
+                <button 
+                  onClick={downloadActivityPDF}
+                  className="btn btn-primary"
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem' }}
                 >
-                  <Printer size={18} /> PDF
+                  <FileText size={18} /> Reporte PDF
                 </button>
               </div>
             </div>
@@ -1654,8 +1776,103 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             </div>
 
+            {/* Central Analítica: Personas, Ingresos y Gastos */}
+            {(() => {
+              const filteredApts = getFilteredApts();
+              const filteredIncome = getFilteredTxs('ingreso');
+              const filteredExpense = getFilteredTxs('egreso');
+              
+              let labels: string[] = [];
+              let peopleValues: number[] = [];
+              let incomeValues: number[] = [];
+              let expenseValues: number[] = [];
+
+              if (regFilterType === 'day' || regFilterType === 'week') {
+                if (regFilterType === 'day') {
+                  labels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
+                  labels.forEach(hour => {
+                    const h = parseInt(hour);
+                    const nextH = h + 2;
+                    
+                    // People (Appointments)
+                    peopleValues.push(filteredApts.filter(a => {
+                      if (!a.time) return false;
+                      const aHour = parseInt(a.time.split(':')[0]);
+                      return aHour >= h && aHour < nextH;
+                    }).length);
+
+                    // Income (Transactions)
+                    incomeValues.push(filteredIncome.filter(t => {
+                      const tDate = new Date(t.date);
+                      return tDate.getHours() >= h && tDate.getHours() < nextH;
+                    }).reduce((sum, t) => sum + t.amount, 0));
+
+                    // Expenses (Transactions)
+                    expenseValues.push(filteredExpense.filter(t => {
+                      const tDate = new Date(t.date);
+                      return tDate.getHours() >= h && tDate.getHours() < nextH;
+                    }).reduce((sum, t) => sum + t.amount, 0));
+                  });
+                } else {
+                  labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                  const days = [1, 2, 3, 4, 5, 6, 0];
+                  days.forEach(d => {
+                    peopleValues.push(filteredApts.filter(a => new Date(a.date).getDay() === d).length);
+                    incomeValues.push(filteredIncome.filter(t => new Date(t.date).getDay() === d).reduce((sum, t) => sum + t.amount, 0));
+                    expenseValues.push(filteredExpense.filter(t => new Date(t.date).getDay() === d).reduce((sum, t) => sum + t.amount, 0));
+                  });
+                }
+              } else if (regFilterType === 'month') {
+                labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+                [1, 8, 16, 24].forEach((startDay, i) => {
+                  const endDay = i === 3 ? 31 : startDay + 7;
+                  peopleValues.push(filteredApts.filter(a => {
+                    const d = new Date(a.date).getDate();
+                    return d >= startDay && d < endDay;
+                  }).length);
+                  incomeValues.push(filteredIncome.filter(t => {
+                    const d = new Date(t.date).getDate();
+                    return d >= startDay && d < endDay;
+                  }).reduce((sum, t) => sum + t.amount, 0));
+                  expenseValues.push(filteredExpense.filter(t => {
+                    const d = new Date(t.date).getDate();
+                    return d >= startDay && d < endDay;
+                  }).reduce((sum, t) => sum + t.amount, 0));
+                });
+              } else if (regFilterType === 'year') {
+                labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                labels.forEach((_, i) => {
+                  peopleValues.push(filteredApts.filter(a => new Date(a.date).getMonth() === i).length);
+                  incomeValues.push(filteredIncome.filter(t => new Date(t.date).getMonth() === i).reduce((sum, t) => sum + t.amount, 0));
+                  expenseValues.push(filteredExpense.filter(t => new Date(t.date).getMonth() === i).reduce((sum, t) => sum + t.amount, 0));
+                });
+              } else {
+                labels = ['Inicio', 'Fin'];
+                peopleValues = [0, filteredApts.length];
+                incomeValues = [0, filteredIncome.reduce((sum, t) => sum + t.amount, 0)];
+                expenseValues = [0, filteredExpense.reduce((sum, t) => sum + t.amount, 0)];
+              }
+
+              return (
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+                  <AnalyticChart title="Flujo de Personas" data={peopleValues.length > 0 ? peopleValues : [0]} color="var(--primary)" labels={labels} />
+                  <AnalyticChart title="Ingresos del Periodo" data={incomeValues.length > 0 ? incomeValues : [0]} color="var(--success)" labels={labels} prefix="$" />
+                  <AnalyticChart title="Gastos del Periodo" data={expenseValues.length > 0 ? expenseValues : [0]} color="#ef4444" labels={labels} prefix="$" />
+                </div>
+              );
+            })()}
+
             {/* Quick Stats Period */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div ref={activityReportRef} style={{ background: 'var(--background)', padding: '1rem', borderRadius: 'var(--radius-lg)' }}>
+              {/* PDF Only Header */}
+              <div className="print-only" style={{ display: 'none', textAlign: 'center', marginBottom: '2rem', padding: '1rem', borderBottom: '2px solid black' }}>
+                {logoUrl && <img src={logoUrl} alt="Logo" style={{ height: '60px', marginBottom: '1rem' }} />}
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'black', margin: 0 }}>{businessName}</h1>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'black', textTransform: 'uppercase' }}>Reporte de Actividad</h2>
+                <p style={{ fontSize: '0.8rem', color: 'black' }}>{new Date().toLocaleString()}</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
               <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
                 <p style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Clientes Atendidos</p>
                 <p style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, color: 'var(--primary)' }}>{getFilteredApts().length}</p>
@@ -1741,6 +1958,7 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             </div>
           </div>
+        </div>
         ) : activeTab === 'profile' ? (
           <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
              <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
@@ -1799,7 +2017,7 @@ const getPlanCapabilities = (planName: string) => {
         ) : activeTab === 'messages' ? (
           <MessagingCenter tenantId={tenantId || ''} />
         ) : (
-          <BarberManagement />
+          <BarberManagement tenantId={tenantId || ''} />
         )}
 
       </main>
@@ -1812,6 +2030,31 @@ const getPlanCapabilities = (planName: string) => {
         gap: '1.5rem',
         marginTop: isMobile ? '2rem' : 0
       }}>
+        <div className="card">
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <img src="/logo-myturn.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Mi Suscripción
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 800 }}>
+                  {businessName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{businessName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plan {subscription?.plan || 'Free'}</div>
+              </div>
+            </div>
+            
+            <button className="btn btn-primary" onClick={() => setShowShareModal(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Share2 size={18} /> Compartir mi negocio
+            </button>
+          </div>
+        </div>
+
         <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: subscription?.status === 'suspended' ? 0.3 : 1 }}>
           <button 
             onClick={() => handleTabClick('queue')}
@@ -1883,33 +2126,37 @@ const getPlanCapabilities = (planName: string) => {
           >
             <User size={20} /> Mi Perfil
           </button>
+
+          <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+            <button 
+              onClick={() => {
+                if (subscription?.plan === 'Free') {
+                  alert('El Soporte Técnico directo es exclusivo para planes Professional y Enterprise. ¡Mejora tu plan para acceder!');
+                  return;
+                }
+                setShowSupportModal(true);
+              }}
+              style={{ 
+                width: '100%', 
+                background: 'rgba(59,130,246,0.1)', 
+                border: '1px solid #3b82f6', 
+                borderRadius: 'var(--radius-md)', 
+                padding: '0.8rem', 
+                color: '#3b82f6', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.9rem'
+              }}
+            >
+              <LifeBuoy size={20} /> Soporte MyTurn
+            </button>
+          </div>
         </nav>
         
 
-        <div className="card">
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img src="/logo-myturn.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Mi Suscripción
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
-              {logoUrl ? (
-                <img src={logoUrl} alt="Logo" style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-sm)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 800 }}>
-                  {businessName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{businessName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plan {subscription?.plan || 'Free'}</div>
-              </div>
-            </div>
-            
-            <button className="btn btn-primary" onClick={() => setShowShareModal(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Share2 size={18} /> Compartir mi negocio
-            </button>
-          </div>
-        </div>
 
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1956,52 +2203,100 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </div>
 
-        <div className="card" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>Asistente MyTurn</h3>
-          <p style={{ fontSize: '0.875rem', fontWeight: 500, opacity: 0.9 }}>
-            "Bienvenido al panel de control. Tus estadísticas de rendimiento y sugerencias inteligentes aparecerán aquí a medida que registres más citas."
-          </p>
-        </div>
+        {(() => {
+          const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
+          const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
+          const incomeToday = transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0);
+
+          const getMessage = () => {
+            if (totalToday === 0) return "¡Día nuevo! Asegúrate de que tus clientes tengan tu enlace para empezar a recibir citas.";
+            if (incomeToday > 200) return "¡Vaya ritmo llevas! Tus ingresos de hoy están por encima del promedio. ¡Sigue así!";
+            if (finishedToday === totalToday && totalToday > 0) return "¡Agenda completada! Has atendido a todos tus clientes de hoy con éxito.";
+            if (totalToday > 5 && finishedToday < 2) return "Día concurrido: Recuerda mantener el ritmo para que la fila fluya con rapidez.";
+            return "Consejo: Revisa tu 'Reporte de Actividad' para ver cuáles son tus horas más productivas de la semana.";
+          };
+
+          return (
+            <div className="card" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ✨ Asistente MyTurn
+              </h3>
+              <p style={{ fontSize: '0.875rem', fontWeight: 600, opacity: 0.9, lineHeight: '1.4' }}>
+                "{getMessage()}"
+              </p>
+            </div>
+          );
+        })()}
       </aside>
 
-      {showShareModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>¡Atrae Clientes!</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Comparte este enlace para que tus clientes agenden directamente contigo.
-            </p>
-            
-            <div style={{ background: 'white', padding: '1rem', borderRadius: 'var(--radius-md)', margin: '0 auto 1.5rem', width: 'fit-content' }}>
-              <QrCode size={160} color="#000" />
-            </div>
+      {showShareModal && (() => {
+        const businessUrl = shareUrl;
+        const encodedUrl = encodeURIComponent(businessUrl);
+        const shareText = encodeURIComponent(`¡Visita ${businessName} y reserva tu turno en línea!`);
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedUrl}&margin=10`;
+        const links = [
+          { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${encodedUrl}` },
+          { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
+          { label: 'Twitter / X', color: '#000', emoji: '🐦', href: `https://twitter.com/intent/tweet?text=${shareText}&url=${encodedUrl}` },
+          { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + businessName)}&body=${shareText}%20${encodedUrl}` },
+        ];
 
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              background: 'var(--background)', 
-              padding: '0.5rem', 
-              borderRadius: 'var(--radius-sm)', 
-              border: '1px solid var(--border)',
-              marginBottom: '1.5rem'
-            }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {shareUrl}
-              </span>
-              <button onClick={handleCopy} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.25rem' }}>
-                <Copy size={16} />
-              </button>
-            </div>
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir Negocio</h3>
+                <button className="btn btn-outline" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setShowShareModal(false)}><X size={18} /></button>
+              </div>
 
-            <button className="btn btn-outline" onClick={() => setShowShareModal(false)} style={{ width: '100%' }}>Cerrar</button>
-            
-            {copied && (
-              <p style={{ marginTop: '0.5rem', color: 'var(--success)', fontSize: '0.75rem', fontWeight: 600 }}>¡Enlace copiado!</p>
-            )}
+              {/* QR Code */}
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>CÓDIGO QR PARA CLIENTES</p>
+                <div style={{ background: 'white', padding: '1rem', borderRadius: 'var(--radius-md)', margin: '0 auto', width: 'fit-content', border: '1px solid var(--border)' }}>
+                  <img 
+                    src={qrSrc} 
+                    alt="QR Code" 
+                    style={{ width: '160px', height: '160px', display: 'block' }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.75rem', wordBreak: 'break-all' }}>{businessUrl}</p>
+              </div>
+
+              {/* Social Links */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {links.map(l => (
+                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none', transition: 'opacity 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>{l.emoji}</span>
+                    {l.label}
+                  </a>
+                ))}
+                
+                <button
+                  className="btn btn-outline"
+                  style={{ width: '100%', marginTop: '0.25rem', borderColor: copied ? 'var(--success)' : 'var(--border)', color: copied ? 'var(--success)' : 'var(--text)' }}
+                  onClick={() => { 
+                    navigator.clipboard.writeText(businessUrl); 
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  <Copy size={16} /> {copied ? '¡Copiado!' : 'Copiar Enlace'}
+                </button>
+              </div>
+
+              <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Tip: Imprime este QR y colócalo en tu local para que tus clientes agenden sin esperar.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {showCompleteModal && selectedAptForComplete && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
@@ -2133,31 +2428,37 @@ const getPlanCapabilities = (planName: string) => {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '420px', padding: '2rem', textAlign: 'center', border: '1px solid var(--primary)' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-              <Lock size={32} />
+              <TrendingUp size={32} />
             </div>
             
             <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.5px' }}>
-              Función Exclusiva
+              Desbloquea MyTurn Premium
             </h3>
             
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.5', fontSize: '0.875rem' }}>
-              Estás limitado por tu <strong style={{ color: 'var(--text)' }}>Plan {subscription?.plan || 'Free'}</strong>. <br/>
-              Asciende tu plan para desbloquear reportes vitales y escalar tu negocio al siguiente nivel.
+              Estás en el <strong style={{ color: 'var(--text)' }}>Plan {subscription?.plan || 'Free'}</strong>. <br/>
+              Ingresa tu código de invitación o promoción para activar las funciones avanzadas.
             </p>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--surface-hover)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '2rem', textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <CheckCircle2 size={18} color="var(--primary)" />
-                <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Cuentas claras y finanzas avanzadas</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <CheckCircle2 size={18} color="var(--primary)" />
-                <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Gestión de personal y comisiones</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <CheckCircle2 size={18} color="var(--primary)" />
-                <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Citas online ilimitadas</span>
-              </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <input 
+                type="text" 
+                placeholder="Ingresa tu código aquí..."
+                value={upgradeCode}
+                onChange={(e) => setUpgradeCode(e.target.value.toUpperCase())}
+                style={{ 
+                  width: '100%', 
+                  padding: '1rem', 
+                  background: 'var(--background)', 
+                  border: '2px solid var(--border)', 
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--primary)',
+                  fontSize: '1.1rem',
+                  fontWeight: 900,
+                  textAlign: 'center',
+                  textTransform: 'uppercase'
+                }}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
@@ -2166,19 +2467,21 @@ const getPlanCapabilities = (planName: string) => {
                 onClick={() => setShowUpgradeModal(false)} 
                 style={{ flex: 1, padding: '0.8rem' }}
               >
-                Quizás luego
+                Cerrar
               </button>
               <button 
                 className="btn btn-primary" 
-                onClick={() => {
-                  alert('Abriendo pasarela de cobro o Panel de Planes...');
-                  setShowUpgradeModal(false);
-                }}
-                style={{ flex: 1, padding: '0.8rem', fontWeight: 800 }}
+                onClick={handleUpgradeWithCode}
+                disabled={isUpgrading}
+                style={{ flex: 2, padding: '0.8rem', fontWeight: 800 }}
               >
-                Actualizar Plan
+                {isUpgrading ? 'Validando...' : 'Activar Plan Premium'}
               </button>
             </div>
+            
+            <p style={{ marginTop: '1.5rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              ¿No tienes un código? Contacta a soporte para adquirir uno.
+            </p>
           </div>
         </div>
       )}
@@ -2526,6 +2829,57 @@ const getPlanCapabilities = (planName: string) => {
               >
                 <Share2 size={18} /> WhatsApp
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSupportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+            <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                <LifeBuoy size={28} />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Centro de Soporte</h3>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>¿En qué podemos ayudarte hoy?</p>
+            </header>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Categoría del Reporte</label>
+                <select 
+                  value={supportTicket.category} 
+                  onChange={(e) => setSupportTicket({...supportTicket, category: e.target.value})}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontWeight: 600 }}
+                >
+                  <option value="Avería">🛠️ Avería / Error</option>
+                  <option value="Reporte">📊 Reporte / Datos</option>
+                  <option value="Sugerencia">💡 Sugerencia</option>
+                  <option value="Otro">❓ Otro</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Mensaje / Detalles</label>
+                <textarea 
+                  value={supportTicket.message}
+                  onChange={(e) => setSupportTicket({...supportTicket, message: e.target.value})}
+                  placeholder="Describe aquí lo que sucede..."
+                  style={{ width: '100%', height: '120px', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button onClick={() => setShowSupportModal(false)} className="btn btn-outline" style={{ flex: 1 }}>Cerrar</button>
+                <button 
+                  onClick={handleSendTicket} 
+                  className="btn btn-primary" 
+                  disabled={isSubmittingTicket}
+                  style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  {isSubmittingTicket ? 'Enviando...' : <><Send size={16} /> Enviar Ticket</>}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -5,8 +5,20 @@ import {
   Shield, Building2, CreditCard, LayoutDashboard, Search, 
   Filter, MoreVertical, ExternalLink, AlertCircle, TrendingUp, 
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
-  CheckCircle2, Loader2
+  CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
+  Download, Printer
 } from 'lucide-react';
+
+interface SupportTicket {
+  id: string;
+  tenant_id: string;
+  tenant_name?: string;
+  account_type: string;
+  category: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  created_at: string;
+}
 
 interface Tenant {
   id: string;
@@ -54,12 +66,51 @@ const initialSaasPlans: SaasPlan[] = [
 ];
 
 export const SuperAdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'tickets' | 'settings'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [lastInviteCode, setLastInviteCode] = useState<string | null>(null);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+
+  const fetchSupportTickets = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select(`
+          *,
+          tenants (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSupportTickets(data.map(t => ({
+        ...t,
+        tenant_name: t.tenants?.name || 'Desconocido'
+      })));
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateTicketStatus = async (id: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ status: newStatus })
+        .eq('id', id);
+      if (error) throw error;
+      fetchSupportTickets();
+    } catch (err) {
+      alert('Error al actualizar ticket');
+    }
+  };
 
 
   // Fetch real tenants from Supabase
@@ -93,6 +144,7 @@ export const SuperAdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTenants();
+    fetchSupportTickets();
   }, []);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [selectedTenantForPayment, setSelectedTenantForPayment] = useState<Tenant | null>(null);
@@ -192,13 +244,38 @@ export const SuperAdminDashboard: React.FC = () => {
   };
 
   const handleUpdatePlan = (updatedPlan: SaasPlan) => {
-
     const newPlans = saasPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p);
     setSaasPlans(newPlans);
     localStorage.setItem('myturn_saas_plans', JSON.stringify(newPlans));
     setEditingPlan(null);
     setShowSuccessToast(true);
     setTimeout(() => setShowSuccessToast(false), 3000);
+  };
+
+  const filteredTenants = tenants.filter(t => (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const handleDownloadCSV = () => {
+    const headers = ['Nombre', 'Dueño', 'Plan', 'Expiración', 'Ingresos'];
+    const rows = filteredTenants.map(t => [
+      `"${t.name}"`,
+      `"${t.owner}"`,
+      `"${t.plan}"`,
+      `"${t.expiryDate}"`,
+      t.revenue
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `reporte_cuentas_myturn_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
 
@@ -211,7 +288,7 @@ export const SuperAdminDashboard: React.FC = () => {
       margin: '-2rem' // Compensate for parent padding
     }}>
       {/* Sidebar Navigation */}
-      <aside style={{ 
+      <aside className="no-print" style={{ 
         background: 'var(--surface)', 
         borderRight: '1px solid var(--border)', 
         padding: '2rem 1rem',
@@ -240,6 +317,7 @@ export const SuperAdminDashboard: React.FC = () => {
             { id: 'overview', label: 'Resumen Global', icon: LayoutDashboard },
             { id: 'businesses', label: 'Gestión Negocios', icon: Building2 },
             { id: 'plans', label: 'Planes SaaS', icon: CreditCard },
+            { id: 'tickets', label: 'Soporte Técnico', icon: LifeBuoy },
             { id: 'settings', label: 'Configuración', icon: Settings },
           ].map(item => (
             <button
@@ -349,12 +427,12 @@ export const SuperAdminDashboard: React.FC = () => {
 
         {activeTab === 'businesses' && (
           <div className="animate-fade-in">
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <header className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
               <div>
                 <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Gestión de Negocios</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Supervisa y modera las cuentas profesionales.</p>
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 <div style={{ position: 'relative' }}>
                   <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                   <input 
@@ -362,9 +440,19 @@ export const SuperAdminDashboard: React.FC = () => {
                     placeholder="Buscar negocio..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', width: '300px' }}
+                    style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', width: '250px' }}
                   />
                 </div>
+                
+                <div style={{ display: 'flex', gap: '0.5rem', borderRight: '1px solid var(--border)', paddingRight: '1rem' }}>
+                  <button className="btn btn-outline" onClick={handleDownloadCSV} title="Descargar Excel/CSV" style={{ padding: '0.75rem' }}>
+                    <Download size={18} />
+                  </button>
+                  <button className="btn btn-outline" onClick={handlePrint} title="Imprimir Listado" style={{ padding: '0.75rem' }}>
+                    <Printer size={18} />
+                  </button>
+                </div>
+
                 <button 
                   className="btn btn-primary"
                   disabled={loading}
@@ -409,25 +497,32 @@ export const SuperAdminDashboard: React.FC = () => {
                 >
                   {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />} Invitación Directa
                 </button>
-
-
               </div>
             </header>
 
+            {/* Print Header (Visible only when printing) */}
+            <div className="print-only" style={{ display: 'none', marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                <img src="/logo-myturn.png" alt="Logo" style={{ height: '40px' }} />
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'black' }}>Reporte de Cuentas Vinculadas - MyTurn SaaS</h1>
+              </div>
+              <p style={{ color: '#666', fontSize: '0.875rem' }}>Fecha del reporte: {new Date().toLocaleDateString()}</p>
+            </div>
+
             <div className="card" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
               {inviteError && (
-                <div className="animate-fade-in" style={{ margin: '1rem', padding: '1rem', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="animate-fade-in no-print" style={{ margin: '1rem', padding: '1rem', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <ShieldAlert size={18} /> Error de Sistema: {inviteError}
                 </div>
               )}
               {lastInviteCode && (
-                <div className="animate-fade-in" style={{ margin: '1rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="animate-fade-in no-print" style={{ margin: '1rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <CheckCircle2 size={18} /> ¡Invitación Generada!: <code style={{ background: 'var(--surface)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border)', marginLeft: '0.5rem' }}>{lastInviteCode}</code>
                 </div>
               )}
 
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'transparent' }}>
                 <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
                     <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NEGOCIO</th>
@@ -435,11 +530,11 @@ export const SuperAdminDashboard: React.FC = () => {
                     <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>PLAN / VIGENCIA</th>
                     <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ESTADO</th>
                     <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>RECAUDO</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ACCIONES</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }} className="no-print">ACCIONES</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tenants.filter(t => (t.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(t => {
+                  {filteredTenants.map(t => {
                     const isInvite = t.name && t.name.startsWith('Invitación:');
                     const inviteCode = isInvite ? t.name.replace('Invitación:', '').trim() : '';
 
@@ -455,7 +550,7 @@ export const SuperAdminDashboard: React.FC = () => {
                             <img src={t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} style={{ width: '40px', height: '40px', borderRadius: '10px' }} alt="" />
                           )}
                           <div>
-                            <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Código Generado' : (t.name || 'Sin Nombre')}</p>
+                            <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Invitación' : (t.name || 'Sin Nombre')}</p>
                             <p style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600, margin: 0 }}>{isInvite ? inviteCode : (t.owner || 'Negocio Registrado')}</p>
                           </div>
                         </div>
@@ -575,6 +670,124 @@ export const SuperAdminDashboard: React.FC = () => {
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Support Tickets View */}
+        {activeTab === 'tickets' && (
+          <div className="animate-fade-in">
+            <header style={{ marginBottom: '2.5rem' }}>
+              <h1 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem' }}>Centro de Soporte MyTurn</h1>
+              <p style={{ color: 'var(--text-muted)' }}>Gestiona los reportes y averías de clientes Professional y Enterprise.</p>
+            </header>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
+              {[
+                { label: 'Tickets Abiertos', val: supportTickets.filter(t => t.status === 'open').length, color: '#f59e0b' },
+                { label: 'En Proceso', val: supportTickets.filter(t => t.status === 'in_progress').length, color: '#3b82f6' },
+                { label: 'Resueltos', val: supportTickets.filter(t => t.status === 'resolved').length, color: '#10b981' },
+                { label: 'Total Histórico', val: supportTickets.length, color: 'var(--text-muted)' },
+              ].map((s, i) => (
+                <div key={i} className="card" style={{ padding: '1.5rem' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{s.label}</p>
+                  <h3 style={{ fontSize: '1.75rem', fontWeight: 900, color: s.color }}>{s.val}</h3>
+                </div>
+              ))}
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
+                  <tr>
+                    <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NEGOCIO / PLAN</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>CATEGORÍA</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>MENSAJE</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>FECHA</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ESTADO</th>
+                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supportTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No hay tickets de soporte registrados aún.
+                      </td>
+                    </tr>
+                  ) : supportTickets.map(ticket => (
+                    <tr key={ticket.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem 1.5rem' }}>
+                        <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{ticket.tenant_name}</p>
+                        <span style={{ 
+                          fontSize: '0.65rem', 
+                          fontWeight: 900, 
+                          padding: '0.1rem 0.4rem', 
+                          borderRadius: '4px', 
+                          background: ticket.account_type === 'Enterprise' ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)',
+                          color: ticket.account_type === 'Enterprise' ? 'var(--primary)' : '#3b82f6'
+                        }}>
+                          {ticket.account_type ? ticket.account_type.toUpperCase() : 'FREE'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700,
+                          color: ticket.category === 'Avería' ? '#ef4444' : ticket.category === 'Sugerencia' ? '#10b981' : 'inherit'
+                        }}>
+                          {ticket.category}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem', maxWidth: '300px' }}>
+                        <p style={{ fontSize: '0.8125rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ticket.message}>
+                          {ticket.message}
+                        </p>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {new Date(ticket.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ 
+                          fontSize: '0.65rem', 
+                          fontWeight: 900, 
+                          padding: '0.2rem 0.6rem', 
+                          borderRadius: 'var(--radius-full)',
+                          background: 
+                            ticket.status === 'open' ? 'rgba(245,158,11,0.1)' : 
+                            ticket.status === 'in_progress' ? 'rgba(59,130,246,0.1)' : 
+                            ticket.status === 'resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.05)',
+                          color: 
+                            ticket.status === 'open' ? '#f59e0b' : 
+                            ticket.status === 'in_progress' ? '#3b82f6' : 
+                            ticket.status === 'resolved' ? '#10b981' : 'var(--text-muted)',
+                          border: `1px solid ${
+                            ticket.status === 'open' ? '#f59e0b' : 
+                            ticket.status === 'in_progress' ? '#3b82f6' : 
+                            ticket.status === 'resolved' ? '#10b981' : 'var(--border)'
+                          }`
+                        }}>
+                          {ticket.status === 'open' ? 'ABIERTO' : 
+                           ticket.status === 'in_progress' ? 'EN PROCESO' : 
+                           ticket.status === 'resolved' ? 'RESUELTO' : 'CERRADO'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <select 
+                          value={ticket.status}
+                          onChange={(e) => handleUpdateTicketStatus(ticket.id, e.target.value)}
+                          style={{ padding: '0.25rem 0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--text)', cursor: 'pointer' }}
+                        >
+                          <option value="open">Abierto</option>
+                          <option value="in_progress">En Proceso</option>
+                          <option value="resolved">Resuelto</option>
+                          <option value="closed">Cerrado</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -148,9 +148,13 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             });
             if (userError) throw userError;
           }
-          onSuccess();
-        } else {
-           setErrorMsg('Es posible que necesites confirmar tu correo (Verifica tu bandeja de entrada).');
+
+          if (authData.session) {
+            onSuccess();
+          } else {
+            setErrorMsg('¡Cuenta creada! Revisa tu bandeja de entrada para confirmar tu correo antes de iniciar sesión.');
+            setMode('login');
+          }
         }
       } else {
         // Login Flow
@@ -191,7 +195,7 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             {mode === 'admin' ? 'Super Admin' : (mode === 'login' ? 'Bienvenido de nuevo' : 'Crea tu Negocio')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            {mode === 'admin' ? 'Acceso reservado para el administrador de la red.' : (mode === 'login' ? 'Ingresa tus credenciales para continuar.' : 'Necesitas un código de invitación para unirte.')}
+            {mode === 'admin' ? 'Acceso reservado para el administrador de la red.' : (mode === 'login' ? 'Ingresa tus credenciales para continuar.' : 'Regístrate gratis o usa un código promocional.')}
           </p>
         </div>
 
@@ -280,6 +284,19 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
               <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={handleInviteValidate}>
                 Validar Código <ArrowRight size={18} />
               </button>
+              <div style={{ textAlign: 'center' }}>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setInviteValid(true);
+                    setInviteCode('FREE-PLAN');
+                    setInviteTenantId(null);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.8125rem', textDecoration: 'underline' }}
+                >
+                  Continuar sin código (Plan Free)
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -351,27 +368,6 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
               <button disabled={loading} type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '0.5rem', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Redirigiendo...' : (mode === 'admin' ? 'Entrar como Admin' : (mode === 'login' ? 'Iniciar Sesión' : 'Registrar Negocio'))}
               </button>
-
-              {/* Guest/Bypass Login for quick testing */}
-              {!isSuperAdmin && mode === 'login' && (
-                <button 
-                  type="button" 
-                  onClick={() => onSuccess()}
-                  style={{ 
-                    width: '100%', 
-                    background: 'rgba(255,255,255,0.03)', 
-                    border: '1px dashed var(--border)', 
-                    color: 'var(--text-muted)', 
-                    padding: '0.75rem', 
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Entrar como Invitado (Modo Demo)
-                </button>
-              )}
             </>
           )}
         </form>

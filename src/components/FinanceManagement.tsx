@@ -30,9 +30,21 @@ interface FinanceProps {
   staff: StaffMember[];
   businessName: string;
   logoUrl: string;
+  filteredApts: any[];
+  filterType: 'day' | 'week' | 'month' | 'year' | 'range';
+  filterValue: string;
 }
 
-export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTransactions, staff, businessName, logoUrl }) => {
+export const FinanceManagement: React.FC<FinanceProps> = ({ 
+  transactions, 
+  setTransactions, 
+  staff, 
+  businessName, 
+  logoUrl,
+  filteredApts,
+  filterType,
+  filterValue
+}) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReport, setShowReport] = useState<'none' | 'pdf' | 'img' | 'cierre'>('none');
   const [newTx, setNewTx] = useState<Partial<Transaction>>({ type: 'ingreso', method: 'efectivo', amount: 0, category: 'Varios', description: '', staffId: '' });
@@ -52,6 +64,129 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
   }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0, otro: 0, discounts: 0 });
 
   const balance = totals.income - totals.expense;
+
+  const generateClosureHTML = () => {
+    const totals = transactions.reduce((acc, t) => {
+      if (t.type === 'ingreso') {
+        acc.income += t.amount;
+        acc.discounts += (t.subtotal || t.amount) - t.amount;
+        const m = t.method as keyof typeof acc;
+        if (m in acc) (acc as any)[m] += t.amount;
+        else acc.otro += t.amount;
+      } else {
+        acc.expense += t.amount;
+      }
+      return acc;
+    }, { income: 0, expense: 0, efectivo: 0, tarjeta: 0, transferencia: 0, credito: 0, otro: 0, discounts: 0 });
+
+    const balance = totals.income - totals.expense;
+
+    return `
+      <div style="padding: 40px; background: white; color: black; font-family: sans-serif; width: 100%; max-width: 400px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          ${logoUrl ? `<img src="${logoUrl}" style="height: 50px; margin-bottom: 10px;" />` : `<h2 style="margin:0">${businessName}</h2>`}
+          <div style="font-weight: 900; border-top: 1px solid black; border-bottom: 1px solid black; margin: 10px 0; padding: 5px 0;">REPORTE DE CIERRE</div>
+          <div style="font-size: 0.8rem;">${new Date().toLocaleString()}</div>
+        </div>
+
+        <div style="border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between;"><span>Ingresos:</span> <strong>$${totals.income.toFixed(2)}</strong></div>
+          <div style="display: flex; justify-content: space-between;"><span>Gastos:</span> <strong>-$${totals.expense.toFixed(2)}</strong></div>
+          <div style="display: flex; justify-content: space-between; margin-top: 5px; border-top: 1px solid black; padding-top: 5px;">
+            <span style="font-weight: 900;">TOTAL CAJA:</span> <strong style="font-size: 1.2rem;">$${balance.toFixed(2)}</strong>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-weight: 900; font-size: 0.8rem; text-transform: uppercase;">Métodos de Pago</div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem;"><span>Efectivo:</span> <span>$${totals.efectivo.toFixed(2)}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem;"><span>Tarjeta:</span> <span>$${totals.tarjeta.toFixed(2)}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem;"><span>Depósitos:</span> <span>$${totals.transferencia.toFixed(2)}</span></div>
+        </div>
+
+        <div style="text-align: center; border-top: 1px solid black; padding-top: 20px;">
+          <div style="height: 40px; border-bottom: 1px solid black; width: 150px; margin: 0 auto 10px;"></div>
+          <div style="font-weight: 800; font-size: 0.8rem;">FIRMA AUTORIZADA</div>
+          <p style="font-size: 0.7rem; margin-top: 20px;">Generado por MyTurn SaaS</p>
+        </div>
+      </div>
+    `;
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const content = reportRef.current ? reportRef.current.innerHTML : generateClosureHTML();
+
+    const html = `
+      <html>
+        <head>
+          <title>Reporte MyTurn</title>
+          <style>
+            body { background: white !important; padding: 0 !important; margin: 0 !important; display: flex; justify-content: center; }
+            @media print { @page { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div style="width: 100%; max-width: 800px;">
+            ${content}
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const { labels, incomeValues } = (() => {
+    let labels: string[] = [];
+    let incomeValues: number[] = [];
+
+    if (filterType === 'day' || filterType === 'week') {
+      if (filterType === 'day') {
+        labels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
+        labels.forEach(hour => {
+          const h = parseInt(hour);
+          const nextH = h + 2;
+          const income = transactions.filter(t => {
+            const tDate = new Date(t.date);
+            const isTargetDay = tDate.toISOString().split('T')[0] === filterValue;
+            return t.type === 'ingreso' && isTargetDay && tDate.getHours() >= h && tDate.getHours() < nextH;
+          }).reduce((s, t) => s + t.amount, 0);
+          incomeValues.push(income);
+        });
+      } else {
+        labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+        const days = [1, 2, 3, 4, 5, 6, 0];
+        days.forEach(d => {
+          const income = transactions.filter(t => t.type === 'ingreso' && new Date(t.date).getDay() === d).reduce((s, t) => s + t.amount, 0);
+          incomeValues.push(income);
+        });
+      }
+    } else if (filterType === 'month') {
+      labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+      [1, 8, 16, 24].forEach((startDay, i) => {
+        const endDay = i === 3 ? 31 : startDay + 7;
+        const income = transactions.filter(t => t.type === 'ingreso' && new Date(t.date).getDate() >= startDay && new Date(t.date).getDate() < endDay).reduce((s, t) => s + t.amount, 0);
+        incomeValues.push(income);
+      });
+    } else if (filterType === 'year') {
+      labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      labels.forEach((_, i) => {
+        const income = transactions.filter(t => t.type === 'ingreso' && new Date(t.date).getMonth() === i).reduce((s, t) => s + t.amount, 0);
+        incomeValues.push(income);
+      });
+    }
+    return { labels, incomeValues };
+  })();
+
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
@@ -109,7 +244,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
           method: data.payment_method as any,
           category: data.category,
           description: data.description,
-          date: new Date(data.created_at).toISOString().split('T')[0],
+          date: data.created_at, // Keep full ISO for charts
           staffId: data.staff_id || undefined
         };
 
@@ -252,12 +387,13 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
               <Share2 size={24} color="#25D366" />
               <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Compartir</span>
             </button>
-            <button onClick={() => window.print()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', gridColumn: 'span 2' }}>
+            <button onClick={handlePrint} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1rem', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', gridColumn: 'span 2' }}>
               <Printer size={24} color="var(--success)" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Imprimir Reporte</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Imprimir</span>
             </button>
           </div>
         </div>
+
       </div>
 
       <div className="card" style={{ padding: '1.5rem' }}>
@@ -271,7 +407,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{t.description}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.category} • {(t.method || '').toUpperCase()}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.category} • {(t.method || '').toUpperCase()} • {new Date(t.date).toLocaleDateString()}</div>
                 </div>
               </div>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: t.type === 'ingreso' ? 'var(--success)' : 'var(--accent)' }}>
@@ -372,7 +508,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
             >
               <X size={20} />
             </button>
-            <div className="print-only" ref={reportRef} style={{ padding: '0', background: 'white', color: 'black' }}>
+            <div className="print-only" ref={reportRef} style={{ padding: '40px', background: 'white', color: 'black' }}>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 {logoUrl ? (
                   <img src={logoUrl} alt={businessName} style={{ height: '50px', objectFit: 'contain', marginBottom: '0.5rem' }} />
@@ -443,7 +579,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                     }} 
                     onClick={() => setShowReport('none')}
                   >
-                    CERRAR REPORTE
+                    CERRAR
                   </button>
                   <button 
                     className="btn" 
@@ -457,9 +593,9 @@ export const FinanceManagement: React.FC<FinanceProps> = ({ transactions, setTra
                       borderRadius: '8px',
                       cursor: 'pointer'
                     }} 
-                    onClick={() => window.print()}
+                    onClick={handlePrint}
                   >
-                    <Printer size={18} /> IMPRIMIR 
+                    <Printer size={18} /> IMPRIMIR
                   </button>
                 </div>
                 

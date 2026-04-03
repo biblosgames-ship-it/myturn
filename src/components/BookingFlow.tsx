@@ -16,11 +16,19 @@ const getTodayStr = () => {
 
 export const BookingFlow: React.FC<{ 
   onClose: () => void, 
+  onSuccess: () => void,
   tenantId: string, 
   sessionId: string,
   queueInfo: { wait: number, clients: number, nextTurn: number } 
-}> = ({ onClose, tenantId, sessionId, queueInfo }) => {
+}> = ({ onClose, onSuccess, tenantId, sessionId, queueInfo }) => {
   const [step, setStep] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  const handleStepChange = (newStep: number) => {
+    setIsTransitioning(true);
+    setStep(newStep);
+    setTimeout(() => setIsTransitioning(false), 400);
+  };
   const [dbServices, setDbServices] = useState<Service[]>([]);
   const [dbStaff, setDbStaff] = useState<any[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -36,6 +44,7 @@ export const BookingFlow: React.FC<{
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
+
   const slotIntervalMinutes = React.useMemo(() => {
     if (dbServices.length === 0) return 30;
     const avg = dbServices.reduce((sum, s) => sum + (s.duration || 30), 0) / dbServices.length;
@@ -60,7 +69,15 @@ export const BookingFlow: React.FC<{
 
     const slots = [];
     let currentTotalMinutes = startH * 60 + startM;
-    const endTotalMinutes = endH * 60 + endM;
+    
+    // 3. BOOKING CUTOFF LOGIC
+    // Use booking_end_time if defined per day, otherwise fallback to working_end_time.
+    let endTotalMinutes = endH * 60 + endM;
+    if (daySched.booking_end_time) {
+      const [limitH, limitM] = daySched.booking_end_time.split(':').map(Number);
+      const cutoffTotalMinutes = limitH * 60 + limitM;
+      endTotalMinutes = Math.min(endTotalMinutes, cutoffTotalMinutes);
+    }
 
     // Parse lunch break
     let lunchStart = -1;
@@ -89,6 +106,25 @@ export const BookingFlow: React.FC<{
   const timeSlots = React.useMemo(() => 
     generateTimeSlots(slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak),
   [slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak]);
+
+  const currentDayCutoff = React.useMemo(() => {
+    if (!businessSchedule || !selectedDate) return null;
+    const date = new Date(selectedDate + 'T00:00:00');
+    // Normalize day name for comparison
+    const normalize = (s: string) => (s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const todayInSpanish = dayNames[date.getDay()];
+    const todayNormalized = normalize(todayInSpanish);
+    
+    const dayNamesEng = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const todayNormalizedEng = dayNamesEng[date.getDay()];
+
+    const daySched = businessSchedule.find((s: any) => {
+      const schedDay = normalize(s.day);
+      return schedDay === todayNormalized || schedDay === todayNormalizedEng;
+    });
+    return (daySched?.isOpen && daySched?.booking_end_time) ? daySched.booking_end_time : null;
+  }, [businessSchedule, selectedDate]);
 
   React.useEffect(() => {
     const loadCatalog = async () => {
@@ -164,25 +200,35 @@ export const BookingFlow: React.FC<{
   }, []);
 
   const handleConfirm = async () => {
+    console.log("INTENTO DE CONFIRMACIÓN - Step:", step, "Time:", selectedTime, "IsTransitioning:", isTransitioning);
+    if (isTransitioning || step !== 4) {
+      console.warn("BLOQUEADO: Intento de confirmación fuera de paso o durante transición.");
+      return;
+    }
     if (!clientName.trim()) {
       alert("Por favor, ingresa tu nombre para reservar.");
+      return;
+    }
+    if (!selectedTime) {
+      alert("Por favor, selecciona un horario válido.");
+      setStep(3);
       return;
     }
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // NEW: Guard against duplicate active appointments
       if (session?.user) {
         const { data: existing } = await supabase
           .from('appointments')
           .select('id')
+          .eq('tenant_id', tenantId)
           .eq('client_user_id', session.user.id)
           .in('status', ['waiting', 'attending', 'arrived'])
           .maybeSingle();
         
         if (existing) {
-          alert("Ya tienes un turno activo vigente. Por favor, cancela el actual si deseas agendar uno nuevo.");
+          alert("Ya tienes un turno activo en este negocio. Por favor, gestiona tu turno actual antes de agendar uno nuevo.");
           setIsLoading(false);
           return;
         }
@@ -205,10 +251,17 @@ export const BookingFlow: React.FC<{
         }).select('id').single();
 
         if (data?.id) {
-          localStorage.setItem('myturn_active_appointment_id', data.id);
+          console.log("CITA CREADA EXITOSAMENTE - ID:", data.id);
+          localStorage.setItem(`myturn_active_appointment_id_${tenantId}`, data.id);
+          onSuccess(); // Mark as success in parent
+          setStep(5);
+        } else {
+          throw new Error("No se pudo generar el turno.");
         }
+      } else {
+        alert("Faltan datos para confirmar la reserva.");
+        setStep(3);
       }
-      setStep(5);
     } catch (err) {
       console.error(err);
       alert("Hubo un error al guardar tu cita.");
@@ -265,24 +318,26 @@ export const BookingFlow: React.FC<{
               {dbServices.map((s: Service) => (
                 <div 
                   key={s.id} 
-                  onClick={() => { setSelectedService(s); setStep(2); }}
+                  onClick={() => { if (!isTransitioning) { setSelectedService(s); setSelectedTime(null); handleStepChange(2); } }}
                   style={{ 
                     padding: '1rem', 
                     background: selectedService?.id === s.id ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
                     border: `1px solid ${selectedService?.id === s.id ? 'var(--primary)' : 'var(--border)'}`,
                     borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
+                    cursor: isTransitioning ? 'wait' : 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    opacity: isTransitioning ? 0.6 : 1,
+                    pointerEvents: isTransitioning ? 'none' : 'auto'
                   }}
                 >
                   <div>
                     <p style={{ fontWeight: 600 }}>{s.name}</p>
                     <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{s.duration} min</p>
                   </div>
-                  <p style={{ fontWeight: 700, color: 'var(--primary)' }}>${s.price.toFixed(2)}</p>
+                  <p style={{ fontWeight: 700, color: 'var(--primary)' }}>${(s.price || 0).toFixed(2)}</p>
                 </div>
               ))}
             </div>
@@ -293,24 +348,26 @@ export const BookingFlow: React.FC<{
               {dbStaff.map((p: any) => (
                 <div 
                   key={p.id} 
-                  onClick={() => { setSelectedPro(p); setStep(3); }}
+                  onClick={() => { if (!isTransitioning) { setSelectedPro(p); setSelectedTime(null); handleStepChange(3); } }}
                   style={{ 
                     padding: '1.25rem 1rem', 
                     background: selectedPro?.id === p.id ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
                     border: `1px solid ${selectedPro?.id === p.id ? 'var(--primary)' : 'var(--border)'}`,
                     borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
+                    cursor: isTransitioning ? 'wait' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1rem',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    opacity: isTransitioning ? 0.6 : 1,
+                    pointerEvents: isTransitioning ? 'none' : 'auto'
                   }}
                 >
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: p.id === 'any' ? 'var(--surface-hover)' : 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem' }}>
-                    {p.id === 'any' ? '?' : p.name.charAt(0).toUpperCase()}
+                    {p.id === 'any' ? '?' : (p.name || 'P').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p style={{ fontWeight: 800, margin: 0 }}>{p.name}</p>
+                    <p style={{ fontWeight: 800, margin: 0 }}>{p.name || 'Profesional'}</p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, marginTop: '0.2rem' }}>{p.role}</p>
                   </div>
                 </div>
@@ -340,7 +397,7 @@ export const BookingFlow: React.FC<{
                     return (
                       <button
                         key={dateStr}
-                        onClick={() => { if (!isClosed) setSelectedDate(dateStr); }}
+                        onClick={() => { if (!isClosed) { setSelectedDate(dateStr); setSelectedTime(null); } }}
                         disabled={isClosed}
                         style={{
                           minWidth: '60px',
@@ -368,8 +425,28 @@ export const BookingFlow: React.FC<{
               {/* Time Slots */}
               <div>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Horarios disponibles</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                  {timeSlots.map((t: string) => {
+                <div style={{ display: 'grid', gridTemplateColumns: timeSlots.length > 0 ? 'repeat(4, 1fr)' : '1fr', gap: '0.5rem' }}>
+                  {timeSlots.length === 0 && currentDayCutoff ? (
+                    <div className="animate-scale-in" style={{ 
+                      padding: '1.5rem', 
+                      background: 'rgba(239,68,68,0.05)', 
+                      borderRadius: 'var(--radius-md)', 
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ color: '#ef4444', marginBottom: '0.75rem' }}>
+                        <Clock size={32} style={{ margin: '0 auto' }} />
+                      </div>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', marginBottom: '0.4rem' }}>
+                        ¡Límite de Agenda Alcanzado!
+                      </p>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                        Lo sentimos, el horario máximo para agendar hoy finalizó a las <span style={{ fontWeight: 800, color: 'var(--text)' }}>{currentDayCutoff}</span>. 
+                        <br /><br />
+                        Te invitamos a seleccionar el <strong style={{ color: 'var(--primary)' }}>día de mañana</strong> para ver nuevos turnos disponibles.
+                      </p>
+                    </div>
+                  ) : timeSlots.map((t: string) => {
                     const isTaken = existingAppointments.includes(t);
                     
                     // NEW: check if time is in the past for today
@@ -386,7 +463,7 @@ export const BookingFlow: React.FC<{
                     return (
                       <button 
                         key={t}
-                        onClick={() => { if (!isDisabled) { setSelectedTime(t); setStep(4); } }}
+                        onClick={() => { if (!isDisabled && !isTransitioning) { setSelectedTime(t); handleStepChange(4); } }}
                         disabled={isDisabled}
                         style={{ 
                           padding: '0.5rem', 
@@ -502,9 +579,8 @@ export const BookingFlow: React.FC<{
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)' }}>
-          {step === 4 ? (
+          {step === 4 && selectedTime ? (
             <button 
               className="btn btn-primary" 
               style={{ width: '100%', padding: '1rem', opacity: isLoading ? 0.7 : 1 }}
@@ -512,6 +588,15 @@ export const BookingFlow: React.FC<{
               disabled={isLoading}
             >
               {isLoading ? 'Confirmando...' : 'Confirmar Reservación'}
+            </button>
+          ) : step === 3 && selectedTime ? (
+             <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '1rem', opacity: isTransitioning ? 0.5 : 1, pointerEvents: isTransitioning ? 'none' : 'auto' }}
+              onClick={() => { if (!isTransitioning) handleStepChange(4); }}
+              disabled={isTransitioning}
+            >
+              Continuar a Confirmación
             </button>
           ) : step === 5 ? (
             <button 
