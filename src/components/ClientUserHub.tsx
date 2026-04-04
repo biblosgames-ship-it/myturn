@@ -34,6 +34,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [isScanningSimulated, setIsScanningSimulated] = useState(false);
   const [discoverBusinesses, setDiscoverBusinesses] = useState<SavedBusiness[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
+  const [showCategories, setShowCategories] = useState(false);
 
   const categories = [
     { label: 'Todas', icon: LayoutGrid },
@@ -318,11 +319,42 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
         </div>
       </div>
 
+      {/* Categories Toggle Button */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-0.5rem' }}>
+        <button 
+          onClick={() => setShowCategories(!showCategories)}
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--border)', 
+            borderRadius: 'var(--radius-full)', 
+            padding: '0.4rem 1rem', 
+            fontSize: '0.75rem', 
+            fontWeight: 800, 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: 'var(--shadow-flat)',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <LayoutGrid size={14} color={showCategories ? 'var(--primary)' : 'currentColor'} />
+          {showCategories ? 'OCULTAR CATEGORÍAS' : 'BUSCAR POR CATEGORÍA'}
+          <ArrowRight size={14} style={{ transform: showCategories ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform 0.3s' }} />
+        </button>
+      </div>
+
       <div style={{ 
+        maxHeight: showCategories ? '200px' : '0', 
+        overflow: 'hidden', 
+        transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        opacity: showCategories ? 1 : 0,
+        pointerEvents: showCategories ? 'auto' : 'none',
         display: 'grid', 
         gridTemplateColumns: 'repeat(5, 1fr)', 
         gap: '0.2rem', 
-        padding: '0.5rem 0',
+        padding: showCategories ? '0.5rem 0' : '0',
         width: '100%',
         maxWidth: '350px',
         margin: '0 auto'
