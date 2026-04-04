@@ -549,17 +549,17 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         onClick={handleShare}
         style={{ 
           padding: '1.5rem', 
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(0,0,0,0.5) 100%)', 
+          background: '#0a0a0a', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          border: 'none', 
+          border: '1px solid #1a1a1a', 
           boxShadow: 'var(--shadow-flat)', 
           borderRadius: '24px',
           cursor: 'pointer',
           transition: 'transform 0.2s'
         }}
-        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
         <div>
