@@ -614,7 +614,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
               <button 
                 onClick={() => handlePlatformShare('whatsapp')}
-                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1px solid rgba(37, 211, 102, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1px solid rgba(37, 211, 102, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#25D366' }}>
                   <Phone size={24} />
@@ -624,7 +624,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('instagram')}
-                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1px solid rgba(225, 48, 108, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1px solid rgba(225, 48, 108, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#E1306C' }}>
                   <Camera size={24} />
@@ -634,7 +634,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('messenger')}
-                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1px solid rgba(59, 89, 152, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1px solid rgba(59, 89, 152, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#3b5998' }}>
                   <Facebook size={24} />
@@ -644,7 +644,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('gmail')}
-                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1px solid rgba(234, 67, 53, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1px solid rgba(234, 67, 53, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#EA4335' }}>
                   <Mail size={24} />
