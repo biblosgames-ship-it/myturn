@@ -35,9 +35,13 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [discoverBusinesses, setDiscoverBusinesses] = useState<SavedBusiness[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   const [showCategories, setShowCategories] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const handleShare = () => {
-    const shareMessage = `¡Hola! 😃
+    setShowShareModal(true);
+  };
+
+  const shareMessage = `¡Hola! 😃
 Quería contarte sobre MyTurn, es una aplicación que uso pa agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
 
 Te dejo el link para que la pruebes: https://myturn-sigma.vercel.app/
@@ -60,16 +64,33 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
 ¡Cuéntame qué tal te va! Espero agendar mi proxima cita por My Turn.`;
 
-    if (navigator.share) {
-      navigator.share({
-        title: 'Recomendar MyTurn',
-        text: shareMessage,
-        url: 'https://myturn-sigma.vercel.app/',
-      }).catch(console.error);
-    } else {
-      const encodedMessage = encodeURIComponent(shareMessage);
-      window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  const handlePlatformShare = (platform: 'whatsapp' | 'gmail' | 'messenger' | 'instagram' | 'copy') => {
+    const encodedMessage = encodeURIComponent(shareMessage);
+    const url = 'https://myturn-sigma.vercel.app/';
+
+    switch (platform) {
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+        break;
+      case 'gmail':
+        window.open(`mailto:?subject=Invitación a conocer MyTurn&body=${encodedMessage}`, '_self');
+        break;
+      case 'messenger':
+        // Messenger for mobile web is tricky, this is the most reliable desktop/mobile fallback
+        window.open(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(url)}&app_id=2914438852200547&redirect_uri=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'instagram':
+        // Instagram doesn't support direct text sharing via URL. We copy to clipboard and open Instagram.
+        navigator.clipboard.writeText(shareMessage);
+        alert('Mensaje copiado al portapapeles. Ahora abre Instagram y pégalo en un mensaje directo.');
+        window.open('https://www.instagram.com/direct/inbox/', '_blank');
+        break;
+      case 'copy':
+        navigator.clipboard.writeText(shareMessage);
+        alert('¡Mensaje copiado!');
+        break;
     }
+    setShowShareModal(false);
   };
 
   const categories = [
@@ -566,6 +587,86 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             <div style={{ position: 'absolute', bottom: 20, right: 20, width: 50, height: 50, borderRight: '6px solid var(--primary)', borderBottom: '6px solid var(--primary)', borderRadius: '0 0 12px 0' }} />
           </div>
           <p style={{ color: 'white', fontWeight: 800, letterSpacing: '1px' }}>ESCANEA EL CÓDIGO QR</p>
+        </div>
+      )}
+      {/* Share Options Modal */}
+      {showShareModal && (
+        <div 
+          style={{ 
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1100, 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(5px)' 
+          }}
+          onClick={() => setShowShareModal(false)}
+        >
+          <div 
+            style={{ 
+              background: 'var(--surface)', borderRadius: '24px', width: '100%', maxWidth: '320px', 
+              padding: '2rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1.5rem',
+              animation: 'slideUp 0.3s ease-out'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem' }}>Enviar Invitación</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Selecciona donde quieres compartir MyTurn</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+              <button 
+                onClick={() => handlePlatformShare('whatsapp')}
+                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1px solid rgba(37, 211, 102, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+              >
+                <div style={{ color: '#25D366' }}>
+                  <Phone size={24} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>WhatsApp</span>
+              </button>
+
+              <button 
+                onClick={() => handlePlatformShare('instagram')}
+                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1px solid rgba(225, 48, 108, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+              >
+                <div style={{ color: '#E1306C' }}>
+                  <Camera size={24} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Instagram</span>
+              </button>
+
+              <button 
+                onClick={() => handlePlatformShare('messenger')}
+                style={{ background: 'rgba(0, 132, 255, 0.1)', border: '1px solid rgba(0, 132, 255, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+              >
+                <div style={{ color: '#0084FF' }}>
+                  <Mail size={24} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Messenger</span>
+              </button>
+
+              <button 
+                onClick={() => handlePlatformShare('gmail')}
+                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1px solid rgba(234, 67, 53, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+              >
+                <div style={{ color: '#EA4335' }}>
+                  <Mail size={24} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Gmail</span>
+              </button>
+            </div>
+
+            <button 
+              onClick={() => handlePlatformShare('copy')}
+              style={{ width: '100%', background: 'var(--border)', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+            >
+              Copiar Mensaje Completo
+            </button>
+            
+            <button 
+              onClick={() => setShowShareModal(false)}
+              style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>
