@@ -42,7 +42,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   };
 
   const shareMessage = `¡Hola! 😃
-Quería contarte sobre MyTurn, es una aplicación que uso pa agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
+Quería contarte sobre My Turn, es una aplicación que uso pa agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
 
 Te dejo el link para que la pruebes: https://myturn-sigma.vercel.app/
 
@@ -562,11 +562,11 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
-        <div>
-          <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2 }}>
+        <div style={{ color: '#fff' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2, color: '#fff' }}>
             Comparte My Turn con tus negocios...
           </h4>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             y olvídate de hacer fila.
           </p>
         </div>
