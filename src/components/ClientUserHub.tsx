@@ -451,22 +451,6 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
               </div>
             ))
           )}
-
-          <div 
-            className="card"
-            style={{ 
-              padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem', cursor: 'pointer', border: '2px dashed var(--border)', background: 'transparent', borderRadius: '24px', minHeight: '200px', transition: 'all 0.2s'
-            }}
-            onClick={() => {
-              const input = document.querySelector('input');
-              if (input) { input.focus(); }
-            }}
-          >
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              <Search size={22} />
-            </div>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text_muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Descubrir más</span>
-          </div>
         </div>
       </section>
 
