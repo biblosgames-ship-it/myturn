@@ -1173,21 +1173,42 @@ const getPlanCapabilities = (planName: string) => {
               </>
             )}
              <div style={{ 
-              display: 'flex', 
-              gap: '0.5rem', 
-              background: 'var(--surface)', 
-              padding: '0.4rem', 
-              borderRadius: 'var(--radius-lg)', 
-              border: '1px solid var(--border)', 
-              overflowX: 'auto', 
-              maxWidth: '100%',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}>
+               display: 'flex', 
+               gap: '0.75rem', 
+               background: 'var(--surface)', 
+               padding: '0.6rem', 
+               borderRadius: isMobile ? '0' : 'var(--radius-lg)', 
+               borderBottom: isMobile ? '1px solid var(--border)' : '1px solid var(--border)',
+               borderLeft: isMobile ? 'none' : '1px solid var(--border)',
+               borderRight: isMobile ? 'none' : '1px solid var(--border)',
+               borderTop: isMobile ? 'none' : '1px solid var(--border)',
+               overflowX: 'auto', 
+               maxWidth: '100%',
+               scrollbarWidth: 'none',
+               msOverflowStyle: 'none',
+               whiteSpace: 'nowrap',
+               position: isMobile ? 'sticky' : 'relative',
+               top: isMobile ? '-2rem' : 'auto', // Adjusted for parent padding
+               zIndex: 50,
+               margin: isMobile ? '0 -2rem 1.5rem' : '0'
+             }}>
               <button 
                 className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
                 onClick={() => handleTabClick('queue')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'queue' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'queue' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'queue' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <LayoutDashboard size={18} />
                 <span>Cola</span>
@@ -1195,7 +1216,20 @@ const getPlanCapabilities = (planName: string) => {
               <button 
                 className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
                 onClick={() => handleTabClick('inventory')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'inventory' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'inventory' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'inventory' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <Package size={18} />
                 <span>Inventario</span>
@@ -1203,7 +1237,20 @@ const getPlanCapabilities = (planName: string) => {
               <button 
                 className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
                 onClick={() => handleTabClick('finance')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'finance' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'finance' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'finance' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <Wallet size={18} />
                 <span>Finanzas</span>
@@ -1212,7 +1259,20 @@ const getPlanCapabilities = (planName: string) => {
               <button 
                 className={`nav-item ${activeTab === 'management' ? 'active' : ''}`}
                 onClick={() => handleTabClick('management')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'management' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'management' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'management' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <Settings size={18} />
                 <span>Local</span>
@@ -1220,7 +1280,20 @@ const getPlanCapabilities = (planName: string) => {
               <button 
                 className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
                 onClick={() => handleTabClick('customers')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'customers' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'customers' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'customers' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <BarChart2 size={18} />
                 <span>Reporte</span>
@@ -1228,7 +1301,21 @@ const getPlanCapabilities = (planName: string) => {
               <button 
                 className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
                 onClick={() => handleTabClick('messages')}
-                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', position: 'relative' }}
+                style={{ 
+                  padding: '0.6rem 1.25rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  border: 'none', 
+                  background: activeTab === 'messages' ? 'rgba(245,158,11,0.1)' : 'transparent', 
+                  color: activeTab === 'messages' ? 'var(--primary)' : 'inherit', 
+                  cursor: 'pointer',
+                  position: 'relative',
+                  borderRadius: 'var(--radius-md)',
+                  flexShrink: 0,
+                  fontWeight: activeTab === 'messages' ? 800 : 600,
+                  transition: 'all 0.2s'
+                }}
               >
                 <MessageCircle size={18} />
                 <span>Mensajería</span>
