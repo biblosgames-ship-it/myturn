@@ -564,7 +564,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       >
         <div style={{ color: '#fff' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2, color: '#fff' }}>
-            Comparte My Turn con tus negocios...
+            Recomiéndale My Turn a esos negocios...
           </h4>
           <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             y olvídate de hacer fila.
@@ -607,8 +607,8 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             onClick={e => e.stopPropagation()}
           >
             <div style={{ textAlign: 'center' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Enviar Invitación</h3>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>Selecciona donde quieres compartir My Turn</p>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Recomendar My Turn</h3>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>Selecciona donde quieres recomendar My Turn</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
