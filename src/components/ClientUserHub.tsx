@@ -1,4 +1,4 @@
-import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2, Facebook } from 'lucide-react';
+import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2, Facebook, Car, Briefcase, Book, Home, Dumbbell, Ticket } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { ClientAuth } from './ClientAuth';
@@ -97,13 +97,13 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
     { label: 'Todas', icon: LayoutGrid },
     { label: 'Belleza', icon: Scissors },
     { label: 'Salud / Bienestar', icon: Heart },
-    { label: 'Vehículos', icon: Sparkles },
-    { label: 'Servicios Profesionales', icon: User },
-    { label: 'Educación', icon: Sparkles },
-    { label: 'Servicios del Hogar', icon: Sparkles },
-    { label: 'Eventos/entretenimiento', icon: Sparkles },
-    { label: 'Gimnasio', icon: Footprints },
-    { label: 'Servicios especiales', icon: Star }
+    { label: 'Vehículos', icon: Car },
+    { label: 'Servicios Profesionales', icon: Briefcase },
+    { label: 'Educación', icon: Book },
+    { label: 'Servicios del Hogar', icon: Home },
+    { label: 'Eventos/entretenimiento', icon: Ticket },
+    { label: 'Gimnasio', icon: Dumbbell },
+    { label: 'Servicios especiales', icon: Camera }
   ];
 
   const getDeviceId = () => {
