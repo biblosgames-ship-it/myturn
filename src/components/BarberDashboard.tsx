@@ -269,8 +269,12 @@ export const BarberDashboard: React.FC = () => {
 
     const loadMetadata = async () => {
       try {
-        // 1. Fetch Staff
-        const { data: staffData } = await supabase.from('staff_members').select('*');
+        // 1. Fetch Staff (Always filter by current tenantId!)
+        const { data: staffData } = await supabase
+          .from('staff_members')
+          .select('*')
+          .eq('tenant_id', tenantId);
+          
         if (staffData) {
           setStaff(staffData.map(s => ({
             id: s.id,
@@ -280,8 +284,12 @@ export const BarberDashboard: React.FC = () => {
           })));
         }
 
-        // 2. Fetch Services
-        const { data: servicesData } = await supabase.from('services').select('*');
+        // 2. Fetch Services (Always filter by current tenantId!)
+        const { data: servicesData } = await supabase
+          .from('services')
+          .select('*')
+          .eq('tenant_id', tenantId);
+
         if (servicesData) {
           setDbServices(servicesData);
         }
@@ -322,13 +330,13 @@ export const BarberDashboard: React.FC = () => {
 
     // Setup Realtime Sync
     const tenantChannel = supabase.channel('tenant-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members', filter: `tenant_id=eq.${tenantId}` }, () => {
         loadMetadata();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_tenants', filter: `tenant_id=eq.${tenantId}` }, () => {
         fetchSavedCustomers();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services', filter: `tenant_id=eq.${tenantId}` }, () => {
         loadMetadata();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` }, (payload) => {
@@ -476,7 +484,11 @@ export const BarberDashboard: React.FC = () => {
   // Load Transactions
   useEffect(() => {
     const fetchTransactions = async () => {
-      const { data } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
       if (data) {
         setTransactions(data.map(t => ({
           id: t.id,
@@ -493,7 +505,7 @@ export const BarberDashboard: React.FC = () => {
       }
     };
     fetchTransactions();
-  }, []);
+  }, [tenantId]);
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
@@ -634,6 +646,7 @@ const getPlanCapabilities = (planName: string) => {
     if (!serviceObj) return;
 
     const dbPayload = {
+      tenant_id: tenantId,
       client_name: newClient.name,
       service_id: serviceObj.id,
       date_time: aptDate.toISOString(),
@@ -914,6 +927,7 @@ const getPlanCapabilities = (planName: string) => {
       
       // 2. Insert Transaction
       const { data: tx, error: txError } = await supabase.from('transactions').insert({
+        tenant_id: tenantId,
         appointment_id: selectedAptForComplete.id,
         amount: finalAmount,
         subtotal: totalAmount,
@@ -929,7 +943,11 @@ const getPlanCapabilities = (planName: string) => {
 
       // 3. Automatic Inventory Deduction
       try {
-        const { data: invItems } = await supabase.from('inventory').select('*');
+        // Update inventory if applicable
+        const { data: invItems } = await supabase
+          .from('inventory')
+          .select('*')
+          .eq('tenant_id', tenantId);
         if (invItems) {
           for (const item of invItems) {
             let deduction = 0;
@@ -941,6 +959,7 @@ const getPlanCapabilities = (planName: string) => {
             if (deduction > 0) {
               await supabase.from('inventory')
                 .update({ current_stock: Math.max(0, Number(item.current_stock) - deduction) })
+                .eq('tenant_id', tenantId)
                 .eq('id', item.id);
             }
           }
