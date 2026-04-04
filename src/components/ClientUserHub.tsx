@@ -600,15 +600,15 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         >
           <div 
             style={{ 
-              background: 'var(--surface)', borderRadius: '24px', width: '100%', maxWidth: '320px', 
-              padding: '2rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1.5rem',
+              background: '#0a0a0a', borderRadius: '24px', width: '100%', maxWidth: '320px', 
+              padding: '2rem', border: '1px solid #1a1a1a', display: 'flex', flexDirection: 'column', gap: '1.5rem',
               animation: 'slideUp 0.3s ease-out'
             }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ textAlign: 'center' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem' }}>Enviar Invitación</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Selecciona donde quieres compartir MyTurn</p>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Enviar Invitación</h3>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>Selecciona donde quieres compartir My Turn</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
@@ -619,7 +619,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 <div style={{ color: '#25D366' }}>
                   <Phone size={24} />
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>WhatsApp</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>WhatsApp</span>
               </button>
 
               <button 
@@ -629,7 +629,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 <div style={{ color: '#E1306C' }}>
                   <Camera size={24} />
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Instagram</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Instagram</span>
               </button>
 
               <button 
@@ -639,7 +639,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 <div style={{ color: '#3b5998' }}>
                   <Facebook size={24} />
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Facebook</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Facebook</span>
               </button>
 
               <button 
@@ -649,7 +649,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 <div style={{ color: '#EA4335' }}>
                   <Mail size={24} />
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Gmail</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Gmail</span>
               </button>
             </div>
 
