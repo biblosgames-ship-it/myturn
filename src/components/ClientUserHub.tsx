@@ -1,4 +1,4 @@
-import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera } from 'lucide-react';
+import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { ClientAuth } from './ClientAuth';
@@ -35,6 +35,42 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [discoverBusinesses, setDiscoverBusinesses] = useState<SavedBusiness[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   const [showCategories, setShowCategories] = useState(false);
+
+  const handleShare = () => {
+    const shareMessage = `¡Hola! 😃
+Quería contarte sobre MyTurn, es una aplicación que uso pa agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
+
+Te dejo el link para que la pruebes: https://myturn-sigma.vercel.app/
+
+Estoy seguro de que te va a encantar y te ahorrará muchísimo tiempo y llevara tu negocio a otro nivel. 
+
+Solo tienes que accede como profesional y crear una cuenta free. Configurala con tu marca, logo, colores, ubicación, horarios, servicios y demás en la sección ⚙️ Local. 
+
+Comparte tu negocio con tus otros clientes e invitalos a agendar su próxima cita descargando la webapp desde su navegador agregándola a la pantalla principal. 
+
+Listo, ya tienes una página web profesional de tu negocio que a la vez es; 
+       a. agenda
+       b. gestor de turnos en vivo cronometrado. 
+       c. comunicación con tus clientes. 
+       d. gestor de cobros y finanzas. 
+       e. generador de reportes estadísticos. 
+       f. canal de difusión y promoción. 
+       g. inventario inteligente. 
+       h. y asistente personal. 
+
+¡Cuéntame qué tal te va! Espero agendar mi proxima cita por My Turn.`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Recomendar MyTurn',
+        text: shareMessage,
+        url: 'https://myturn-sigma.vercel.app/',
+      }).catch(console.error);
+    } else {
+      const encodedMessage = encodeURIComponent(shareMessage);
+      window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    }
+  };
 
   const categories = [
     { label: 'Todas', icon: LayoutGrid },
@@ -487,13 +523,34 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
       </section>
 
       {/* Promo banner */}
-      <section className="card" style={{ padding: '1.5rem', background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(0,0,0,0.5) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 'none', boxShadow: 'var(--shadow-flat)', borderRadius: '24px' }}>
+      <section 
+        className="card" 
+        onClick={handleShare}
+        style={{ 
+          padding: '1.5rem', 
+          background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(0,0,0,0.5) 100%)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          border: 'none', 
+          boxShadow: 'var(--shadow-flat)', 
+          borderRadius: '24px',
+          cursor: 'pointer',
+          transition: 'transform 0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
         <div>
-          <h4 style={{ fontSize: '1.1rem', fontWeight: 900, marginBottom: '0.25rem' }}>Prueba MyTurn Premium</h4>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Descubre servicios exclusivos en tu ciudad.</p>
+          <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2 }}>
+            Comparte My Turn con esos negocios que aún no la usan.
+          </h4>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            y olvídate de hacer fila en todos tus establecimientos.
+          </p>
         </div>
-        <div style={{ background: 'var(--primary)', padding: '0.75rem', borderRadius: '12px', color: 'black' }}>
-          <ArrowRight size={20} strokeWidth={3} />
+        <div style={{ background: 'var(--primary)', padding: '0.75rem', borderRadius: '12px', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Share2 size={20} strokeWidth={3} />
         </div>
       </section>
 
