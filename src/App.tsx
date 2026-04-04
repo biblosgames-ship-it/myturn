@@ -219,12 +219,11 @@ function App() {
         flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center', 
-        background: 'linear-gradient(135deg, var(--background) 0%, #1c1917 100%)',
+        background: '#000',
         gap: '2rem'
       }}>
         <div style={{ animation: 'logoRise 1.5s ease-out forwards', textAlign: 'center' }}>
-          <img src="/logo-myturn.png" alt="MyTurn" style={{ height: '80px', filter: 'drop-shadow(0 0 20px var(--primary))' }} />
-          <div style={{ marginTop: '1.5rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '4px', fontSize: '0.9rem', opacity: 0.8 }}>MYTURN</div>
+          <img src="/logo-inicio.png" alt="MyTurn" style={{ height: '120px', filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.1))' }} />
         </div>
       </div>
     );
