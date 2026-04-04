@@ -223,7 +223,7 @@ function App() {
         gap: '2rem'
       }}>
         <div style={{ animation: 'logoRise 1.5s ease-out forwards', textAlign: 'center' }}>
-          <img src="/logo-inicio.png" alt="MyTurn" style={{ height: '120px', filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.1))' }} />
+          <img src="/logo-inicio.png" alt="My Turn" style={{ height: '120px', filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.1))' }} />
         </div>
       </div>
     );
@@ -346,7 +346,7 @@ function App() {
           </button>
           
           <div style={{ marginTop: 'auto', textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-            MYTURN v1.2.5 • SaaS
+            MY TURN v1.2.5 • SaaS
           </div>
         </div>
       )}
@@ -361,7 +361,7 @@ function App() {
         marginTop: 'auto'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p style={{ fontSize: '0.875rem' }}>© 2026 MyTurn Inc. • Tecnología Adaptativa</p>
+          <p style={{ fontSize: '0.875rem' }}>© 2026 My Turn Inc. • Tecnología Adaptativa</p>
           <button 
             onClick={() => handleSetView('superadmin_login')}
             style={{ 
