@@ -1470,72 +1470,125 @@ const getPlanCapabilities = (planName: string) => {
                       border: isCancelled ? '2px solid #ef4444' : apt.status === 'attending' ? '2px solid var(--primary)' : '1px solid var(--border)',
                       background: isCancelled ? 'rgba(239,68,68,0.05)' : apt.status === 'attending' ? 'rgba(245,158,11,0.03)' : 'var(--surface)',
                       position: 'relative',
-                      opacity: (isToday && apt.date !== getTodayStr()) ? 0.7 : 1
+                      padding: isMobile ? '0.65rem' : '1rem',
+                      opacity: (isToday && apt.date !== getTodayStr()) ? 0.7 : 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: isMobile ? '0.5rem' : '0.75rem'
                     }}>
                     {apt.date !== selectedDate && (
-                      <div style={{ position: 'absolute', top: '-10px', right: '20px', background: 'var(--accent)', color: 'white', fontSize: '0.65rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 900, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 10 }}>
+                      <div style={{ position: 'absolute', top: '-8px', right: '15px', background: 'var(--accent)', color: 'white', fontSize: '0.6rem', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', fontWeight: 900, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', zIndex: 10 }}>
                         📌 PROGRAMADA: {(() => {
                           const [y, m, d] = apt.date.split('-').map(Number);
                           return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
                         })()}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: apt.status === 'attending' ? 'var(--primary)' : 'var(--surface-hover)', color: apt.status === 'attending' ? 'black' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    
+                    {/* First Row: Number + Client Info */}
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: isMobile ? '32px' : '40px', 
+                        height: isMobile ? '32px' : '40px', 
+                        borderRadius: '50%', 
+                        background: apt.status === 'attending' ? 'var(--primary)' : 'var(--surface-hover)', 
+                        color: apt.status === 'attending' ? 'black' : 'var(--text)', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                        fontWeight: 800, 
+                        flexShrink: 0,
+                        fontSize: isMobile ? '0.85rem' : '1rem'
+                      }}>
                         {idx + 1}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <h4 style={{ fontSize: '1rem', fontWeight: 600, color: isCancelled ? '#ef4444' : 'inherit' }}>{apt.clientName}</h4>
-                          {isCancelled && <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>TURNO CANCELADO</span>}
-                          {apt.status === 'attending' && <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: 'black', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>SIENDO ATENDIDO</span>}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <h4 style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: 800, color: isCancelled ? '#ef4444' : 'inherit', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {apt.clientName}
+                          </h4>
+                          {isCancelled && <span style={{ fontSize: '0.55rem', background: '#ef4444', color: 'white', padding: '0.05rem 0.3rem', borderRadius: '4px', fontWeight: 900 }}>CANCELADO</span>}
+                          {apt.status === 'attending' && <span style={{ fontSize: '0.55rem', background: 'var(--primary)', color: 'black', padding: '0.05rem 0.3rem', borderRadius: '4px', fontWeight: 900 }}>ATENDIENDO</span>}
                         </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {apt.service} • <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{apt.time}</span>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                          {apt.service} • <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{apt.time}</span>
                           {apt.status === 'attending' && apt.date === getTodayStr() && (
-                            <span style={{ marginLeft: '1rem', color: 'var(--success)', fontWeight: 800 }}>⏳ {formatTime(activeTimer)}</span>
+                            <span style={{ marginLeft: '0.5rem', color: 'var(--success)', fontWeight: 900 }}>{formatTime(activeTimer)}</span>
                           )}
                         </p>
                       </div>
-                      <div style={{ 
-                        display: 'flex', 
-                        flexDirection: isMobile ? 'column-reverse' : 'row', 
-                        gap: '0.4rem',
-                        alignItems: isMobile ? 'flex-end' : 'center'
-                      }}>
-                        {isCancelled ? (
-                           <button className="btn btn-outline" style={{ fontSize: '0.7rem', borderColor: '#ef4444', color: '#ef4444', width: isMobile ? '100%' : 'auto' }} onClick={() => removeApt(apt.id)}>Quitar Alerta</button>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '0.4rem', width: isMobile ? '100%' : 'auto' }}>
-                            <button className="btn btn-outline" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={async () => {
+                    </div>
+
+                    {/* Second Row: Compact Action Buttons */}
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '0.4rem',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      width: '100%',
+                      paddingTop: isMobile ? '0.2rem' : '0'
+                    }}>
+                      {isCancelled ? (
+                         <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.65rem', borderColor: '#ef4444', color: '#ef4444', height: '32px', flex: 1 }} onClick={() => removeApt(apt.id)}>
+                           <Trash2 size={12} /> Quitar Alerta
+                         </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '0.3rem', flex: 1 }}>
+                          <button 
+                            className={`btn ${apt.arrived ? 'btn-success' : 'btn-outline'}`} 
+                            style={{ 
+                              fontSize: '0.65rem', 
+                              height: '32px', 
+                              padding: '0 0.6rem',
+                              flex: 1,
+                              background: apt.arrived ? 'rgba(34,197,94,0.1)' : 'transparent',
+                              borderColor: apt.arrived ? '#22c55e' : 'var(--border)',
+                              color: apt.arrived ? '#22c55e' : 'var(--text)'
+                            }} 
+                            onClick={async () => {
                               const newStatus = apt.arrived ? 'waiting' : 'arrived';
                               await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
-                            }}>{apt.arrived ? '📍 LLEGÓ' : 'LLEGADA'}</button>
-                            {apt.status === 'waiting' ? (
-                              <button className="btn btn-primary" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={async () => {
-                                await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
-                                await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
-                              }}>Atender</button>
-                            ) : (
-                              <button className="btn btn-success" style={{ fontSize: '0.7rem', width: isMobile ? '100%' : 'auto' }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>Listo</button>
-                            )}
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', gap: '0.4rem', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-end' : 'flex-start' }}>
-                          {apt.status === 'waiting' && (() => {
-                              const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
-                              const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
-                              return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
-                                <button
-                                  title="Adelantar en la fila"
-                                  className="btn btn-outline"
-                                  onClick={() => moveUp(myIdx)}
-                                  style={{ color: 'var(--primary)', borderColor: 'var(--primary)', padding: '0.25rem 0.5rem', flex: isMobile ? 1 : 'none' }}
-                                >↑</button>
-                              ) : null;
-                            })()}
-                          <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)', padding: '0.25rem 0.5rem', flex: isMobile ? 1 : 'none' }}><X size={14} /></button>
+                            }}
+                          >
+                            {apt.arrived ? 'LLEGÓ' : 'LLEGADA'}
+                          </button>
+                          
+                          {apt.status === 'waiting' ? (
+                            <button className="btn btn-primary" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', flex: 1, fontWeight: 900 }} onClick={async () => {
+                              await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
+                              await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
+                            }}>
+                              <Play size={12} fill="currentColor" style={{ marginRight: '4px' }} /> ATENDER
+                            </button>
+                          ) : (
+                            <button className="btn btn-success" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', flex: 1, fontWeight: 900 }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>
+                              <CheckCircle2 size={12} style={{ marginRight: '4px' }} /> LISTO
+                            </button>
+                          )}
                         </div>
+                      )}
+                      
+                      {/* Secondary Mini Actions */}
+                      <div style={{ display: 'flex', gap: '0.3rem' }}>
+                        {apt.status === 'waiting' && (() => {
+                            const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
+                            const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
+                            return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
+                              <button
+                                title="Adelantar"
+                                className="btn btn-outline"
+                                onClick={() => moveUp(myIdx)}
+                                style={{ color: 'var(--primary)', borderColor: 'var(--primary)', padding: '0', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                ↑
+                              </button>
+                            ) : null;
+                          })()}
+                        <button 
+                          className="btn btn-outline" 
+                          onClick={() => removeApt(apt.id)} 
+                          style={{ color: 'var(--accent)', borderColor: 'var(--accent)', padding: '0', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     </div>
                   </div>
