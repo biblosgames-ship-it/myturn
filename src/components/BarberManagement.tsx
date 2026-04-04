@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
-  Stethoscope, Palette, Brush, User, Heart, Activity, Car, Smartphone, Zap, Star, 
+  Stethoscope, Palette, Brush, User, Users, Heart, Activity, Car, Smartphone, Zap, Star, 
   Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, Image as ImageIcon, Eye, X, Minus
 } from 'lucide-react';
 
@@ -34,6 +34,7 @@ interface Service {
   price: number;
   duration: number;
   icon: string;
+  capacity: number;
 }
 
 interface DaySchedule {
@@ -144,7 +145,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         name: s.name,
         price: s.price,
         duration: s.duration_minutes,
-        icon: s.icon || 'Scissors'
+        icon: s.icon || 'Scissors',
+        capacity: s.capacity || 1
       })));
     } else {
       setServices([]);
@@ -163,7 +165,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
   const addService = () => {
     // Generate a temporary UUID for the new service to avoid DB null constraint issues during upsert
     const newId = crypto.randomUUID();
-    setServices([...services, { id: newId, name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star' }]);
+    setServices([...services, { id: newId, name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star', capacity: 1 }]);
   };
 
   const removeService = (index: number) => {
@@ -249,7 +251,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         name: s.name,
         price: s.price,
         duration_minutes: s.duration,
-        icon: s.icon
+        icon: s.icon,
+        capacity: s.capacity || 1
       }));
 
       if (toUpsert.length > 0) {
@@ -728,6 +731,34 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                     </button>
                     <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>MIN</span>
                   </div>
+
+                  {/* CAPACITY FIELD */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem', minWidth: '130px' }}>
+                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(59,130,246,0.1)', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                      <Users size={14} style={{ color: '#3b82f6' }} />
+                      <input 
+                        type="number" 
+                        min="1"
+                        max="100"
+                        value={s.capacity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          updateService(idx, 'capacity', isNaN(val) ? 1 : Math.max(1, val));
+                        }}
+                        style={{ 
+                          width: '35px', 
+                          background: 'transparent', 
+                          border: 'none',
+                          color: 'var(--text)',
+                          fontWeight: 700,
+                          fontSize: '0.9rem',
+                          textAlign: 'center'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)' }}>CUPOS</span>
+                    </div>
+                  </div>
+
                   <button 
                     onClick={() => removeService(idx)}
                     style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer' }}

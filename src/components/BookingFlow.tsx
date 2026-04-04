@@ -7,6 +7,7 @@ interface Service {
   name: string;
   price: number;
   duration: number;
+  capacity: number;
 }
 
 const getTodayStr = () => {
@@ -36,7 +37,7 @@ export const BookingFlow: React.FC<{
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
-  const [existingAppointments, setExistingAppointments] = useState<string[]>([]);
+  const [existingSlotsCount, setExistingSlotsCount] = useState<{[time: string]: number}>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
@@ -135,7 +136,8 @@ export const BookingFlow: React.FC<{
           id: s.id,
           name: s.name,
           price: s.price,
-          duration: s.duration_minutes
+          duration: s.duration_minutes,
+          capacity: s.capacity || 1
         })));
       }
 
@@ -175,12 +177,15 @@ export const BookingFlow: React.FC<{
         .lte('date_time', endOfDay.toISOString());
       
       if (data) {
-        setExistingAppointments(data.map(d => {
+        const counts: {[time: string]: number} = {};
+        data.forEach(d => {
           const dt = new Date(d.date_time);
           const h = String(dt.getHours()).padStart(2, '0');
           const m = String(dt.getMinutes()).padStart(2, '0');
-          return `${h}:${m}`;
-        }));
+          const t = `${h}:${m}`;
+          counts[t] = (counts[t] || 0) + 1;
+        });
+        setExistingSlotsCount(counts);
       }
     };
     fetchExisting();
@@ -447,7 +452,9 @@ export const BookingFlow: React.FC<{
                       </p>
                     </div>
                   ) : timeSlots.map((t: string) => {
-                    const isTaken = existingAppointments.includes(t);
+                    const currentCount = existingSlotsCount[t] || 0;
+                    const maxCapacity = selectedService?.capacity || 1;
+                    const isFull = currentCount >= maxCapacity;
                     
                     // NEW: check if time is in the past for today
                     const isPast = selectedDate === getTodayStr() && (() => {
@@ -458,7 +465,7 @@ export const BookingFlow: React.FC<{
                       return slotTime < now;
                     })();
 
-                    const isDisabled = isTaken || isPast;
+                    const isDisabled = isFull || isPast;
 
                     return (
                       <button 
@@ -478,6 +485,11 @@ export const BookingFlow: React.FC<{
                         }}
                       >
                         {t}
+                        {maxCapacity > 1 && (
+                          <div style={{ fontSize: '0.6rem', marginTop: '0.1rem', opacity: 0.8 }}>
+                            {isFull ? 'Lleno' : `${maxCapacity - currentCount} cupos`}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
