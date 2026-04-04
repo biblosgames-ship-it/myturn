@@ -1254,7 +1254,13 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
         {(activeTab === 'queue' || activeTab === 'agenda') && (
-          <div style={{ 
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ padding: '0 0.5rem', marginBottom: '0.75rem' }}>
+              <p style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {selectedDate === getTodayStr() ? '📅 Hoy' : `📅 ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+              </p>
+            </div>
+            <div style={{ 
             display: 'flex', 
             gap: '0.6rem', 
             overflowX: 'auto', 
@@ -1316,7 +1322,8 @@ const getPlanCapabilities = (planName: string) => {
               <Calendar size={20} />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {(activeTab === 'queue' || activeTab === 'agenda') ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1356,13 +1363,6 @@ const getPlanCapabilities = (planName: string) => {
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
                   {isOpen ? 'ABIERTO' : 'CERRADO'}
                 </button>
-
-                {/* Date / En vivo label */}
-                <div className="card" style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>
-                    {selectedDate === getTodayStr() ? '📅 Hoy' : `📅 ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
-                  </p>
-                </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button 
