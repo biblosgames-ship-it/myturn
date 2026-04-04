@@ -1096,6 +1096,33 @@ const getPlanCapabilities = (planName: string) => {
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {(activeTab === 'queue' || activeTab === 'agenda') && (
               <>
+                {/* Open/Close status badge — clickable toggle */}
+                <button 
+                  className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={async () => {
+                    const newState = !isOpen;
+                    setIsOpen(newState);
+                    if (newState) {
+                      manualToggleTimeRef.current = Date.now();
+                    }
+                    await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
+                  }}
+                  title={isOpen ? 'Haz clic para cerrar el negocio' : 'Haz clic para abrir el negocio'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                    padding: '0.4rem 0.9rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
+                    background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                    color: isOpen ? 'var(--success)' : '#ef4444',
+                    fontWeight: 800, fontSize: '0.75rem',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
+                  {isOpen ? 'ABIERTO' : 'CERRADO'}
+                </button>
+
                 <button 
                   className={`btn ${isPaused ? 'btn-success' : 'btn-outline'}`}
                   style={{ 
@@ -1327,43 +1354,7 @@ const getPlanCapabilities = (planName: string) => {
 
         {(activeTab === 'queue' || activeTab === 'agenda') ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                {/* Open/Close status badge — clickable toggle */}
-                <button 
-                  className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={async () => {
-                    const newState = !isOpen;
-                    // 1. Update main is_open status (Critical)
-                    setIsOpen(newState);
-                    if (newState) {
-                      manualToggleTimeRef.current = Date.now();
-                    }
-                    await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
-                    
-                    // 2. Clear auto-close guard when opening manually 
-                    // (Optional: if you want it to close AGAIN later if the hour hasn't passed, 
-                    // but here we just ensure the 400 error is gone)
-                    if (newState) {
-                      // No-op for DB guard to avoid 400 error
-                    }
-                  }}
-                  title={isOpen ? 'Haz clic para cerrar el negocio' : 'Haz clic para abrir el negocio'}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.5rem',
-                    padding: '0.4rem 0.9rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
-                    background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-                    color: isOpen ? 'var(--success)' : '#ef4444',
-                    fontWeight: 800, fontSize: '0.8rem',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
-                  {isOpen ? 'ABIERTO' : 'CERRADO'}
-                </button>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button 
                   className="btn btn-primary" 
@@ -2596,9 +2587,6 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </div>
       )}
-      <div style={{ position: 'fixed', bottom: '1rem', left: '1rem', opacity: 0.2, fontSize: '0.6rem', fontFamily: 'monospace', pointerEvents: 'none', zIndex: 9999 }}>
-        ADMIN_TENANT_ID: {tenantId || 'LOADING...'}
-      </div>
 
       {/* Security PIN Modal */}
       {showPinModal && (
