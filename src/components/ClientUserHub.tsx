@@ -660,14 +660,14 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
             <button 
               onClick={() => handlePlatformShare('copy')}
-              style={{ width: '100%', background: 'var(--border)', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+              style={{ width: '100%', background: '#333', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', color: '#fff' }}
             >
               Copiar Mensaje Completo
             </button>
             
             <button 
               onClick={() => setShowShareModal(false)}
-              style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+              style={{ width: '100%', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
             >
               Cancelar
             </button>
