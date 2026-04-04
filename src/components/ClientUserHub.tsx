@@ -73,7 +73,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
         break;
       case 'gmail':
-        window.open(`mailto:?subject=Invitación a conocer MyTurn&body=${encodedMessage}`, '_self');
+        window.open(`mailto:?subject=Invitación a conocer My Turn&body=${encodedMessage}`, '_self');
         break;
       case 'messenger':
         // Messenger for mobile web is tricky, this is the most reliable desktop/mobile fallback
@@ -614,7 +614,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
               <button 
                 onClick={() => handlePlatformShare('whatsapp')}
-                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1.5px solid rgba(255,255,255,0.5)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#25D366' }}>
                   <Phone size={24} />
@@ -624,7 +624,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('instagram')}
-                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1.5px solid rgba(255,255,255,0.5)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#E1306C' }}>
                   <Camera size={24} />
@@ -634,7 +634,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('messenger')}
-                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1.5px solid rgba(255,255,255,0.5)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -642,12 +642,12 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                     <path d="M7 13.5L10.5 9.5L13.5 13L17 9.5L13.5 13.5L10.5 10L7 13.5Z" fill="white"/>
                   </svg>
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Facebook</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Messenger</span>
               </button>
 
               <button 
                 onClick={() => handlePlatformShare('gmail')}
-                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1.5px solid rgba(255,255,255,0.5)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
