@@ -336,7 +336,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
             <div>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0, lineHeight: 1.2 }}>
-                No pierdas tiempo esperando. <br />
+                No pierdas <span style={{ fontSize: '1.4rem', color: 'var(--primary)', verticalAlign: 'middle' }}>tiempo</span> esperando. <br />
                 <span style={{ color: 'var(--primary)' }}>Haz fila desde tu celular.</span>
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', maxWidth: '80%' }}>
@@ -564,7 +564,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       >
         <div style={{ color: '#fff' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2, color: '#fff' }}>
-            Recomiéndale My Turn a tus negocios...
+            Recomiéndale <span style={{ color: 'var(--primary)', fontSize: '1.15rem', verticalAlign: 'middle' }}>My Turn</span> a tus negocios...
           </h4>
           <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             y olvídate de hacer fila.
