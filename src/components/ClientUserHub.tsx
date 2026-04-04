@@ -614,7 +614,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
               <button 
                 onClick={() => handlePlatformShare('whatsapp')}
-                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1px solid rgba(37, 211, 102, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(37, 211, 102, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#25D366' }}>
                   <Phone size={24} />
@@ -624,7 +624,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('instagram')}
-                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1px solid rgba(225, 48, 108, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(225, 48, 108, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
                 <div style={{ color: '#E1306C' }}>
                   <Camera size={24} />
@@ -634,20 +634,25 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('messenger')}
-                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1px solid rgba(59, 89, 152, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
-                <div style={{ color: '#3b5998' }}>
-                  <Facebook size={24} />
+                <div>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.477 2 2 6.145 2 11.258C2 14.17 3.433 16.738 5.659 18.326V22L9.154 20.081C10.065 20.334 11.026 20.472 12.022 20.472C17.545 20.472 22 16.327 22 11.214C22 6.101 17.545 2 12.022 2H12Z" fill="#00B2FF"/>
+                    <path d="M7 13.5L10.5 9.5L13.5 13L17 9.5L13.5 13.5L10.5 10L7 13.5Z" fill="white"/>
+                  </svg>
                 </div>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Facebook</span>
               </button>
 
               <button 
                 onClick={() => handlePlatformShare('gmail')}
-                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1px solid rgba(234, 67, 53, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                style={{ background: 'rgba(234, 67, 53, 0.1)', border: '1.5px solid #fff', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}
               >
-                <div style={{ color: '#EA4335' }}>
-                  <Mail size={24} />
+                <div>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 4.5L2 18.5C2 19.3284 2.67157 20 3.5 20H5.5V8.5L12 13L18.5 8.5V20H20.5C21.3284 20 22 19.3284 22 18.5V4.5L12 11.5L2 4.5Z" fill="#EA4335"/>
+                  </svg>
                 </div>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>Gmail</span>
               </button>
