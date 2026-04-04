@@ -1,4 +1,4 @@
-import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2 } from 'lucide-react';
+import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2, Facebook } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { ClientAuth } from './ClientAuth';
@@ -564,10 +564,10 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       >
         <div>
           <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2 }}>
-            Comparte My Turn con esos negocios que aún no la usan.
+            Comparte My Turn con tus negocios...
           </h4>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            y olvídate de hacer fila en todos tus establecimientos.
+            y olvídate de hacer fila.
           </p>
         </div>
         <div style={{ background: 'var(--primary)', padding: '0.75rem', borderRadius: '12px', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -634,12 +634,12 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
               <button 
                 onClick={() => handlePlatformShare('messenger')}
-                style={{ background: 'rgba(0, 132, 255, 0.1)', border: '1px solid rgba(0, 132, 255, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(59, 89, 152, 0.1)', border: '1px solid rgba(59, 89, 152, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
               >
-                <div style={{ color: '#0084FF' }}>
-                  <Mail size={24} />
+                <div style={{ color: '#3b5998' }}>
+                  <Facebook size={24} />
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Messenger</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Facebook</span>
               </button>
 
               <button 
