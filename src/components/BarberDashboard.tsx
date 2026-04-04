@@ -292,6 +292,10 @@ export const BarberDashboard: React.FC = () => {
 
         if (servicesData) {
           setDbServices(servicesData);
+          // Pre-select first service if none selected
+          if (servicesData.length > 0 && !newClient.service) {
+            setNewClient(prev => ({ ...prev, service: servicesData[0].name }));
+          }
         }
 
         // 3. Fetch Tenant Info
@@ -614,8 +618,10 @@ const getPlanCapabilities = (planName: string) => {
       return;
     }
     if (!newClient.time) {
-      alert("Por favor, selecciona una hora para la cita.");
-      return;
+      // If time is missing, default to NOUN (current time) for Walk-ins
+      const now = new Date();
+      const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      newClient.time = defaultTime;
     }
 
     // SaaS Plan Limits Validation (Dynamic Fetch)
@@ -1377,7 +1383,16 @@ const getPlanCapabilities = (planName: string) => {
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button 
                   className="btn btn-primary" 
-                  onClick={() => setShowAddForm(!showAddForm)}
+                  onClick={() => {
+                    const now = new Date();
+                    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    setNewClient(prev => ({ 
+                      ...prev, 
+                      time: hhmm,
+                      service: prev.service || (dbServices.length > 0 ? dbServices[0].name : '')
+                    }));
+                    setShowAddForm(!showAddForm);
+                  }}
                   style={{ padding: '0.5rem 1.25rem', fontSize: '0.875rem' }}
                 >
                   <Plus size={16} />{showAddForm ? 'Cancelar' : 'Agregar Cita'}
