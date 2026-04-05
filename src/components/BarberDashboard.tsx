@@ -602,6 +602,25 @@ export const BarberDashboard: React.FC = () => {
   const [newClient, setNewClient] = useState({ name: '', service: '', staffId: '', time: '' });
   const [copied, setCopied] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [pauseElapsed, setPauseElapsed] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPaused) {
+      const startTimeStr = localStorage.getItem('tenant_pause_start');
+      let startTime = startTimeStr ? parseInt(startTimeStr) : Date.now();
+      if (!startTimeStr) {
+        localStorage.setItem('tenant_pause_start', startTime.toString());
+      }
+      interval = setInterval(() => {
+        setPauseElapsed(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    } else {
+      setPauseElapsed(0);
+      localStorage.removeItem('tenant_pause_start');
+    }
+    return () => clearInterval(interval);
+  }, [isPaused]);
   const [activeTimer, setActiveTimer] = useState(25 * 60); // Seconds left for current client
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1360,16 +1379,19 @@ const getPlanCapabilities = (planName: string) => {
                 </button>
 
                 <button 
-                  className={`btn ${isPaused ? 'btn-success' : 'btn-outline'}`}
+                  className={`btn`}
                   style={{ 
-                    padding: '0.4rem 1rem', 
-                    fontSize: '0.75rem', 
-                    borderColor: isPaused ? 'var(--success)' : '#ef4444', 
-                    color: isPaused ? 'black' : '#ef4444', 
-                    fontWeight: 800,
+                    padding: '0.4rem 1.2rem', 
+                    fontSize: '0.8rem', 
+                    background: isPaused ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                    border: '1px solid var(--primary)', 
+                    color: isPaused ? 'var(--primary)' : 'var(--text)', 
+                    fontWeight: 900,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.4rem'
+                    gap: '0.5rem',
+                    transition: 'all 0.2s',
+                    borderRadius: 'var(--radius-md)'
                   }}
                   onClick={async () => {
                     const newPaused = !isPaused;
@@ -1379,7 +1401,15 @@ const getPlanCapabilities = (planName: string) => {
                     }
                   }}
                 >
-                  {isPaused ? '▶️ REANUDAR' : '⏸️ EN PAUSA'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPaused ? 'var(--primary)' : 'transparent', border: isPaused ? 'none' : '1px solid var(--text-muted)' }} />
+                    PAUSAR {isPaused ? 'ON' : 'OFF'}
+                  </div>
+                  {isPaused && (
+                    <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', marginLeft: '0.3rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      {String(Math.floor(pauseElapsed / 60)).padStart(2, '0')}:{String(pauseElapsed % 60).padStart(2, '0')}
+                    </span>
+                  )}
                 </button>
               </>
             )}
