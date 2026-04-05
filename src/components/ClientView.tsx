@@ -923,6 +923,11 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               })()}
             </p>
           </div>
+          <div style={{ textAlign: 'center', padding: '0 1rem', marginTop: '0.5rem', marginBottom: '-0.5rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: '1.4', margin: 0 }}>
+              <span style={{ color: 'var(--primary)' }}>⚠️ Nota:</span> El tiempo estimado está sujeto a cambio, activa las alertas y llega antes a tu cita.
+            </p>
+          </div>
           <SmartTimer 
             remainingMinutes={(() => {
               const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
