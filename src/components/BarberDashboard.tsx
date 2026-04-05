@@ -1443,14 +1443,13 @@ const getPlanCapabilities = (planName: string) => {
           style={{ 
             display: 'flex', 
             gap: '0.6rem', 
-            overflowX: isMobile ? 'auto' : 'visible', 
-            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            overflowX: 'auto', 
             paddingBottom: '0.5rem', 
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             width: '100%',
             maxWidth: '100%',
-            whiteSpace: isMobile ? 'nowrap' : 'normal',
+            whiteSpace: 'nowrap',
             flexShrink: 0,
             padding: isMobile ? '0.25rem 1rem 1rem' : '0 0 1rem 0',
             marginBottom: '0.5rem',
@@ -1679,14 +1678,13 @@ const getPlanCapabilities = (planName: string) => {
             <div style={{ 
             display: 'flex', 
             gap: '0.6rem', 
-            overflowX: isMobile ? 'auto' : 'visible', 
-            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            overflowX: 'auto', 
             paddingBottom: '0.5rem', 
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             width: '100%',
             maxWidth: '100%',
-            whiteSpace: isMobile ? 'nowrap' : 'normal',
+            whiteSpace: 'nowrap',
             flexShrink: 0
           }}>
             {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
@@ -2001,55 +1999,17 @@ const getPlanCapabilities = (planName: string) => {
                           )}
                         </p>
                       </div>
-
-                      {/* Desktop Actions positioning (Inline) */}
-                      {!isMobile && (
-                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                            {isCancelled ? (
-                              <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.65rem', borderColor: '#ef4444', color: '#ef4444', height: '32px' }} onClick={() => removeApt(apt.id)}>
-                                <Trash2 size={12} /> Quitar Alerta
-                              </button>
-                            ) : (
-                              <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                <button className={`btn ${apt.arrived ? 'btn-success' : 'btn-outline'}`} style={{ fontSize: '0.65rem', height: '32px', padding: '0 0.8rem', background: apt.arrived ? 'rgba(34,197,94,0.1)' : 'transparent', borderColor: apt.arrived ? '#22c55e' : 'var(--border)', color: apt.arrived ? '#22c55e' : 'var(--text)' }} onClick={async () => {
-                                  const newStatus = apt.arrived ? 'waiting' : 'arrived';
-                                  await supabase.from('appointments').update({ status: newStatus }).eq('id', apt.id);
-                                }}>{apt.arrived ? 'LLEGÓ' : 'LLEGADA'}</button>
-                                
-                                {apt.status === 'waiting' ? (
-                                  <button className="btn btn-primary" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', fontWeight: 900 }} onClick={async () => {
-                                    await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
-                                    await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
-                                  }}><Play size={12} fill="currentColor" style={{ marginRight: '4px' }} /> ATENDER</button>
-                                ) : (
-                                  <button className="btn btn-success" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', fontWeight: 900 }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}><CheckCircle2 size={12} style={{ marginRight: '4px' }} /> LISTO</button>
-                                )}
-                              </div>
-                            )}
-                            <div style={{ display: 'flex', gap: '0.3rem' }}>
-                              {apt.status === 'waiting' && (() => {
-                                const waitingToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status !== 'finished' && a.status !== 'cancelled');
-                                const myIdx = waitingToday.findIndex((a: Appointment) => a.id === apt.id);
-                                return myIdx > 0 && waitingToday[myIdx - 1]?.status !== 'attending' ? (
-                                  <button onClick={() => moveUp(myIdx)} className="btn btn-outline" style={{ color: 'var(--primary)', borderColor: 'var(--primary)', width: '32px', height: '32px', padding: 0 }}>↑</button>
-                                ) : null;
-                              })()}
-                              <button className="btn btn-outline" onClick={() => removeApt(apt.id)} style={{ color: 'var(--accent)', borderColor: 'var(--accent)', width: '32px', height: '32px', padding: 0 }}><X size={16} /></button>
-                            </div>
-                         </div>
-                      )}
                     </div>
 
-                    {/* Second Row: Only on Mobile now */}
-                    {isMobile && (
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: '0.4rem',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        width: '100%',
-                        paddingTop: '0.2rem'
-                      }}>
+                    {/* Second Row: Compact Action Buttons */}
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '0.4rem',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      width: '100%',
+                      paddingTop: isMobile ? '0.2rem' : '0'
+                    }}>
                       {isCancelled ? (
                          <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.65rem', borderColor: '#ef4444', color: '#ef4444', height: '32px', flex: 1 }} onClick={() => removeApt(apt.id)}>
                            <Trash2 size={12} /> Quitar Alerta
@@ -2115,7 +2075,6 @@ const getPlanCapabilities = (planName: string) => {
                         </button>
                       </div>
                     </div>
-                    )}
                   </div>
                 )})}
               </div>
