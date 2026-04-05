@@ -706,23 +706,46 @@ const getPlanCapabilities = (planName: string) => {
     const prev = waitingToday[idx - 1];
     if (!current || !prev || prev.status === 'attending') return; // can't swap past the person being attended
 
-    // Swap their date_time values in the DB so sorting order flips
-    const currentDateTime = appointments.find(a => a.id === current.id);
-    const prevDateTime = appointments.find(a => a.id === prev.id);
-    if (!currentDateTime || !prevDateTime) return;
+    // Fetch the raw state of waiting clients from the database to cascade times
+    const { data: allWaiting } = await supabase
+      .from('appointments')
+      .select('id, date_time, service_id')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'waiting')
+      .in('id', waitingToday.map(a => a.id))
+      .order('date_time', { ascending: true });
+    
+    if (!allWaiting || allWaiting.length === 0) return;
 
-    // We need the raw date_time strings - get them from Supabase
-    const [{ data: curData }, { data: prevData }] = await Promise.all([
-      supabase.from('appointments').select('date_time').eq('id', current.id).single(),
-      supabase.from('appointments').select('date_time').eq('id', prev.id).single(),
-    ]);
-    if (!curData || !prevData) return;
+    const reordered = [...allWaiting];
+    const currIdx = reordered.findIndex(a => a.id === current.id);
+    const prevIdx = reordered.findIndex(a => a.id === prev.id);
+    if (currIdx === -1 || prevIdx === -1) return;
 
-    await Promise.all([
-      supabase.from('appointments').update({ date_time: prevData.date_time }).eq('id', current.id),
-      supabase.from('appointments').update({ date_time: curData.date_time }).eq('id', prev.id),
-    ]);
-    // Realtime channel will refresh the list automatically
+    // The new base time will be the original time of the slot we are moving INTO (prevIdx).
+    let baseTime = new Date(allWaiting[prevIdx].date_time);
+
+    // Swap positions
+    const temp = reordered[currIdx];
+    reordered[currIdx] = reordered[prevIdx];
+    reordered[prevIdx] = temp;
+
+    // Apply cascade recalculation for the affected items and ALL ITEMS that follow it
+    const updates = [];
+    for (let i = prevIdx; i < reordered.length; i++) {
+        const apt = reordered[i];
+        
+        // Add minimal offsets (milliseconds) to ensure precise DB sorting 
+        const newTime = new Date(baseTime.getTime() + i); 
+        updates.push(supabase.from('appointments').update({ date_time: newTime.toISOString() }).eq('id', apt.id));
+        
+        // Add this item's service time so the next person in loop starts at correct offset
+        const service = dbServices.find(s => s.id === apt.service_id);
+        const durationMins = service ? (service.duration_minutes || 30) : 30;
+        baseTime = new Date(baseTime.getTime() + durationMins * 60000);
+    }
+
+    await Promise.all(updates);
   };
 
   const removeApt = async (id: string) => {
