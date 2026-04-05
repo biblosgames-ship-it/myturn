@@ -36,6 +36,124 @@ const getTodayStr = () => {
 
 // All appointments are now strictly database-driven.
 
+const AgendaCalendarView: React.FC<{ appointments: Appointment[] }> = ({ appointments }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(getTodayStr());
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let firstDay = new Date(year, month, 1).getDay();
+  firstDay = firstDay === 0 ? 6 : firstDay - 1; // Adaptar a Lunes = 0
+
+  const handlePrev = () => setCurrentMonth(new Date(year, month - 1, 1));
+  const handleNext = () => setCurrentMonth(new Date(year, month + 1, 1));
+
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const blanks = Array.from({ length: firstDay }, (_, i) => i);
+
+  const monthName = currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+  const getAppointmentsForDay = (d: number) => {
+    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return appointments.filter(a => a.date === dStr && a.status !== 'cancelled' && a.status !== 'finished');
+  };
+
+  const selectedAppointments = selectedDay ? appointments.filter(a => a.date === selectedDay && a.status !== 'cancelled' && a.status !== 'finished').sort((a,b) => a.time.localeCompare(b.time)) : [];
+
+  return (
+    <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(16,185,129,0.1)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
+        <Calendar size={24} color="var(--success)" />
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>Agenda a Largo Plazo</h3>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text)' }}>Visualiza e inspecciona todas las citas programadas a futuro.</p>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem', background: 'var(--surface)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <button onClick={handlePrev} className="btn btn-outline" style={{ padding: '0.5rem 1rem' }}>Ant</button>
+          <h3 style={{ margin: 0, textTransform: 'capitalize', fontWeight: 900, fontSize: '1.25rem' }}>{monthName}</h3>
+          <button onClick={handleNext} className="btn btn-outline" style={{ padding: '0.5rem 1rem' }}>Sig</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+            <div key={d} style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem' }}>{d}</div>
+          ))}
+          {blanks.map(b => <div key={`b-${b}`} />)}
+          {days.map(d => {
+            const apts = getAppointmentsForDay(d);
+            const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isSelected = selectedDay === dStr;
+            return (
+              <div 
+                key={d} 
+                onClick={() => setSelectedDay(dStr)}
+                style={{
+                  padding: '0.75rem 0.25rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: isSelected ? 'var(--primary)' : apts.length > 0 ? 'rgba(245,158,11,0.1)' : 'var(--background)',
+                  border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border)',
+                  color: isSelected ? 'black' : 'var(--text)',
+                  cursor: 'pointer',
+                  fontWeight: isSelected ? 900 : 600,
+                  transition: 'all 0.2s',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ fontSize: '1.125rem' }}>{d}</div>
+                {apts.length > 0 && (
+                  <div style={{ 
+                    fontSize: '0.55rem', 
+                    marginTop: '0.2rem', 
+                    color: isSelected ? 'black' : 'var(--primary)', 
+                    fontWeight: 900,
+                    textTransform: 'uppercase'
+                  }}>
+                    {apts.length} citas
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {selectedDay && (
+        <div className="card" style={{ padding: '1.5rem', background: 'var(--surface)' }}>
+          <h4 style={{ marginBottom: '1.5rem', fontWeight: 900, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+            Listado del {new Date(`${selectedDay}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+          </h4>
+          {selectedAppointments.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+              <Calendar size={32} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+              <p style={{ margin: 0 }}>No hay citas agendadas para este día.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {selectedAppointments.map((apt, idx) => (
+                <div key={apt.id} style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--background)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontWeight: 900, color: 'var(--text-muted)', fontSize: '1.25rem', opacity: 0.5 }}>{idx + 1}</div>
+                    <div>
+                      <h5 style={{ margin: 0, fontWeight: 900, fontSize: '1rem' }}>{apt.clientName}</h5>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{apt.service}</p>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
+                    {apt.time}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const BarberDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile' | 'customers' | 'messages'>('queue');
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -1271,6 +1389,27 @@ const getPlanCapabilities = (planName: string) => {
             <span>Cola</span>
           </button>
           <button 
+            className={`nav-item ${activeTab === 'agenda' ? 'active' : ''}`}
+            onClick={() => handleTabClick('agenda')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'agenda' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'agenda' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'agenda' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <Calendar size={18} />
+            <span>Agenda</span>
+          </button>
+          <button 
             className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
             onClick={() => handleTabClick('inventory')}
             style={{ 
@@ -1445,7 +1584,7 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         )}
 
-        {(activeTab === 'queue' || activeTab === 'agenda') && (
+        {activeTab === 'queue' && (
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ 
             display: 'flex', 
@@ -1516,7 +1655,7 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       )}
 
-        {(activeTab === 'queue' || activeTab === 'agenda') ? (
+        {activeTab === 'queue' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1810,6 +1949,8 @@ const getPlanCapabilities = (planName: string) => {
               </div>
         )}
           </div>
+        ) : activeTab === 'agenda' ? (
+          <AgendaCalendarView appointments={appointments} />
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
         ) : activeTab === 'finance' ? (

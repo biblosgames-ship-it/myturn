@@ -384,9 +384,23 @@ export const BookingFlow: React.FC<{
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Date Selector */}
               <div>
-                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Selecciona el día</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', margin: 0, textTransform: 'uppercase' }}>Selecciona el día</p>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="date" 
+                      min={getTodayStr()} 
+                      value={selectedDate}
+                      onChange={(e) => { if (e.target.value) { setSelectedDate(e.target.value); setSelectedTime(null); } }}
+                      style={{ opacity: 0, position: 'absolute', right: 0, top: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
+                    />
+                    <button className="btn btn-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Calendar size={14} /> Ver Todo el Año
+                    </button>
+                  </div>
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '0.5rem' }}>
-                  {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((offset) => {
                     const date = new Date();
                     date.setDate(date.getDate() + offset);
                     const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const dStr = String(date.getDate()).padStart(2, '0');
