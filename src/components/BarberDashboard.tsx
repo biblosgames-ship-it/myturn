@@ -1329,97 +1329,147 @@ const getPlanCapabilities = (planName: string) => {
           </button>
         </div>
       )}
-       <section style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: isMobile ? 'column' : 'row', 
-          justifyContent: 'space-between', 
-          alignItems: isMobile ? 'flex-start' : 'center', 
-          marginBottom: isMobile ? '0.75rem' : '1.5rem',
-          gap: '0.75rem',
-          paddingLeft: isMobile ? '0' : '0'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
-              {activeTab === 'queue' ? '' : 
-               activeTab === 'agenda' ? 'Agenda de Citas' :
-               activeTab === 'management' ? 'Gestión de Local' : 
-               activeTab === 'inventory' ? 'Inventario Inteligente' :
-               activeTab === 'staff' ? 'Equipo de Trabajo' : 
-               activeTab === 'messages' ? 'Mensajería de Clientes' :
-               activeTab === 'customers' ? 'Reporte de Actividad' : 'Finanzas y Reportes'}
-            </h2>
-          </div>
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            {(activeTab === 'queue' || activeTab === 'agenda') && (
-              <>
-                {/* Open/Close status badge — clickable toggle */}
-                <button 
-                  className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={async () => {
-                    const newState = !isOpen;
-                    setIsOpen(newState);
-                    if (newState) {
-                      manualToggleTimeRef.current = Date.now();
-                    }
-                    await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
-                  }}
-                  title={isOpen ? 'Haz clic para cerrar el negocio' : 'Haz clic para abrir el negocio'}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.4rem',
-                    padding: '0.4rem 0.9rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
-                    background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-                    color: isOpen ? 'var(--success)' : '#ef4444',
-                    fontWeight: 800, fontSize: '0.75rem',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
-                  {isOpen ? 'ABIERTO' : 'CERRADO'}
-                </button>
+        <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Top Control Bar + Left Side Gadgets (Desktop) */}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            gap: isMobile ? '0.75rem' : '1.5rem'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: isMobile ? 'column' : 'row', 
+              justifyContent: 'space-between', 
+              alignItems: isMobile ? 'flex-start' : 'center', 
+              gap: '0.75rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
+                  {activeTab === 'queue' ? '' : 
+                   activeTab === 'agenda' ? 'Agenda de Citas' :
+                   activeTab === 'management' ? 'Gestión de Local' : 
+                   activeTab === 'inventory' ? 'Inventario Inteligente' :
+                   activeTab === 'staff' ? 'Equipo de Trabajo' : 
+                   activeTab === 'messages' ? 'Mensajería de Clientes' :
+                   activeTab === 'customers' ? 'Reporte de Actividad' : 'Finanzas y Reportes'}
+                </h2>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {(activeTab === 'queue' || activeTab === 'agenda') && (
+                  <>
+                    <button 
+                      className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={async () => {
+                        const newState = !isOpen;
+                        setIsOpen(newState);
+                        if (newState) { manualToggleTimeRef.current = Date.now(); }
+                        await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                        padding: '0.4rem 0.9rem',
+                        borderRadius: 'var(--radius-md)',
+                        border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
+                        background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                        color: isOpen ? 'var(--success)' : '#ef4444',
+                        fontWeight: 800, fontSize: '0.75rem',
+                        cursor: 'pointer', transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
+                      {isOpen ? 'ABIERTO' : 'CERRADO'}
+                    </button>
 
-                <button 
-                  className={`btn`}
-                  style={{ 
-                    padding: '0.4rem 1.2rem', 
-                    fontSize: '0.8rem', 
-                    background: isPaused ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                    border: '1px solid var(--primary)', 
-                    color: isPaused ? 'var(--primary)' : 'var(--text)', 
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  onClick={async () => {
-                    const newPaused = !isPaused;
-                    setIsPaused(newPaused);
-                    if (tenantId) {
-                      await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
-                    }
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPaused ? 'var(--primary)' : 'transparent', border: isPaused ? 'none' : '1px solid var(--text-muted)' }} />
-                    PAUSAR {isPaused ? 'ON' : 'OFF'}
+                    <button 
+                      style={{ 
+                        padding: '0.4rem 1.2rem', 
+                        fontSize: '0.8rem', 
+                        background: isPaused ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                        border: '1px solid var(--primary)', 
+                        color: isPaused ? 'var(--primary)' : 'var(--text)', 
+                        fontWeight: 900,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        borderRadius: 'var(--radius-md)'
+                      }}
+                      onClick={async () => {
+                        const newPaused = !isPaused;
+                        setIsPaused(newPaused);
+                        if (tenantId) await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPaused ? 'var(--primary)' : 'transparent', border: isPaused ? 'none' : '1px solid var(--text-muted)' }} />
+                        PAUSAR {isPaused ? 'ON' : 'OFF'}
+                      </div>
+                      {isPaused && (
+                        <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', marginLeft: '0.3rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                          {String(Math.floor(pauseElapsed / 60)).padStart(2, '0')}:{String(pauseElapsed % 60).padStart(2, '0')}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop Left-Side Gadgets Relocation */}
+            {!isMobile && (activeTab === 'queue' || activeTab === 'agenda') && (
+              <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                <div className="card" style={{ flex: 1, margin: 0 }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <TrendingUp size={18} color="var(--primary)" /> Rendimiento
+                  </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1.5rem' }}>
+                    <div>
+                      <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>Pasados / Hoy</p>
+                      <p style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                        <span style={{ color: 'var(--success)' }}>{appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length}</span>
+                        <span style={{ opacity: 0.3, margin: '0 0.4rem' }}>/</span>
+                        {appointments.filter((a: Appointment) => a.date === selectedDate).length}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, margin: 0 }}>Ganancia Hoy</p>
+                      <p style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                        ${transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+                       <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.15rem' }}>ESTADO</p>
+                          <p style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>Activo</p>
+                       </div>
+                    </div>
                   </div>
-                  {isPaused && (
-                    <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', marginLeft: '0.3rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
-                      {String(Math.floor(pauseElapsed / 60)).padStart(2, '0')}:{String(pauseElapsed % 60).padStart(2, '0')}
-                    </span>
-                  )}
-                </button>
-              </>
+                </div>
+
+                {(() => {
+                  const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
+                  const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
+                  const cancelledToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'cancelled').length;
+                  const incomeToday = transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0);
+                  const getMessage = () => {
+                    if (totalToday === 0) return "¡Día nuevo! Asegúrate de que tus clientes tengan tu enlace.";
+                    if (cancelledToday > 2) return `Atención: Hoy has tenido ${cancelledToday} cancelaciones.`;
+                    if (incomeToday > 200) return "¡Vaya ritmo llevas! Tus ingresos de hoy están por encima del promedio.";
+                    if (finishedToday === totalToday && totalToday > 0) return "¡Agenda completada! Has atendido a todos tus clientes.";
+                    return "Consejo: Revisa tu 'Reporte de Actividad' para ver tus horas productivas.";
+                  };
+                  return (
+                    <div className="card" style={{ flex: 1, margin: 0, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente</h3>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, margin: 0 }}>"{getMessage()}"</p>
+                    </div>
+                  );
+                })()}
+              </div>
             )}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
+      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '0 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0, marginTop: isMobile ? 0 : '-1rem' }}>
         
         {/* Navigation Menu (Frameless Scrollable) */}
         <div 
