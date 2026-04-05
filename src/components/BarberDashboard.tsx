@@ -2313,36 +2313,7 @@ const getPlanCapabilities = (planName: string) => {
           >
             <User size={20} /> Mi Perfil
           </button>
-
-          <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-            <button 
-              onClick={() => {
-                if (subscription?.plan === 'Free') {
-                  alert('El Soporte Técnico directo es exclusivo para planes Professional y Enterprise. ¡Mejora tu plan para acceder!');
-                  return;
-                }
-                setShowSupportModal(true);
-              }}
-              style={{ 
-                width: '100%', 
-                background: 'rgba(59,130,246,0.1)', 
-                border: '1px solid #3b82f6', 
-                borderRadius: 'var(--radius-md)', 
-                padding: '0.8rem', 
-                color: '#3b82f6', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.75rem', 
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: '0.9rem'
-              }}
-            >
-              <LifeBuoy size={20} /> Soporte MyTurn
-            </button>
-          </div>
         </nav>
-        
 
 
         <div className="card">
@@ -2414,6 +2385,33 @@ const getPlanCapabilities = (planName: string) => {
             </div>
           );
         })()}
+
+        <div style={{ textAlign: 'center', marginTop: '0.5rem', marginBottom: '1rem' }}>
+          <button 
+            onClick={() => {
+              if (subscription?.plan === 'Free') {
+                alert('El Soporte Técnico directo es exclusivo para planes Professional y Enterprise. ¡Mejora tu plan para acceder!');
+                return;
+              }
+              setShowSupportModal(true);
+            }}
+            style={{ 
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              opacity: 0.6,
+              textDecoration: 'underline'
+            }}
+          >
+            <LifeBuoy size={14} /> Soporte MyTurn
+          </button>
+        </div>
       </aside>
 
       {showShareModal && (() => {
