@@ -263,6 +263,28 @@ export const BarberDashboard: React.FC = () => {
   const [navStartX, setNavStartX] = useState(0);
   const [navScrollLeft, setNavScrollLeft] = useState(0);
 
+  // Drag-to-resize gadget panel
+  const [gadgetPanelWidth, setGadgetPanelWidth] = useState(260);
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+  const dragStartXRef = React.useRef(0);
+  const dragStartWidthRef = React.useRef(260);
+
+  React.useEffect(() => {
+    if (!isDraggingPanel) return;
+    const onMove = (e: MouseEvent) => {
+      const diff = e.clientX - dragStartXRef.current;
+      const newWidth = Math.max(160, Math.min(420, dragStartWidthRef.current + diff));
+      setGadgetPanelWidth(newWidth);
+    };
+    const onUp = () => setIsDraggingPanel(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isDraggingPanel]);
+
   const isMobile = windowWidth < 1024;
 
 
@@ -1329,7 +1351,14 @@ const getPlanCapabilities = (planName: string) => {
           </button>
         </div>
       )}
-        <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <section style={{ 
+          width: isMobile ? '100%' : `${gadgetPanelWidth}px`,
+          minWidth: isMobile ? undefined : '160px',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.5rem'
+        }}>
           {/* Top Control Bar + Left Side Gadgets (Desktop) */}
           <div style={{ 
             display: 'flex', 
@@ -1470,7 +1499,39 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </section>
 
-      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '0 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0, marginTop: isMobile ? 0 : '-1rem' }}>
+        {/* Drag Handle — desktop only */}
+        {!isMobile && (
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              dragStartXRef.current = e.clientX;
+              dragStartWidthRef.current = gadgetPanelWidth;
+              setIsDraggingPanel(true);
+            }}
+            style={{
+              width: '8px',
+              flexShrink: 0,
+              cursor: 'col-resize',
+              background: isDraggingPanel ? 'var(--primary)' : 'transparent',
+              borderRadius: '4px',
+              transition: 'background 0.2s',
+              alignSelf: 'stretch',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Arrastra para redimensionar"
+          >
+            <div style={{
+              width: '2px',
+              height: '40px',
+              background: 'var(--border)',
+              borderRadius: '2px'
+            }} />
+          </div>
+        )}
+
+      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '0 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
         
         {/* Navigation Menu (Frameless Scrollable) */}
         <div 
