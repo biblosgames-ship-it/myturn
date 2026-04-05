@@ -1415,8 +1415,9 @@ const getPlanCapabilities = (planName: string) => {
             </div>
 
             {/* Desktop Left-Side Gadgets Relocation */}
+            {/* Desktop Left-Side Gadgets Relocation - Stacked Vertically */}
             {!isMobile && (activeTab === 'queue' || activeTab === 'agenda') && (
-              <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
                 <div className="card" style={{ flex: 1, margin: 0 }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <TrendingUp size={18} color="var(--primary)" /> Rendimiento
@@ -1458,8 +1459,8 @@ const getPlanCapabilities = (planName: string) => {
                     return "Consejo: Revisa tu 'Reporte de Actividad' para ver tus horas productivas.";
                   };
                   return (
-                    <div className="card" style={{ flex: 1, margin: 0, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente</h3>
+                    <div className="card" style={{ flex: 1, margin: 0, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1rem' }}>
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente MyTurn</h3>
                       <p style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, margin: 0 }}>"{getMessage()}"</p>
                     </div>
                   );
