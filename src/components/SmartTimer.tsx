@@ -58,6 +58,25 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
     }
   };
 
+  const getLongFormatTimeText = (totalMinutes: number) => {
+    if (totalMinutes <= 0) return "¡Es tu turno!";
+    const m = Math.floor(totalMinutes);
+    const hours = Math.floor(m / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    
+    if (months > 0) return `Faltan ${months} mes${months > 1 ? 'es' : ''}`;
+    if (weeks > 0) return `Faltan ${weeks} semana${weeks > 1 ? 's' : ''}`;
+    if (days > 0) return `Faltan ${days} día${days > 1 ? 's' : ''}`;
+    if (hours > 0) {
+       const remMins = m % 60;
+       if (remMins === 0) return `En ${hours} h`;
+       return `En ${hours}h ${remMins}m`;
+    }
+    return `En ${m} min`;
+  };
+
   return (
     <div className="card animate-fade-in" style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
       <style>{`
@@ -122,7 +141,7 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
       <div className="smart-timer-stats" style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Clock size={16} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{Math.ceil(timeLeft / 60)} min restantes</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{!isToday ? getLongFormatTimeText(initialMinutes) : `${Math.ceil(timeLeft / 60)} min restantes`}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Users size={16} color="var(--text-muted)" />

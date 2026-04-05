@@ -250,13 +250,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
         // 3. Fetch Active Appointment (Persistence Fix)
         if (dbBusiness?.id) {
-          const { data: activeApt } = await supabase
+          const { data: activeAptList } = await supabase
             .from('appointments')
             .select('id')
             .eq('tenant_id', dbBusiness.id)
             .eq('client_user_id', session.user.id)
             .in('status', ['pending', 'waiting', 'attending'])
-            .maybeSingle();
+            .order('date_time', { ascending: true })
+            .limit(1);
+          
+          const activeApt = activeAptList && activeAptList.length > 0 ? activeAptList[0] : null;
           
           if (activeApt) {
             localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, activeApt.id);

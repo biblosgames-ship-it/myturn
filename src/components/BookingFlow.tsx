@@ -226,19 +226,45 @@ export const BookingFlow: React.FC<{
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data: existing } = await supabase
+        const { data: existingApps } = await supabase
           .from('appointments')
-          .select('id')
+          .select('id, date_time')
           .eq('tenant_id', tenantId)
           .eq('client_user_id', session.user.id)
-          .in('status', ['waiting', 'attending', 'arrived'])
-          .maybeSingle();
+          .in('status', ['pending', 'waiting', 'attending', 'arrived']);
         
-        if (existing) {
-          alert("Ya tienes un turno activo en este negocio. Por favor, gestiona tu turno actual antes de agendar uno nuevo.");
-          setIsLoading(false);
-          return;
+        if (existingApps && existingApps.length > 0) {
+          const aptDateObj = new Date(`${selectedDate}T${selectedTime}:00`);
+          const now = new Date();
+          const msIn7Days = 7 * 24 * 60 * 60 * 1000;
+          
+          const isAttemptingShortTerm = (aptDateObj.getTime() - now.getTime()) <= msIn7Days;
+          
+          let hasShortTerm = false;
+          let hasLongTerm = false;
+          
+          for (const a of existingApps) {
+            const exDate = new Date(a.date_time);
+            if ((exDate.getTime() - now.getTime()) <= msIn7Days) {
+              hasShortTerm = true;
+            } else {
+              hasLongTerm = true;
+            }
+          }
+          
+          if (isAttemptingShortTerm && hasShortTerm) {
+            alert("Ya tienes un turno programado para esta semana. No puedes agendar múltiples citas de corto plazo bajo el mismo perfil de usuario.");
+            setIsLoading(false);
+            return;
+          }
+          
+          if (!isAttemptingShortTerm && hasLongTerm) {
+            alert("Ya tienes una cita programada a futuro (más de 1 semana). No puedes agendar múltiples reservas de larga distancia simultáneamente.");
+            setIsLoading(false);
+            return;
+          }
         }
+
       }
 
       if (selectedService && selectedTime) {
