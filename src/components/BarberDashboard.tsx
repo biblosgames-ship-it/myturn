@@ -1104,8 +1104,8 @@ const getPlanCapabilities = (planName: string) => {
           flexDirection: isMobile ? 'column' : 'row', 
           justifyContent: 'space-between', 
           alignItems: isMobile ? 'flex-start' : 'center', 
-          marginBottom: '2rem',
-          gap: '1rem'
+          marginBottom: isMobile ? '0.75rem' : '1.5rem',
+          gap: '0.75rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
@@ -1174,24 +1174,18 @@ const getPlanCapabilities = (planName: string) => {
             )}
              <div style={{ 
                display: 'flex', 
-               gap: '0.75rem', 
+               gap: '0.6rem', 
                background: 'var(--surface)', 
-               padding: isMobile ? '0.75rem 2rem' : '0.6rem', 
-               borderRadius: isMobile ? '0' : 'var(--radius-lg)', 
-               borderBottom: '1px solid var(--border)',
-               borderLeft: isMobile ? 'none' : '1px solid var(--border)',
-               borderRight: isMobile ? 'none' : '1px solid var(--border)',
-               borderTop: isMobile ? 'none' : '1px solid var(--border)',
+               padding: '0.5rem', 
+               borderRadius: 'var(--radius-lg)', 
+               border: '1px solid var(--border)',
                overflowX: 'auto', 
                maxWidth: '100%',
                scrollbarWidth: 'none',
                msOverflowStyle: 'none',
-               WebkitOverflowScrolling: 'touch',
                whiteSpace: 'nowrap',
-               position: isMobile ? 'sticky' : 'relative',
-               top: isMobile ? '-2rem' : 'auto', 
-               zIndex: 50,
-               margin: isMobile ? '0 -2rem 0.75rem' : '0'
+               flexShrink: 0,
+               marginBottom: '0.1rem'
              }}>
               <button 
                 className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
@@ -1330,7 +1324,7 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         </div>
 
-      <main style={{ flex: 1, padding: '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative' }}>
+      <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative' }}>
         
         {/* Subscription Grace Banner */}
         {subscription?.status === 'grace' && (
@@ -1394,18 +1388,12 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
         {(activeTab === 'queue' || activeTab === 'agenda') && (
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ padding: '0 0.5rem', marginBottom: '0.75rem' }}>
-              <p style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {selectedDate === getTodayStr() ? '📅 Hoy' : `📅 ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
-              </p>
-            </div>
+          <div style={{ marginBottom: '1rem' }}>
             <div style={{ 
             display: 'flex', 
             gap: '0.6rem', 
             overflowX: 'auto', 
             paddingBottom: '0.5rem', 
-            marginBottom: '1rem', 
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             width: '100%',
@@ -1461,6 +1449,11 @@ const getPlanCapabilities = (planName: string) => {
             }}>
               <Calendar size={20} />
             </div>
+          </div>
+          <div style={{ padding: '0 0.5rem', marginTop: '0.4rem', marginBottom: '0.5rem' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {selectedDate === getTodayStr() ? '📅 HOY' : `📅 ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+            </p>
           </div>
         </div>
       )}
