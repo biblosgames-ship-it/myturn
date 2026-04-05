@@ -1290,7 +1290,8 @@ const getPlanCapabilities = (planName: string) => {
       position: 'relative',
       width: '100%',
       maxWidth: '100vw',
-      overflowX: 'hidden'
+      overflowX: 'hidden',
+      paddingLeft: isMobile ? '0' : '0.5rem'
     }}>
       {!tenantId && !isLoading && (
         <div style={{ 
@@ -1335,7 +1336,8 @@ const getPlanCapabilities = (planName: string) => {
           justifyContent: 'space-between', 
           alignItems: isMobile ? 'flex-start' : 'center', 
           marginBottom: isMobile ? '0.75rem' : '1.5rem',
-          gap: '0.75rem'
+          gap: '0.75rem',
+          paddingLeft: isMobile ? '0' : '0'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
@@ -1417,7 +1419,7 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       </section>
 
-      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
+      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
         
         {/* Navigation Menu (Frameless Scrollable) */}
         <div 
