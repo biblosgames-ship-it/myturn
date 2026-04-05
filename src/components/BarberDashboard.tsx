@@ -1285,14 +1285,13 @@ const getPlanCapabilities = (planName: string) => {
    return (
     <div className={`animate-fade-in ${isMobile ? 'stack-on-mobile' : ''}`} style={{ 
       display: 'flex', 
-      flexDirection: isMobile ? 'column' : 'row-reverse', 
-      gap: isMobile ? '1rem' : '1.5rem', 
+      flexDirection: isMobile ? 'column' : 'row', 
+      gap: isMobile ? '1rem' : '2rem', 
       position: 'relative',
       width: '100%',
       maxWidth: '100vw',
       overflowX: 'hidden',
-      paddingLeft: isMobile ? '0' : '1rem',
-      paddingRight: isMobile ? '0' : '1rem'
+      paddingLeft: isMobile ? '0' : '0.5rem'
     }}>
       {!tenantId && !isLoading && (
         <div style={{ 
@@ -1420,7 +1419,7 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       </section>
 
-      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem 1rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
+      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
         
         {/* Navigation Menu (Frameless Scrollable) */}
         <div 
@@ -2615,8 +2614,7 @@ const getPlanCapabilities = (planName: string) => {
         display: 'flex', 
         flexDirection: 'column', 
         gap: '1.5rem',
-        marginTop: isMobile ? '1rem' : '2rem',
-        flexShrink: 0
+        marginTop: isMobile ? '2rem' : 0
       }}>
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
