@@ -1176,9 +1176,9 @@ const getPlanCapabilities = (planName: string) => {
                display: 'flex', 
                gap: '0.75rem', 
                background: 'var(--surface)', 
-               padding: '0.6rem', 
+               padding: isMobile ? '0.75rem 2rem' : '0.6rem', 
                borderRadius: isMobile ? '0' : 'var(--radius-lg)', 
-               borderBottom: isMobile ? '1px solid var(--border)' : '1px solid var(--border)',
+               borderBottom: '1px solid var(--border)',
                borderLeft: isMobile ? 'none' : '1px solid var(--border)',
                borderRight: isMobile ? 'none' : '1px solid var(--border)',
                borderTop: isMobile ? 'none' : '1px solid var(--border)',
@@ -1186,11 +1186,12 @@ const getPlanCapabilities = (planName: string) => {
                maxWidth: '100%',
                scrollbarWidth: 'none',
                msOverflowStyle: 'none',
+               WebkitOverflowScrolling: 'touch',
                whiteSpace: 'nowrap',
                position: isMobile ? 'sticky' : 'relative',
-               top: isMobile ? '-2rem' : 'auto', // Adjusted for parent padding
+               top: isMobile ? '-2rem' : 'auto', 
                zIndex: 50,
-               margin: isMobile ? '0 -2rem 1.5rem' : '0'
+               margin: isMobile ? '0 -2rem 0.75rem' : '0'
              }}>
               <button 
                 className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
