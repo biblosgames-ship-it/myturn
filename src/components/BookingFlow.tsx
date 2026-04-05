@@ -42,6 +42,7 @@ export const BookingFlow: React.FC<{
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
   const [lunchBreak, setLunchBreak] = useState<any>(null);
+  const [requireConfirmation, setRequireConfirmation] = useState(false);
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -142,10 +143,11 @@ export const BookingFlow: React.FC<{
       }
 
       // 1b. Fetch Schedule & Lunch Break
-      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break').eq('id', tenantId).single();
+      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break, require_confirmation').eq('id', tenantId).single();
       if (tData) {
         if (tData.schedule) setBusinessSchedule(tData.schedule);
         if (tData.lunch_break) setLunchBreak(tData.lunch_break);
+        if (tData.require_confirmation) setRequireConfirmation(tData.require_confirmation);
       }
 
       // 2. Fetch Staff
@@ -249,7 +251,7 @@ export const BookingFlow: React.FC<{
           client_name: `${clientName} (${selectedService.name})`,
           service_id: selectedService.id,
           date_time: aptDate.toISOString(),
-          status: 'waiting',
+          status: requireConfirmation ? 'pending' : 'waiting',
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
           client_user_id: session?.user?.id || null,
           session_id: sessionId
@@ -601,6 +603,13 @@ export const BookingFlow: React.FC<{
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+          {step === 4 && selectedTime && requireConfirmation && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(245,158,11,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'var(--primary)' }}>⚠️ Este negocio requiere confirmación de cita.</p>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tu cita pasará a un estado de revisión. Te notificaremos una vez que sea aprobada.</p>
             </div>
           )}
         </div>

@@ -80,7 +80,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
     mapUrl: '',
     ratingValue: 5.0,
     reviewsCount: 1,
-    category: 'Belleza'
+    category: 'Belleza',
+    requireConfirmation: false
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -113,7 +114,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           mapUrl: tenant.map_url || '',
           ratingValue: tenant.rating_value || 5.0,
           reviewsCount: tenant.reviews_count || 1,
-          category: tenant.category || 'Belleza'
+          category: tenant.category || 'Belleza',
+          requireConfirmation: tenant.require_confirmation ?? false
         });
         if (tenant.schedule) setWeeksSchedule(tenant.schedule);
         if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
@@ -221,6 +223,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         rating_value: brand.ratingValue,
         reviews_count: brand.reviewsCount,
         category: brand.category,
+        require_confirmation: brand.requireConfirmation,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
       }).eq('id', tenantId);
@@ -577,6 +580,21 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                   </div>
                 </div>
               )}
+            </div>
+
+            <div style={{ padding: '1.25rem', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Confirmación Manual de Citas</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem', maxWidth: '350px' }}>Exige tu aprobación antes de que las citas pasen a la cola oficial. Útil para verificar depósitos bancarios.</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={brand.requireConfirmation}
+                  onChange={(e) => setBrand({...brand, requireConfirmation: e.target.checked})}
+                  style={{ width: '22px', height: '22px', cursor: 'pointer' }}
+                />
+              </div>
             </div>
 
             <div style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)' }}>

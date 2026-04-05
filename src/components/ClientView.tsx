@@ -255,7 +255,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             .select('id')
             .eq('tenant_id', dbBusiness.id)
             .eq('client_user_id', session.user.id)
-            .in('status', ['waiting', 'attending', 'arrived'])
+            .in('status', ['pending', 'waiting', 'attending'])
             .maybeSingle();
           
           if (activeApt) {
@@ -373,7 +373,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         .from('appointments')
         .select('*')
         .eq('tenant_id', dbBusiness.id)
-        .in('status', ['waiting', 'attending', 'arrived'])
+        .in('status', ['pending', 'waiting', 'attending'])
         .order('date_time', { ascending: true });
 
       const { data: svcs } = await supabase
@@ -385,7 +385,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
         setQueueItems(appts.map((d, index) => {
           const isAttending = d.status === 'attending';
-          const isArrived = d.status === 'arrived';
+          const isArrived = d.arrived;
           const isMyApt = d.id === myId;
           
           return {
@@ -395,7 +395,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               ? `Tú (${d.client_name.split(' (')[0]})` 
               : `Cliente #${100 + index}`,
             time: new Date(d.date_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-            status: isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : 'En espera',
+            status: d.status === 'pending' ? 'Por confirmar' : isAttending ? 'Siguiendo Turno...' : isArrived ? 'En sala de espera' : 'En espera',
             active: isAttending,
             arrived: isArrived || isAttending,
             isUser: isMyApt,
