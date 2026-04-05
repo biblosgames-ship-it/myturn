@@ -200,6 +200,14 @@ export const BarberDashboard: React.FC = () => {
   const [upgradeCode, setUpgradeCode] = useState('');
   const [isUpgrading, setIsUpgrading] = useState(false);
 
+  // Mini-chat gadget state
+  const [miniChatConvos, setMiniChatConvos] = useState<any[]>([]);
+  const [miniChatSelected, setMiniChatSelected] = useState<string | null>(null);
+  const [miniChatThread, setMiniChatThread] = useState<any[]>([]);
+  const [miniChatReply, setMiniChatReply] = useState('');
+  const [miniChatSending, setMiniChatSending] = useState(false);
+  const miniChatBottomRef = React.useRef<HTMLDivElement>(null);
+
   const handleUpgradeWithCode = async () => {
     if (!upgradeCode) { alert('Ingresa un código.'); return; }
     setIsUpgrading(true);
@@ -403,6 +411,55 @@ export const BarberDashboard: React.FC = () => {
 
     return () => { supabase.removeChannel(msgChan); };
   }, [tenantId]);
+
+  // Mini-chat: load conversations list
+  useEffect(() => {
+    if (!tenantId) return;
+    const loadConvos = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('client_name, client_id, content, created_at, is_from_client, is_read')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+      if (!data) return;
+      // Group by client: keep only latest message per client
+      const map: Record<string, any> = {};
+      data.forEach((m: any) => {
+        const key = m.client_id || m.client_name;
+        if (!map[key]) map[key] = { ...m, unread: 0 };
+        if (m.is_from_client && !m.is_read) map[key].unread++;
+      });
+      setMiniChatConvos(Object.values(map).slice(0, 8));
+    };
+    loadConvos();
+    const chan = supabase.channel('mini-chat-convos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `tenant_id=eq.${tenantId}` }, loadConvos)
+      .subscribe();
+    return () => { supabase.removeChannel(chan); };
+  }, [tenantId]);
+
+  // Mini-chat: load thread for selected client
+  useEffect(() => {
+    if (!tenantId || !miniChatSelected) return;
+    const loadThread = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('client_id', miniChatSelected)
+        .order('created_at', { ascending: true });
+      setMiniChatThread(data || []);
+      // Mark as read
+      await supabase.from('messages').update({ is_read: true })
+        .eq('tenant_id', tenantId).eq('client_id', miniChatSelected).eq('is_from_client', true).eq('is_read', false);
+      setTimeout(() => miniChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
+    };
+    loadThread();
+    const chan = supabase.channel(`mini-chat-thread-${miniChatSelected}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `tenant_id=eq.${tenantId}` }, loadThread)
+      .subscribe();
+    return () => { supabase.removeChannel(chan); };
+  }, [tenantId, miniChatSelected]);
 
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -1409,6 +1466,105 @@ const getPlanCapabilities = (planName: string) => {
                     </div>
                   );
                 })()}
+
+                {/* Mini-Chat Gadget */}
+                <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <MessageCircle size={15} color="var(--primary)" />
+                      Chat Rápido
+                      {unreadMessages > 0 && (
+                        <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.45rem', lineHeight: 1.4 }}>{unreadMessages}</span>
+                      )}
+                    </h3>
+                    {miniChatSelected && (
+                      <button onClick={() => { setMiniChatSelected(null); setMiniChatThread([]); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>← Volver</button>
+                    )}
+                  </div>
+
+                  {!miniChatSelected ? (
+                    /* Conversations list */
+                    <div style={{ overflowY: 'auto', maxHeight: '220px' }}>
+                      {miniChatConvos.length === 0 ? (
+                        <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Sin mensajes aún</p>
+                      ) : miniChatConvos.map((c, i) => (
+                        <div
+                          key={i}
+                          onClick={() => setMiniChatSelected(c.client_id || c.client_name)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.6rem',
+                            padding: '0.6rem 1rem', cursor: 'pointer',
+                            borderBottom: '1px solid var(--border)',
+                            background: c.unread > 0 ? 'rgba(var(--primary-rgb, 245,158,11),0.07)' : 'transparent',
+                            transition: 'background 0.15s'
+                          }}
+                        >
+                          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0 }}>
+                            {(c.client_name || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: c.unread > 0 ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.client_name || 'Cliente'}</p>
+                            <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {c.is_from_client ? '' : 'Tú: '}{c.content}
+                            </p>
+                          </div>
+                          {c.unread > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 800, padding: '0.1rem 0.4rem' }}>{c.unread}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Thread view */
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '260px' }}>
+                      <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        {miniChatThread.map((msg, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: msg.is_from_client ? 'flex-start' : 'flex-end' }}>
+                            <div style={{
+                              maxWidth: '80%', padding: '0.4rem 0.7rem',
+                              borderRadius: msg.is_from_client ? '0 12px 12px 12px' : '12px 0 12px 12px',
+                              background: msg.is_from_client ? 'var(--surface-hover)' : 'var(--primary)',
+                              color: msg.is_from_client ? 'var(--text)' : '#000',
+                              fontSize: '0.72rem', lineHeight: 1.4
+                            }}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={miniChatBottomRef} />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border)' }}>
+                        <input
+                          value={miniChatReply}
+                          onChange={e => setMiniChatReply(e.target.value)}
+                          onKeyDown={async e => {
+                            if (e.key === 'Enter' && !e.shiftKey && miniChatReply.trim() && !miniChatSending) {
+                              e.preventDefault();
+                              setMiniChatSending(true);
+                              await supabase.from('messages').insert({ tenant_id: tenantId, client_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                              setMiniChatReply('');
+                              setMiniChatSending(false);
+                            }
+                          }}
+                          placeholder="Escribe y presiona Enter…"
+                          style={{ flex: 1, background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: 'var(--text)', outline: 'none' }}
+                        />
+                        <button
+                          disabled={miniChatSending || !miniChatReply.trim()}
+                          onClick={async () => {
+                            if (!miniChatReply.trim() || miniChatSending) return;
+                            setMiniChatSending(true);
+                            await supabase.from('messages').insert({ tenant_id: tenantId, client_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                            setMiniChatReply('');
+                            setMiniChatSending(false);
+                          }}
+                          style={{ background: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', cursor: 'pointer', color: '#000', opacity: miniChatSending ? 0.6 : 1 }}
+                        >
+                          <Send size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
         </section>
