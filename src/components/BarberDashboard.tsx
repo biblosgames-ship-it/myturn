@@ -2750,7 +2750,7 @@ const getPlanCapabilities = (planName: string) => {
         </nav>
 
 
-        {isMobile && (
+        {isMobile ? (
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <TrendingUp size={20} color="var(--primary)" /> Rendimiento
@@ -2795,9 +2795,9 @@ const getPlanCapabilities = (planName: string) => {
             </div>
           </div>
         </div>
-        )}
+        ) : null}
 
-        {isMobile && (() => {
+        {isMobile ? (() => {
           const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
           const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
           const cancelledToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'cancelled').length;
@@ -2822,7 +2822,7 @@ const getPlanCapabilities = (planName: string) => {
               </p>
             </div>
           );
-        })()}
+        })() : null}
 
         <div style={{ textAlign: 'center', marginTop: '0.5rem', marginBottom: '1rem' }}>
           <button 
