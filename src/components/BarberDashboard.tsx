@@ -1596,6 +1596,56 @@ const getPlanCapabilities = (planName: string) => {
               </form>
             )}
             
+            {(() => {
+              const missedAppointments = appointments.filter(a => a.date < getTodayStr() && (a.status === 'waiting' || a.status === 'arrived'));
+              if (missedAppointments.length > 0 && selectedDate === getTodayStr()) {
+                return (
+                  <div className="card animate-fade-in" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)', fontWeight: 800, fontSize: '0.9rem' }}>
+                      <AlertCircle size={20} />
+                      <span>Tienes {missedAppointments.length} cita(s) perdida(s) de días anteriores</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      {missedAppointments.map(miss => (
+                        <div key={miss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)' }}>
+                          <div>
+                            <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{miss.clientName}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>{miss.date} - {miss.service}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button 
+                              className="btn btn-outline" 
+                              style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                              onClick={() => setActiveTab('messages')}
+                            >
+                              <MessageCircle size={14} /> Mensaje
+                            </button>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'black' }}
+                              onClick={async () => {
+                                 // Re-schedule for today with priority
+                                 const today = getTodayStr();
+                                 const [year, month, day] = today.split('-').map(Number);
+                                 const aptDate = new Date(year, month - 1, day);
+                                 // Set to just a few minutes before now to give it top priority so it sorts top in 'date_time' order
+                                 aptDate.setHours(new Date().getHours(), new Date().getMinutes() - 10, 0, 0);
+                                 await supabase.from('appointments').update({ date_time: aptDate.toISOString() }).eq('id', miss.id);
+                                 alert("Cita reagendada para hoy con prioridad.");
+                              }}
+                            >
+                              Dar Prioridad Hoy
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
             {isPaused && (
               <div className="animate-fade-in" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div className="pulse-danger" style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }} />
