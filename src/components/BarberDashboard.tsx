@@ -1359,92 +1359,7 @@ const getPlanCapabilities = (planName: string) => {
           flexDirection: 'column',
           gap: '1.5rem'
         }}>
-          {/* Top Control Bar + Left Side Gadgets (Desktop) */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            gap: isMobile ? '0.75rem' : '1.5rem'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: isMobile ? 'column' : 'row', 
-              justifyContent: 'space-between', 
-              alignItems: isMobile ? 'flex-start' : 'center', 
-              gap: '0.75rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, margin: 0 }}>
-                  {activeTab === 'queue' ? '' : 
-                   activeTab === 'agenda' ? 'Agenda de Citas' :
-                   activeTab === 'management' ? 'Gestión de Local' : 
-                   activeTab === 'inventory' ? 'Inventario Inteligente' :
-                   activeTab === 'staff' ? 'Equipo de Trabajo' : 
-                   activeTab === 'messages' ? 'Mensajería de Clientes' :
-                   activeTab === 'customers' ? 'Reporte de Actividad' : 'Finanzas y Reportes'}
-                </h2>
-              </div>
-              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                {(activeTab === 'queue' || activeTab === 'agenda') && (
-                  <>
-                    <button 
-                      className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
-                      onClick={async () => {
-                        const newState = !isOpen;
-                        setIsOpen(newState);
-                        if (newState) { manualToggleTimeRef.current = Date.now(); }
-                        await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '0.4rem',
-                        padding: '0.4rem 0.9rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
-                        background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-                        color: isOpen ? 'var(--success)' : '#ef4444',
-                        fontWeight: 800, fontSize: '0.75rem',
-                        cursor: 'pointer', transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
-                      {isOpen ? 'ABIERTO' : 'CERRADO'}
-                    </button>
-
-                    <button 
-                      style={{ 
-                        padding: '0.4rem 1.2rem', 
-                        fontSize: '0.8rem', 
-                        background: isPaused ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                        border: '1px solid var(--primary)', 
-                        color: isPaused ? 'var(--primary)' : 'var(--text)', 
-                        fontWeight: 900,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        borderRadius: 'var(--radius-md)'
-                      }}
-                      onClick={async () => {
-                        const newPaused = !isPaused;
-                        setIsPaused(newPaused);
-                        if (tenantId) await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPaused ? 'var(--primary)' : 'transparent', border: isPaused ? 'none' : '1px solid var(--text-muted)' }} />
-                        PAUSAR {isPaused ? 'ON' : 'OFF'}
-                      </div>
-                      {isPaused && (
-                        <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', marginLeft: '0.3rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
-                          {String(Math.floor(pauseElapsed / 60)).padStart(2, '0')}:{String(pauseElapsed % 60).padStart(2, '0')}
-                        </span>
-                      )}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Desktop Left-Side Gadgets Relocation */}
-            {/* Desktop Left-Side Gadgets Relocation - Stacked Vertically */}
+          {/* Desktop Left-Side Gadgets - Stacked Vertically */}
             {!isMobile && (activeTab === 'queue' || activeTab === 'agenda') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
                 <div className="card" style={{ flex: 1, margin: 0 }}>
@@ -1496,7 +1411,6 @@ const getPlanCapabilities = (planName: string) => {
                 })()}
               </div>
             )}
-          </div>
         </section>
 
         {/* Drag Handle — desktop only */}
@@ -1533,6 +1447,56 @@ const getPlanCapabilities = (planName: string) => {
 
       <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '0 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
         
+        {/* Open/Close + Pause buttons — above nav tabs, left-aligned */}
+        {(activeTab === 'queue' || activeTab === 'agenda') && (
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem', padding: isMobile ? '0 1rem' : '0' }}>
+            <button 
+              className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
+              onClick={async () => {
+                const newState = !isOpen;
+                setIsOpen(newState);
+                if (newState) { manualToggleTimeRef.current = Date.now(); }
+                await supabase.from('tenants').update({ is_open: newState }).eq('id', tenantId);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)',
+                border: `1px solid ${isOpen ? 'var(--success)' : '#ef4444'}`,
+                background: isOpen ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                color: isOpen ? 'var(--success)' : '#ef4444',
+                fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOpen ? 'var(--success)' : '#ef4444', ...(isOpen ? { animation: 'pulse 2s infinite' } : {}) }} />
+              {isOpen ? 'ABIERTO' : 'CERRADO'}
+            </button>
+            <button 
+              style={{ 
+                padding: '0.4rem 1.2rem', fontSize: '0.8rem',
+                background: isPaused ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                border: '1px solid var(--primary)', color: isPaused ? 'var(--primary)' : 'var(--text)',
+                fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.5rem',
+                borderRadius: 'var(--radius-md)', cursor: 'pointer'
+              }}
+              onClick={async () => {
+                const newPaused = !isPaused;
+                setIsPaused(newPaused);
+                if (tenantId) await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPaused ? 'var(--primary)' : 'transparent', border: isPaused ? 'none' : '1px solid var(--text-muted)' }} />
+                PAUSAR {isPaused ? 'ON' : 'OFF'}
+              </div>
+              {isPaused && (
+                <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', marginLeft: '0.3rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                  {String(Math.floor(pauseElapsed / 60)).padStart(2, '0')}:{String(pauseElapsed % 60).padStart(2, '0')}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Navigation Menu (Frameless Scrollable) */}
         <div 
           ref={navMenuRef}
