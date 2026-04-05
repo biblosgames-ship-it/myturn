@@ -1120,7 +1120,7 @@ const getPlanCapabilities = (planName: string) => {
       `"${a.clientName}"`,
       `"${a.service}"`,
       staff.find(s => s.id === a.staffId)?.name || 'Cualquiera',
-      a.status === 'waiting' ? 'Pendiente' : a.status === 'arrived' ? 'En Local' : 'Atendiendo'
+      a.status === 'waiting' ? (a.arrived ? 'En Local' : 'Pendiente') : a.status === 'attending' ? 'Atendiendo' : a.status === 'finished' ? 'Finalizado' : 'Cancelado'
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -1823,7 +1823,7 @@ const getPlanCapabilities = (planName: string) => {
             )}
             
             {(() => {
-              const missedAppointments = appointments.filter(a => a.date < getTodayStr() && (a.status === 'waiting' || a.status === 'arrived'));
+              const missedAppointments = appointments.filter(a => a.date < getTodayStr() && a.status === 'waiting');
               if (missedAppointments.length > 0 && selectedDate === getTodayStr()) {
                 return (
                   <div className="card animate-fade-in" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
