@@ -1059,6 +1059,57 @@ const getPlanCapabilities = (planName: string) => {
       alert("Error al generar el PDF");
     }
   };
+
+  const downloadAgendaReport = () => {
+    if (!tenantId) return;
+    const filtered = appointments.filter(a => {
+      // Exclude cancelled and finished (since finished is history/activity)
+      // They want "agenda registrada" for the month/period
+      if (a.status === 'cancelled' || a.status === 'finished') return false;
+      if (regFilterType === 'day') return a.date === regFilterValue;
+      if (regFilterType === 'week') {
+        const d = new Date(regFilterValue + 'T00:00:00');
+        const day = d.getDay(); 
+        const diffToMon = (day === 0 ? -6 : 1) - day;
+        const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const monStr = mon.toISOString().split('T')[0];
+        const sunStr = sun.toISOString().split('T')[0];
+        return a.date >= monStr && a.date <= sunStr;
+      }
+      if (regFilterType === 'month') return a.date.startsWith(regFilterValue);
+      if (regFilterType === 'year') return a.date.startsWith(regFilterValue.substring(0, 4));
+      if (regFilterType === 'range') return a.date >= regStartDate && a.date <= regEndDate;
+      return false;
+    });
+
+    if (filtered.length === 0) {
+      alert("No hay citas programadas para exportar en el periodo seleccionado.");
+      return;
+    }
+
+    const headers = ["Fecha", "Hora", "Cliente", "Servicio", "Profesional Asignado", "Estado"];
+    const rows = filtered.map(a => [
+      a.date,
+      a.time,
+      `"${a.clientName}"`,
+      `"${a.service}"`,
+      staff.find(s => s.id === a.staffId)?.name || 'Cualquiera',
+      a.status === 'waiting' ? 'Pendiente' : a.status === 'arrived' ? 'En Local' : 'Atendiendo'
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF"+csvContent], { type: 'text/csv;charset=utf-8;' }); 
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    const fileNameSuffix = regFilterType === 'range' ? `${regStartDate}_a_${regEndDate}` : regFilterValue;
+    link.setAttribute("download", `agenda_programada_${fileNameSuffix}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   const addExtraService = (service: any) => {
     setExtraServices([...extraServices, service]);
   };
@@ -2087,6 +2138,14 @@ const getPlanCapabilities = (planName: string) => {
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem' }}
                 >
                   <FileText size={18} /> Reporte PDF
+                </button>
+                <div style={{ width: '1px', background: 'var(--border)', margin: '0 0.25rem' }}></div>
+                <button 
+                  onClick={downloadAgendaReport}
+                  className="btn btn-outline"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', fontSize: '0.875rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                >
+                  <Calendar size={18} /> Agenda CSV
                 </button>
               </div>
             </div>
