@@ -2,30 +2,31 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Scissors, Clock, Plus, Trash2, Save, Calendar, Coffee, Moon, Sun, CheckCircle2, 
   Stethoscope, Palette, Brush, User, Users, Heart, Activity, Car, Smartphone, Zap, Star, 
-  Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, Image as ImageIcon, Eye, X, Minus
+  Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, 
+  Image as ImageIcon, Eye, X, Minus, Sparkles, Cross, Wrench, Shield, Calculator, Building, 
+  Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer
 } from 'lucide-react';
 
 
 import { supabase } from '../lib/supabase';
 
 const availableIcons = [
-  { name: 'Scissors', Icon: Scissors },
-  { name: 'Stethoscope', Icon: Stethoscope },
-  { name: 'Palette', Icon: Palette },
-  { name: 'Brush', Icon: Brush },
-  { name: 'User', Icon: User },
-  { name: 'Heart', Icon: Heart },
-  { name: 'Activity', Icon: Activity },
-  { name: 'Coffee', Icon: Coffee },
-  { name: 'Car', Icon: Car },
-  { name: 'Smartphone', Icon: Smartphone },
-  { name: 'Zap', Icon: Zap },
-  { name: 'Star', Icon: Star },
-  { name: 'Smile', Icon: Smile },
-  { name: 'Wind', Icon: Wind },
-  { name: 'Droplets', Icon: Droplets },
-  { name: 'Briefcase', Icon: Briefcase },
-  { name: 'ShoppingBag', Icon: ShoppingBag },
+  // Belleza
+  { name: 'Scissors', Icon: Scissors }, { name: 'Sparkles', Icon: Sparkles }, { name: 'Smile', Icon: Smile }, { name: 'Palette', Icon: Palette }, { name: 'Brush', Icon: Brush },
+  // Salud/Bienestar
+  { name: 'Stethoscope', Icon: Stethoscope }, { name: 'Heart', Icon: Heart }, { name: 'Activity', Icon: Activity }, { name: 'Cross', Icon: Cross },
+  // Vehículos
+  { name: 'Car', Icon: Car }, { name: 'Wrench', Icon: Wrench }, { name: 'Shield', Icon: Shield },
+  // Servicios Profesionales
+  { name: 'Briefcase', Icon: Briefcase }, { name: 'Calculator', Icon: Calculator }, { name: 'Building', Icon: Building }, { name: 'User', Icon: User }, { name: 'Users', Icon: Users },
+  // Educación
+  { name: 'Book', Icon: Book }, { name: 'GraduationCap', Icon: GraduationCap }, { name: 'PenTool', Icon: PenTool },
+  // Servicios del hogar
+  { name: 'Home', Icon: Home }, { name: 'Hammer', Icon: Hammer }, { name: 'Key', Icon: Key }, { name: 'Wind', Icon: Wind }, { name: 'Droplets', Icon: Droplets },
+  // Eventos y Otros
+  { name: 'Music', Icon: Music }, { name: 'Mic', Icon: Mic }, { name: 'Ticket', Icon: Ticket }, { name: 'MonitorPlay', Icon: MonitorPlay }, { name: 'Coffee', Icon: Coffee },
+  // Tecnología y Fitness
+  { name: 'Smartphone', Icon: Smartphone }, { name: 'Zap', Icon: Zap }, { name: 'Star', Icon: Star }, { name: 'Dumbbell', Icon: Dumbbell }, { name: 'Flame', Icon: Flame }, { name: 'Timer', Icon: Timer }, { name: 'ShoppingBag', Icon: ShoppingBag }
 ];
 
 interface Service {
@@ -92,6 +93,38 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
   const [reviews, setReviews] = useState<any[]>([]);
   const [showAddReview, setShowAddReview] = useState(false);
   const [newReview, setNewReview] = useState({ client_name: '', rating: 5, comment: '' });
+  const [activeIconPicker, setActiveIconPicker] = useState<number | null>(null);
+  const [isUploadingIcon, setIsUploadingIcon] = useState<number | null>(null);
+
+  const handleCustomIconUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check file size (max 500KB)
+    if (file.size > 500 * 1024) {
+      alert("La imagen es demasiado grande. Por favor, selecciona una de menos de 500KB.");
+      return;
+    }
+    
+    setIsUploadingIcon(idx);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${tenantId}_service_${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage.from('logos').upload(fileName, file);
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
+      updateService(idx, 'icon', publicUrl);
+      setActiveIconPicker(null);
+    } catch (err) {
+      console.error("Error subiendo icono personalizado:", err);
+      alert("No se pudo subir la imagen. Intenta de nuevo.");
+    } finally {
+      setIsUploadingIcon(null);
+    }
+  };
 
   const loadCatalog = useCallback(async () => {
     // 1. Load Business Branding & Schedule
@@ -785,36 +818,121 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                   </button>
                 </div>
                 
-                {/* Icon Picker Strip */}
-                <div style={{ 
-                  display: 'flex', 
-                  gap: '0.4rem', 
-                  overflowX: 'auto', 
-                  padding: '0.5rem', 
-                  background: 'var(--surface)', 
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border)',
-                  scrollbarWidth: 'none'
-                }}>
-                  {availableIcons.map(({ name, Icon }) => (
-                    <button
-                      key={name}
-                      onClick={() => updateService(idx, 'icon', name)}
-                      style={{
-                        padding: '0.4rem',
-                        background: s.icon === name ? 'var(--primary)' : 'transparent',
-                        color: s.icon === name ? 'black' : 'var(--text-muted)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <Icon size={16} />
-                    </button>
-                  ))}
+                
+                {/* Ocultando icon picker en un dropdown */}
+                <div style={{ position: 'relative', marginTop: '0.5rem' }}>
+                  <button
+                    onClick={() => setActiveIconPicker(activeIconPicker === idx ? null : idx)}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.5rem 1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      fontSize: '0.8rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    {s.icon.startsWith('http') ? (
+                       <img src={s.icon} alt="Icono" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: '2px' }} />
+                    ) : (
+                       (() => {
+                         const Found = availableIcons.find(a => a.name === s.icon)?.Icon || availableIcons[0].Icon;
+                         return <Found size={16} />;
+                       })()
+                    )}
+                    Cambiar Icono o Imagen
+                  </button>
+
+                  {activeIconPicker === idx && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: '0.5rem',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      padding: '1rem',
+                      borderRadius: 'var(--radius-md)',
+                      width: '320px',
+                      zIndex: 50,
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                      maxHeight: '300px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>Elige un icono:</span>
+                        <button onClick={() => setActiveIconPicker(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                        {availableIcons.map(({ name, Icon }) => (
+                          <button
+                            key={name}
+                            onClick={() => {
+                              updateService(idx, 'icon', name);
+                              setActiveIconPicker(null);
+                            }}
+                            title={name}
+                            style={{
+                              padding: '0.5rem',
+                              background: s.icon === name ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                              color: s.icon === name ? 'black' : 'var(--text)',
+                              border: 'none',
+                              borderRadius: 'var(--radius-sm)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <Icon size={18} />
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block', marginBottom: '0.6rem' }}>O sube tu imagen propia:</span>
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          padding: '0.75rem',
+                          background: 'rgba(59,130,246,0.1)',
+                          border: '1px dashed rgba(59,130,246,0.5)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: '#3b82f6',
+                          cursor: isUploadingIcon === idx ? 'wait' : 'pointer',
+                          fontWeight: 700,
+                          fontSize: '0.8rem'
+                        }}>
+                          {isUploadingIcon === idx ? (
+                            <span>Subiendo...</span>
+                          ) : (
+                            <>
+                              <ImageIcon size={16} />
+                              <span>Subir Imagen (Máx 500KB)</span>
+                              <input 
+                                type="file" 
+                                accept="image/png, image/jpeg, image/webp" 
+                                style={{ display: 'none' }}
+                                onChange={(e) => handleCustomIconUpload(e, idx)}
+                                disabled={isUploadingIcon === idx}
+                              />
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

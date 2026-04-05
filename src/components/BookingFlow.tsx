@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Clock, Calendar, CheckCircle2, X } from 'lucide-react';
+import { ChevronRight, Clock, Calendar, CheckCircle2, X, Scissors, Stethoscope, Palette, Brush, User, Heart, Activity, Coffee, Car, Smartphone, Zap, Star, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Service {
@@ -8,6 +8,7 @@ interface Service {
   price: number;
   duration: number;
   capacity: number;
+  icon?: string;
 }
 
 const getTodayStr = () => {
@@ -366,9 +367,22 @@ export const BookingFlow: React.FC<{
                     pointerEvents: isTransitioning ? 'none' : 'auto'
                   }}
                 >
-                  <div>
-                    <p style={{ fontWeight: 600 }}>{s.name}</p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{s.duration} min</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {(() => {
+                        if (s.icon?.startsWith('http')) {
+                          return <img src={s.icon} alt={s.name} style={{ width: 24, height: 24, objectFit: 'contain', borderRadius: '4px' }} />;
+                        } else {
+                          const IconMap: Record<string, any> = { Scissors, Stethoscope, Palette, Brush, User, Heart, Activity, Coffee, Car, Smartphone, Zap, Star, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer };
+                          const FoundIcon = IconMap[s.icon || 'Scissors'] || Scissors;
+                          return <FoundIcon size={24} style={{ color: 'var(--text-muted)' }} />;
+                        }
+                      })()}
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 600 }}>{s.name}</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{s.duration} min</p>
+                    </div>
                   </div>
                   <p style={{ fontWeight: 700, color: 'var(--primary)' }}>${(s.price || 0).toFixed(2)}</p>
                 </div>
