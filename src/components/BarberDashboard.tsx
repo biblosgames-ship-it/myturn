@@ -139,6 +139,12 @@ export const BarberDashboard: React.FC = () => {
 
   const manualToggleTimeRef = React.useRef<number>(0);
 
+  // Drag-to-scroll logic for navigation menu
+  const navMenuRef = React.useRef<HTMLDivElement>(null);
+  const [isDraggingNav, setIsDraggingNav] = useState(false);
+  const [navStartX, setNavStartX] = useState(0);
+  const [navScrollLeft, setNavScrollLeft] = useState(0);
+
   const isMobile = windowWidth < 1024;
 
 
@@ -730,6 +736,7 @@ const getPlanCapabilities = (planName: string) => {
   };
 
   const getFilteredApts = () => {
+    if (!tenantId) return [];
     return appointments.filter(a => {
       if (a.status !== 'finished') return false;
       if (regFilterType === 'day') return a.date === regFilterValue;
@@ -751,6 +758,7 @@ const getPlanCapabilities = (planName: string) => {
   };
 
   const getFilteredTxs = (type: 'ingreso' | 'egreso') => {
+    if (!tenantId) return [];
     return transactions.filter(t => {
       if (t.type !== type) return false;
       if (regFilterType === 'day') return t.date === regFilterValue;
@@ -1172,155 +1180,181 @@ const getPlanCapabilities = (planName: string) => {
                 </button>
               </>
             )}
-             <div style={{ 
-               display: 'flex', 
-               gap: '0.6rem', 
-               overflowX: 'auto', 
-               paddingBottom: '0.5rem', 
-               scrollbarWidth: 'none',
-               msOverflowStyle: 'none',
-               whiteSpace: 'nowrap',
-               flexShrink: 0,
-               marginBottom: '0.1rem'
-             }}>
-              <button 
-                className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
-                onClick={() => handleTabClick('queue')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'queue' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'queue' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'queue' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <LayoutDashboard size={18} />
-                <span>Cola</span>
-              </button>
-              <button 
-                className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
-                onClick={() => handleTabClick('inventory')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'inventory' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'inventory' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'inventory' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Package size={18} />
-                <span>Inventario</span>
-              </button>
-              <button 
-                className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
-                onClick={() => handleTabClick('finance')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'finance' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'finance' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'finance' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Wallet size={18} />
-                <span>Finanzas</span>
-                {subscription?.plan === 'Free' && <Lock size={12} style={{marginLeft: '4px'}} />}
-              </button>
-              <button 
-                className={`nav-item ${activeTab === 'management' ? 'active' : ''}`}
-                onClick={() => handleTabClick('management')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'management' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'management' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'management' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Settings size={18} />
-                <span>Local</span>
-              </button>
-              <button 
-                className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
-                onClick={() => handleTabClick('customers')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'customers' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'customers' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'customers' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <BarChart2 size={18} />
-                <span>Reporte</span>
-              </button>
-              <button 
-                className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
-                onClick={() => handleTabClick('messages')}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  border: activeTab === 'messages' ? 'none' : '1px solid var(--border)', 
-                  background: activeTab === 'messages' ? 'var(--primary)' : 'var(--surface)', 
-                  color: activeTab === 'messages' ? 'black' : 'var(--text)', 
-                  cursor: 'pointer',
-                  position: 'relative',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                  fontWeight: 800,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <MessageCircle size={18} />
-                <span>Mensajería</span>
-                {unreadMessages > 0 && (
-                  <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 900, padding: '0.05rem 0.35rem', borderRadius: 'var(--radius-full)', marginLeft: '4px' }}>
-                    {unreadMessages}
-                  </span>
-                )}
-              </button>
-            </div>
           </div>
         </div>
+      </section>
 
-      <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative' }}>
+      <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '2rem', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
+        
+        {/* Navigation Menu (Frameless Scrollable) */}
+        <div 
+          ref={navMenuRef}
+          onMouseDown={(e) => {
+            setIsDraggingNav(true);
+            setNavStartX(e.pageX - (navMenuRef.current?.offsetLeft || 0));
+            setNavScrollLeft(navMenuRef.current?.scrollLeft || 0);
+          }}
+          onMouseLeave={() => setIsDraggingNav(false)}
+          onMouseUp={() => setIsDraggingNav(false)}
+          onMouseMove={(e) => {
+            if (!isDraggingNav) return;
+            e.preventDefault();
+            const x = e.pageX - (navMenuRef.current?.offsetLeft || 0);
+            const walk = (x - navStartX) * 1.5; // Scroll-fast multiplier
+            if (navMenuRef.current) {
+              navMenuRef.current.scrollLeft = navScrollLeft - walk;
+            }
+          }}
+          style={{ 
+            display: 'flex', 
+            gap: '0.6rem', 
+            overflowX: 'auto', 
+            paddingBottom: '0.5rem', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            width: '100%',
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            padding: isMobile ? '0.25rem 1rem 1rem' : '0 0 1rem 0',
+            marginBottom: '0.5rem',
+            cursor: isDraggingNav ? 'grabbing' : 'grab'
+          }}
+        >
+          <button 
+            className={`nav-item ${activeTab === 'queue' ? 'active' : ''}`}
+            onClick={() => handleTabClick('queue')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'queue' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'queue' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'queue' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <LayoutDashboard size={18} />
+            <span>Cola</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => handleTabClick('inventory')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'inventory' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'inventory' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'inventory' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <Package size={18} />
+            <span>Inventario</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
+            onClick={() => handleTabClick('finance')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'finance' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'finance' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'finance' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <Wallet size={18} />
+            <span>Finanzas</span>
+            {subscription?.plan === 'Free' && <Lock size={12} style={{marginLeft: '4px'}} />}
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'management' ? 'active' : ''}`}
+            onClick={() => handleTabClick('management')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'management' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'management' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'management' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <Settings size={18} />
+            <span>Local</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
+            onClick={() => handleTabClick('customers')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'customers' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'customers' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'customers' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <BarChart2 size={18} />
+            <span>Reporte</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
+            onClick={() => handleTabClick('messages')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'messages' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'messages' ? 'var(--primary)' : 'var(--surface)', 
+              color: activeTab === 'messages' ? 'black' : 'var(--text)', 
+              cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s'
+            }}
+          >
+            <MessageCircle size={18} />
+            <span>Mensajería</span>
+            {unreadMessages > 0 && (
+              <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 900, padding: '0.05rem 0.35rem', borderRadius: 'var(--radius-full)', marginLeft: '4px' }}>
+                {unreadMessages}
+              </span>
+            )}
+          </button>
+        </div>
         
         {/* Subscription Grace Banner */}
         {subscription?.status === 'grace' && (
@@ -2174,9 +2208,7 @@ const getPlanCapabilities = (planName: string) => {
         ) : (
           <BarberManagement tenantId={tenantId || ''} />
         )}
-
       </main>
-      </section>
 
       <aside className={isMobile ? 'full-width-on-mobile' : ''} style={{ 
         width: isMobile ? '100%' : '320px', 
