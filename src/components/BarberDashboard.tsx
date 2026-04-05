@@ -1285,7 +1285,7 @@ const getPlanCapabilities = (planName: string) => {
    return (
     <div className={`animate-fade-in ${isMobile ? 'stack-on-mobile' : ''}`} style={{ 
       display: 'flex', 
-      flexDirection: isMobile ? 'column' : 'row', 
+      flexDirection: 'column', 
       gap: isMobile ? '1rem' : '2rem', 
       position: 'relative',
       width: '100%',
