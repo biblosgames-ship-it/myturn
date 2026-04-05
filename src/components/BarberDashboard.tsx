@@ -1175,12 +1175,8 @@ const getPlanCapabilities = (planName: string) => {
              <div style={{ 
                display: 'flex', 
                gap: '0.6rem', 
-               background: 'var(--surface)', 
-               padding: '0.5rem', 
-               borderRadius: 'var(--radius-lg)', 
-               border: '1px solid var(--border)',
                overflowX: 'auto', 
-               maxWidth: '100%',
+               paddingBottom: '0.5rem', 
                scrollbarWidth: 'none',
                msOverflowStyle: 'none',
                whiteSpace: 'nowrap',
@@ -1195,13 +1191,13 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'queue' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'queue' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'queue' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'queue' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'queue' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'queue' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
@@ -1216,13 +1212,13 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'inventory' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'inventory' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'inventory' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'inventory' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'inventory' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'inventory' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
@@ -1237,13 +1233,13 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'finance' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'finance' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'finance' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'finance' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'finance' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'finance' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
@@ -1259,13 +1255,13 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'management' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'management' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'management' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'management' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'management' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'management' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
@@ -1280,13 +1276,13 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'customers' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'customers' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'customers' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'customers' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'customers' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'customers' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
@@ -1301,14 +1297,14 @@ const getPlanCapabilities = (planName: string) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  border: 'none', 
-                  background: activeTab === 'messages' ? 'rgba(245,158,11,0.1)' : 'transparent', 
-                  color: activeTab === 'messages' ? 'var(--primary)' : 'inherit', 
+                  border: activeTab === 'messages' ? 'none' : '1px solid var(--border)', 
+                  background: activeTab === 'messages' ? 'var(--primary)' : 'var(--surface)', 
+                  color: activeTab === 'messages' ? 'black' : 'var(--text)', 
                   cursor: 'pointer',
                   position: 'relative',
                   borderRadius: 'var(--radius-md)',
                   flexShrink: 0,
-                  fontWeight: activeTab === 'messages' ? 800 : 600,
+                  fontWeight: 800,
                   transition: 'all 0.2s'
                 }}
               >
