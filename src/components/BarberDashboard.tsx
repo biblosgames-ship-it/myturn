@@ -1000,6 +1000,12 @@ const getPlanCapabilities = (planName: string) => {
               'Periodo Seleccionado'
             }</strong></div>
             <div class="meta">Generado: ${new Date().toLocaleString()}</div>
+            <div class="meta" style="color: #ef4444; font-weight: bold;">Cancelaciones en el periodo: ${appointments.filter(a => a.status === 'cancelled' && (
+              regFilterType === 'day' ? a.date === regFilterValue :
+              regFilterType === 'month' ? a.date.startsWith(regFilterValue) :
+              regFilterType === 'year' ? a.date.startsWith(regFilterValue.substring(0, 4)) :
+              regFilterType === 'range' ? (a.date >= regStartDate && a.date <= regEndDate) : true
+            )).length}</div>
           </div>
           <table>
             <thead>
@@ -2642,10 +2648,12 @@ const getPlanCapabilities = (planName: string) => {
         {(() => {
           const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
           const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
+          const cancelledToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'cancelled').length;
           const incomeToday = transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0);
 
           const getMessage = () => {
             if (totalToday === 0) return "¡Día nuevo! Asegúrate de que tus clientes tengan tu enlace para empezar a recibir citas.";
+            if (cancelledToday > 2) return `Atención: Hoy has tenido ${cancelledToday} cancelaciones. Revisa si hay un patrón o considera solicitar depósitos previos.`;
             if (incomeToday > 200) return "¡Vaya ritmo llevas! Tus ingresos de hoy están por encima del promedio. ¡Sigue así!";
             if (finishedToday === totalToday && totalToday > 0) return "¡Agenda completada! Has atendido a todos tus clientes de hoy con éxito.";
             if (totalToday > 5 && finishedToday < 2) return "Día concurrido: Recuerda mantener el ritmo para que la fila fluya con rapidez.";
