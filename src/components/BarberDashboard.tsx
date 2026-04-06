@@ -36,7 +36,7 @@ const getTodayStr = () => {
 
 // All appointments are now strictly database-driven.
 
-const AgendaCalendarView: React.FC<{ appointments: Appointment[] }> = ({ appointments }) => {
+const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[] }> = ({ appointments, staff }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(getTodayStr());
 
@@ -138,7 +138,9 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[] }> = ({ appoint
                     <div style={{ fontWeight: 900, color: 'var(--text-muted)', fontSize: '1.25rem', opacity: 0.5 }}>{idx + 1}</div>
                     <div>
                       <h5 style={{ margin: 0, fontWeight: 900, fontSize: '1rem' }}>{apt.clientName}</h5>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{apt.service}</p>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name || '...'}`}
+                      </p>
                     </div>
                   </div>
                   <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
@@ -480,13 +482,20 @@ export const BarberDashboard: React.FC = () => {
           .eq('tenant_id', tenantId);
           
         if (staffData) {
-          setStaff(staffData.map(s => ({
+          const mappedStaff = staffData.map(s => ({
             id: s.id,
             name: s.name,
             role: s.role || 'Barbero',
             commission: s.commission_rate || 50,
             imageUrl: s.image_url
-          })));
+          }));
+          setStaff(mappedStaff);
+          
+          // Auto-select first professional for walk-ins if none selected
+          setNewClient(prev => ({ 
+            ...prev, 
+            staffId: prev.staffId || (mappedStaff.length > 0 ? mappedStaff[0].id : '') 
+          }));
         }
 
         // 2. Fetch Services (Always filter by current tenantId!)
@@ -912,7 +921,13 @@ const getPlanCapabilities = (planName: string) => {
     }
 
     const firstService = dbServices[0]?.name || 'Servicio';
-    setNewClient({ name: '', service: firstService, staffId: '', time: '' });
+    // Reset form but keep a valid staff if possible
+    setNewClient({ 
+      name: '', 
+      service: firstService, 
+      staffId: staff.length > 0 ? staff[0].id : '', 
+      time: '' 
+    });
     setShowAddForm(false);
   };
 
@@ -2137,7 +2152,7 @@ const getPlanCapabilities = (planName: string) => {
                           {apt.status === 'attending' && <span style={{ fontSize: '0.55rem', background: 'var(--primary)', color: 'black', padding: '0.05rem 0.3rem', borderRadius: '4px', fontWeight: 900 }}>ATENDIENDO</span>}
                         </div>
                         <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
-                          {apt.service} • <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{apt.time}</span>
+                          {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name || '...'}`} • <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{apt.time}</span>
                           {apt.status === 'attending' && apt.date === getTodayStr() && (
                             <span style={{ marginLeft: '0.5rem', color: 'var(--success)', fontWeight: 900 }}>{formatTime(activeTimer)}</span>
                           )}
@@ -2317,7 +2332,7 @@ const getPlanCapabilities = (planName: string) => {
             })()}
           </div>
         ) : activeTab === 'agenda' ? (
-          <AgendaCalendarView appointments={appointments} />
+          <AgendaCalendarView appointments={appointments} staff={staff} />
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
         ) : activeTab === 'finance' ? (
