@@ -364,11 +364,7 @@ export const BookingFlow: React.FC<{
                     if (!isTransitioning) { 
                       setSelectedService(s); 
                       setSelectedTime(null); 
-                      if (dbStaff.length === 1) {
-                        handleStepChange(3); 
-                      } else {
-                        handleStepChange(2); 
-                      }
+                      handleStepChange(2); 
                     } 
                   }}
                   style={{ 

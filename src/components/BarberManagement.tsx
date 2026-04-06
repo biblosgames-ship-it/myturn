@@ -791,23 +791,29 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                   {/* ROW 1: ICON AND NAME */}
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', width: '100%' }}>
                     <div style={{ position: 'relative', flexShrink: 0 }}>
-                      <div 
-                        style={{ 
-                          width: '44px', 
-                          height: '44px', 
-                          borderRadius: 'var(--radius-sm)', 
-                          background: 'var(--surface-hover)', 
-                          color: 'var(--primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px solid var(--border)',
-                          cursor: 'pointer'
-                        }}
-                        title="Cambiar Icono"
-                      >
-                        {React.createElement(availableIcons.find(i => i.name === s.icon)?.Icon || Star, { size: 24 })}
-                      </div>
+                         <div 
+                           onClick={() => setActiveIconPicker(activeIconPicker === idx ? null : idx)}
+                           style={{ 
+                             width: '44px', 
+                             height: '44px', 
+                             borderRadius: 'var(--radius-sm)', 
+                             background: 'var(--surface-hover)', 
+                             color: 'var(--primary)',
+                             display: 'flex',
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             border: '1px solid var(--border)',
+                             cursor: 'pointer',
+                             overflow: 'hidden'
+                           }}
+                           title="Cambiar Icono"
+                         >
+                          {s.icon.startsWith('http') ? (
+                            <img src={s.icon} alt="Icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            React.createElement(availableIcons.find(i => i.name === s.icon)?.Icon || Star, { size: 24 })
+                          )}
+                        </div>
                     </div>
                     <input 
                       type="text" 
