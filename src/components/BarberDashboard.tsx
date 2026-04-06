@@ -2422,7 +2422,7 @@ const getPlanCapabilities = (planName: string) => {
             />
           </div>
         ) : activeTab === 'staff' ? (
-          <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} />
+          <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} tenantId={tenantId || ''} />
         ) : activeTab === 'customers' ? (
           <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
