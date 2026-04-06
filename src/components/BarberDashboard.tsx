@@ -2083,8 +2083,7 @@ const getPlanCapabilities = (planName: string) => {
             )}
 
             {appointments.filter((a: Appointment) => {
-                if (selectedDate === getTodayStr()) return a.status !== 'finished';
-                return a.date === selectedDate;
+                return a.date === selectedDate && a.status !== 'finished';
             }).length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5, border: '2px dashed var(--border)' }}>
                 <Calendar size={48} style={{ marginBottom: '1rem' }} />
@@ -2093,8 +2092,7 @@ const getPlanCapabilities = (planName: string) => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {appointments.filter((a: Appointment) => {
-                    if (selectedDate === getTodayStr()) return a.status !== 'finished';
-                    return a.date === selectedDate;
+                    return a.date === selectedDate && a.status !== 'finished';
                 }).map((apt: Appointment, idx: number) => {
                   const isToday = selectedDate === getTodayStr();
                   const isCancelled = apt.status === 'cancelled';
@@ -2240,7 +2238,7 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
             {(() => {
-              const pendingAppointments = appointments.filter(a => a.date === selectedDate && a.status === 'pending');
+              const pendingAppointments = appointments.filter(a => a.status === 'pending');
               const missedAppointments = appointments.filter(a => a.date < getTodayStr() && a.status === 'waiting');
               
               return (
