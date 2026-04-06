@@ -8,7 +8,7 @@ import { MessagingCenter } from './MessagingCenter';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building } from 'lucide-react';
 
 
 interface Appointment {

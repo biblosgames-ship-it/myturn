@@ -167,6 +167,18 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         // Fetch Reviews (filtered by tenantId)
         const { data: revs } = await supabase.from('reviews').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
         if (revs) setReviews(revs);
+
+        // Fetch Main Staff for Professional Profile management
+        const { data: stData } = await supabase.from('staff_members').select('*').eq('tenant_id', tenantId).limit(1);
+        if (stData && stData.length > 0) {
+          setMainStaffId(stData[0].id);
+          setStaffImageUrl(stData[0].image_url || '');
+          setBrand(prev => ({ 
+            ...prev, 
+            professionalName: stData[0].name || '', 
+            professionalTitle: stData[0].role || '' 
+          }));
+        }
       }
     }
 
@@ -202,22 +214,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
 
   useEffect(() => {
     loadCatalog();
-    
-    // Also fetch first staff member for branding sync
-    const fetchStaff = async () => {
-      const { data } = await supabase.from('staff_members').select('*').eq('tenant_id', tenantId).limit(1);
-      if (data && data.length > 0) {
-        setMainStaffId(data[0].id);
-        setStaffImageUrl(data[0].image_url || '');
-        setBrand(prev => ({
-          ...prev,
-          professionalName: data[0].name,
-          professionalTitle: data[0].role || ''
-        }));
-      }
-    };
-    if (tenantId) fetchStaff();
-  }, [tenantId, loadCatalog]);
+  }, [loadCatalog]);
 
 
 
@@ -263,7 +260,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           .from('logos')
           .getPublicUrl(filePath);
         
-        finalLogoUrl = publicUrl;
+        finalLogoUrl = `${publicUrl}?t=${Date.now()}`;
       }
 
       // 2. Update Tenant Branding & Settings
@@ -327,37 +324,55 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
       }
 
       // 4. Update Staff Profile (Solo business sync)
+      let finalStaffUrl = staffImageUrl;
+      if (staffImageFile) {
+        if (staffImageFile.size > 500 * 1024) throw new Error("La foto del profesional excede los 500KB.");
+        
+        const sExt = staffImageFile.name.split('.').pop();
+        const sName = `${tenantId}_pro_v1.${sExt}`; // Use fixed name with versioning/upsert to avoid bloat
+        const sPath = `${tenantId}/${sName}`;
+
+        const { error: sUpError } = await supabase.storage.from('staff-avatars').upload(sPath, staffImageFile, { upsert: true });
+        if (sUpError) throw sUpError;
+
+        const { data: { publicUrl } } = supabase.storage.from('staff-avatars').getPublicUrl(sPath);
+        finalStaffUrl = `${publicUrl}?t=${Date.now()}`;
+      }
+
       if (mainStaffId) {
-        let finalStaffUrl = staffImageUrl;
-        if (staffImageFile) {
-          if (staffImageFile.size > 500 * 1024) throw new Error("La foto del profesional excede los 500KB.");
-          
-          const sExt = staffImageFile.name.split('.').pop();
-          const sName = `${tenantId}_staff_${Date.now()}.${sExt}`;
-          const sPath = `${tenantId}/${sName}`;
-
-          const { error: sUpError } = await supabase.storage.from('staff-avatars').upload(sPath, staffImageFile, { upsert: true });
-          if (sUpError) throw sUpError;
-
-          const { data: { publicUrl } } = supabase.storage.from('staff-avatars').getPublicUrl(sPath);
-          finalStaffUrl = publicUrl;
-        }
-
         const { error: stDbError } = await supabase.from('staff_members').update({
           name: brand.professionalName,
           role: brand.professionalTitle,
           image_url: finalStaffUrl
         }).eq('id', mainStaffId);
 
-        if (stDbError) console.error("Error syncing staff:", stDbError);
+        if (stDbError) {
+          alert(`Error al actualizar perfil profesional: ${stDbError.message}`);
+        }
+      } else {
+        // Create if doesn't exist
+        const { data: newSt, error: stCreateError } = await supabase.from('staff_members').insert({
+          tenant_id: tenantId,
+          name: brand.professionalName || 'Profesional Principal',
+          role: brand.professionalTitle || 'Especialista',
+          image_url: finalStaffUrl
+        }).select().single();
+        
+        if (stCreateError) {
+          alert(`Error al crear perfil profesional: ${stCreateError.message}`);
+        } else if (newSt) {
+          setMainStaffId(newSt.id);
+        }
       }
 
       console.log('Guardado exitoso. Refrescando catálogo...');
       document.documentElement.style.setProperty('--primary', brand.color);
       
-      // Refresh catalog to ensure state has proper DB IDs
+      // Full refresh to sync all IDs and URLs
       await loadCatalog();
-
+      
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 3000);
       alert("✅ ¡Configuración guardada correctamente!");
     } catch (err: any) {
       console.error("CRITICAL SAVE ERROR:", err);
