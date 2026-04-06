@@ -336,7 +336,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           const sName = `${tenantId}_staff_${Date.now()}.${sExt}`;
           const sPath = `${tenantId}/${sName}`;
 
-          const { error: sUpError } = await supabase.storage.from('staff-avatars').upload(sPath, staffImageFile);
+          const { error: sUpError } = await supabase.storage.from('staff-avatars').upload(sPath, staffImageFile, { upsert: true });
           if (sUpError) throw sUpError;
 
           const { data: { publicUrl } } = supabase.storage.from('staff-avatars').getPublicUrl(sPath);
