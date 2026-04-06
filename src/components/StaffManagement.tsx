@@ -94,6 +94,43 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan, t
     setNewStaff({ name: '', role: 'Barbero', commission: 50, imageUrl: '' });
   };
 
+  const updateStaffPhoto = async (staffId: string, file: File) => {
+    if (file.size > 500 * 1024) {
+      alert('❌ Imagen demasiado pesada. El límite es de 500 KB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${tenantId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('staff-avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('staff-avatars')
+        .getPublicUrl(filePath);
+
+      // Update DB
+      const { error: upError } = await supabase.from('staff_members').update({ image_url: publicUrl }).eq('id', staffId);
+      if (upError) throw upError;
+
+      // Update state
+      setStaff(staff.map(s => s.id === staffId ? { ...s, imageUrl: publicUrl } : s));
+      alert('✅ Foto actualizada correctamente.');
+    } catch (err) {
+      console.error(err);
+      alert('Error al actualizar la foto.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const removeStaff = async (id: string) => {
     if (window.confirm('¿Eliminar este profesional? (Se conservarán sus registros en Supabase si están atados a transacciones pasadas, pero se ocultará la vista)')) {
       const { error } = await supabase.from('staff_members').delete().eq('id', id);
@@ -129,10 +166,28 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan, t
           <div key={s.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden' }}>
-                  {s.imageUrl ? (
-                    <img src={s.imageUrl} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : s.name.charAt(0).toUpperCase()}
+                <div style={{ position: 'relative', width: '48px', height: '48px' }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden' }}>
+                    {s.imageUrl ? (
+                      <img src={s.imageUrl} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : s.name.charAt(0).toUpperCase()}
+                  </div>
+                  <label 
+                    htmlFor={`edit-photo-${s.id}`} 
+                    style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)' }}
+                  >
+                    <Plus size={12} />
+                    <input 
+                      id={`edit-photo-${s.id}`}
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) updateStaffPhoto(s.id, file);
+                      }} 
+                    />
+                  </label>
                 </div>
                 <div>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>{s.name}</h4>
