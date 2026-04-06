@@ -24,6 +24,11 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan, t
     const file = e.target.files?.[0];
     if (!file || !tenantId) return;
 
+    if (file.size > 500 * 1024) {
+      alert('❌ Imagen demasiado pesada. El límite es de 500 KB para asegurar una carga rápida.');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
