@@ -95,6 +95,14 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
   const [newReview, setNewReview] = useState({ client_name: '', rating: 5, comment: '' });
   const [activeIconPicker, setActiveIconPicker] = useState<number | null>(null);
   const [isUploadingIcon, setIsUploadingIcon] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 480 : false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobile(window.innerWidth < 480);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleCustomIconUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     const file = e.target.files?.[0];
@@ -700,39 +708,66 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border)' 
               }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  {/* LEFT: ICON */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div 
-                      style={{ 
-                        width: '44px', 
-                        height: '44px', 
-                        borderRadius: 'var(--radius-sm)', 
-                        background: 'var(--surface-hover)', 
-                        color: 'var(--primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1px solid var(--border)',
-                        cursor: 'pointer'
-                      }}
-                      title="Cambiar Icono"
-                    >
-                      {React.createElement(availableIcons.find(i => i.name === s.icon)?.Icon || Star, { size: 24 })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {/* ROW 1: ICON AND NAME */}
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', width: '100%' }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div 
+                        style={{ 
+                          width: '44px', 
+                          height: '44px', 
+                          borderRadius: 'var(--radius-sm)', 
+                          background: 'var(--surface-hover)', 
+                          color: 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer'
+                        }}
+                        title="Cambiar Icono"
+                      >
+                        {React.createElement(availableIcons.find(i => i.name === s.icon)?.Icon || Star, { size: 24 })}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* CENTER-LEFT: NAME & PRICE (Vertical) */}
-                  <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '180px' }}>
                     <input 
                       type="text" 
                       value={s.name}
                       onChange={(e) => updateService(idx, 'name', e.target.value)}
-                      style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 600, width: '100%', fontSize: '1rem', padding: '0.2rem 0' }}
+                      style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        borderBottom: '2px solid var(--border)', 
+                        color: 'var(--text)', 
+                        fontWeight: 800, 
+                        flex: 1, 
+                        fontSize: '1.1rem', 
+                        padding: '0.4rem 0'
+                      }}
                       placeholder="Nombre del servicio"
                     />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--success)' }}>$</span>
+                    <button 
+                      onClick={() => removeService(idx)}
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+
+                  {/* ROW 2: PRICE, MINUTES AND CAPACITY */}
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '1rem', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap', 
+                    background: 'var(--surface)', 
+                    padding: '0.75rem', 
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)'
+                  }}>
+                    {/* PRICE */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '100px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--success)' }}>$</span>
                       <input 
                         type="number" 
                         value={s.price}
@@ -741,27 +776,26 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'price', isNaN(val) ? 0 : val);
                         }}
                         style={{ 
-                          width: '80px', 
-                          padding: '0.3rem 0.6rem',
-                          background: 'var(--surface)', 
+                          width: '75px', 
+                          padding: '0.4rem 0.6rem',
+                          background: 'var(--background)', 
                           border: '1px solid var(--border)', 
                           borderRadius: 'var(--radius-sm)',
                           color: 'var(--text)',
-                          fontWeight: 700,
-                          fontSize: '0.9rem'
+                          fontWeight: 800,
+                          fontSize: '1rem'
                         }}
                       />
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Costo base</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Precio</span>
                     </div>
-                  </div>
 
-                  {/* CENTER-RIGHT: DURATION & CAPACITY (Horizontal, but wraps together) */}
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
+                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
+
                     {/* DURATION */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--surface)', padding: '0.4rem 0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '130px' }}>
                       <button 
                         onClick={() => updateService(idx, 'duration', Math.max(1, s.duration - 1))}
-                        style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
+                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
                       >
                         <Minus size={14} />
                       </button>
@@ -773,27 +807,29 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'duration', isNaN(val) ? 0 : val);
                         }}
                         style={{ 
-                          width: '35px', 
+                          width: '55px', 
                           background: 'transparent', 
                           border: 'none',
                           color: 'var(--text)',
                           textAlign: 'center',
-                          fontWeight: 700,
-                          fontSize: '0.9rem'
+                          fontWeight: 800,
+                          fontSize: '1.1rem'
                         }}
                       />
                       <button 
                         onClick={() => updateService(idx, 'duration', s.duration + 1)}
-                        style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
+                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
                       >
                         <Plus size={14} />
                       </button>
-                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', marginLeft: '4px' }}>MIN</span>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
                     </div>
 
+                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
+
                     {/* CAPACITY */}
-                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(59,130,246,0.1)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                      <Users size={14} style={{ color: '#3b82f6' }} />
+                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(59,130,246,0.1)', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)', minWidth: '130px' }}>
+                      <Users size={16} style={{ color: '#3b82f6' }} />
                       <input 
                         type="number" 
                         min="1"
@@ -804,26 +840,18 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'capacity', isNaN(val) ? 1 : Math.max(1, val));
                         }}
                         style={{ 
-                          width: '35px', 
+                          width: '50px', 
                           background: 'transparent', 
                           border: 'none',
                           color: 'var(--text)',
-                          fontWeight: 700,
-                          fontSize: '0.9rem',
+                          fontWeight: 800,
+                          fontSize: '1.1rem',
                           textAlign: 'center'
                         }}
                       />
-                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>CUPOS</span>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
                     </div>
                   </div>
-
-                  {/* RIGHT: DELETE */}
-                  <button 
-                    onClick={() => removeService(idx)}
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 'auto' }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
                 </div>
                 
                 
