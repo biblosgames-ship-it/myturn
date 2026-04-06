@@ -1,0 +1,1 @@
+ALTER TABLE staff_members ADD COLUMN IF NOT EXISTS image_url TEXT;

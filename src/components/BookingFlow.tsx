@@ -158,10 +158,23 @@ export const BookingFlow: React.FC<{
       // 2. Fetch Staff
       const { data: stData } = await supabase.from('staff_members').select('*').eq('tenant_id', tenantId);
       if (stData) {
-        setDbStaff([
-          { id: 'any', name: 'Alguien disponible', role: 'El primero que se desocupe' },
-          ...stData.map(st => ({ id: st.id, name: st.name, role: st.role || 'Profesional' }))
-        ]);
+        const staff = stData.map(st => ({ 
+          id: st.id, 
+          name: st.name, 
+          role: st.role || 'Profesional',
+          imageUrl: st.image_url 
+        }));
+
+        if (staff.length === 1) {
+          // If only one pro, don't show "Any available" and auto-select
+          setDbStaff(staff);
+          setSelectedPro(staff[0]);
+        } else {
+          setDbStaff([
+            { id: 'any', name: 'Alguien disponible', role: 'El primero que se desocupe' },
+            ...staff
+          ]);
+        }
       }
       setIsCatalogLoading(false);
     };
@@ -347,7 +360,17 @@ export const BookingFlow: React.FC<{
               {dbServices.map((s: Service) => (
                 <div 
                   key={s.id} 
-                  onClick={() => { if (!isTransitioning) { setSelectedService(s); setSelectedTime(null); handleStepChange(2); } }}
+                  onClick={() => { 
+                    if (!isTransitioning) { 
+                      setSelectedService(s); 
+                      setSelectedTime(null); 
+                      if (dbStaff.length === 1) {
+                        handleStepChange(3); 
+                      } else {
+                        handleStepChange(2); 
+                      }
+                    } 
+                  }}
                   style={{ 
                     padding: '1rem', 
                     background: selectedService?.id === s.id ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
@@ -407,8 +430,10 @@ export const BookingFlow: React.FC<{
                     pointerEvents: isTransitioning ? 'none' : 'auto'
                   }}
                 >
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: p.id === 'any' ? 'var(--surface-hover)' : 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem' }}>
-                    {p.id === 'any' ? '?' : (p.name || 'P').charAt(0).toUpperCase()}
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: p.id === 'any' ? 'var(--surface-hover)' : 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden' }}>
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (p.id === 'any' ? '?' : (p.name || 'P').charAt(0).toUpperCase())}
                   </div>
                   <div>
                     <p style={{ fontWeight: 800, margin: 0 }}>{p.name || 'Profesional'}</p>

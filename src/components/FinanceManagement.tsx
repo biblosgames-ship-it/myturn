@@ -22,6 +22,7 @@ export interface StaffMember {
   name: string;
   role: string;
   commission: number;
+  imageUrl?: string;
 }
 
 interface FinanceProps {

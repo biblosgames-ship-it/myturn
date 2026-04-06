@@ -23,7 +23,7 @@ const getPlanCapabilities = (planName: string) => {
 
 export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan }) => {
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newStaff, setNewStaff] = useState<Partial<StaffMember>>({ name: '', role: 'Barbero', commission: 50 });
+  const [newStaff, setNewStaff] = useState<Partial<StaffMember>>({ name: '', role: 'Barbero', commission: 50, imageUrl: '' });
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,8 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
     const dbPayload = {
       name: newStaff.name,
       role: newStaff.role || 'Barbero',
-      commission_rate: newStaff.commission || 50
+      commission_rate: newStaff.commission || 50,
+      image_url: newStaff.imageUrl || ''
     };
 
     const { data, error } = await supabase.from('staff_members').insert(dbPayload).select().single();
@@ -51,7 +52,8 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
         id: data.id,
         name: data.name,
         role: data.role,
-        commission: data.commission_rate
+        commission: data.commission_rate,
+        imageUrl: data.image_url
       };
       setStaff([...staff, s]);
     } else {
@@ -60,7 +62,7 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
     }
 
     setShowAddModal(false);
-    setNewStaff({ name: '', role: 'Barbero', commission: 50 });
+    setNewStaff({ name: '', role: 'Barbero', commission: 50, imageUrl: '' });
   };
 
   const removeStaff = async (id: string) => {
@@ -91,8 +93,10 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
           <div key={s.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem' }}>
-                  {s.name.charAt(0).toUpperCase()}
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden' }}>
+                  {s.imageUrl ? (
+                    <img src={s.imageUrl} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : s.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>{s.name}</h4>
@@ -146,6 +150,17 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan })
                   onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   placeholder="Ej: Barbero Senior"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>URL DE LA FOTO (Opcional)</label>
+                <input 
+                  type="text" 
+                  value={newStaff.imageUrl}
+                  onChange={e => setNewStaff({ ...newStaff, imageUrl: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  placeholder="https://ejemplo.com/mifoto.jpg"
                 />
               </div>
 
