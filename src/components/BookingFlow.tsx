@@ -48,13 +48,8 @@ export const BookingFlow: React.FC<{
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
 
-  const slotIntervalMinutes = React.useMemo(() => {
-    if (dbServices.length === 0) return 30;
-    const avg = dbServices.reduce((sum, s) => sum + (s.duration || 30), 0) / dbServices.length;
-    // Round to nearest sensible interval (10, 15, 20, 25, 30, 45, 60)
-    const sensible = [10, 15, 20, 25, 30, 45, 60];
-    return sensible.reduce((prev, curr) => Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev);
-  }, [dbServices]);
+  // We compute the slot interval dynamically in Step 3 based on selected service or average.
+
 
   const generateTimeSlots = (intervalMinutes: number, dateStr: string, schedule: any[], lunch: any) => {
     if (!schedule || schedule.length === 0) return [];
@@ -106,9 +101,18 @@ export const BookingFlow: React.FC<{
     return slots;
   };
 
+  const effectiveIntervalMinutes = React.useMemo(() => {
+    if (selectedService?.duration) return selectedService.duration;
+    if (dbServices.length === 0) return 30;
+    
+    const avg = dbServices.reduce((sum, s) => sum + (s.duration || 30), 0) / dbServices.length;
+    const sensible = [10, 15, 20, 25, 30, 45, 60];
+    return sensible.reduce((prev, curr) => Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev);
+  }, [selectedService, dbServices]);
+
   const timeSlots = React.useMemo(() => 
-    generateTimeSlots(slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak),
-  [slotIntervalMinutes, selectedDate, businessSchedule, lunchBreak]);
+    generateTimeSlots(effectiveIntervalMinutes, selectedDate, businessSchedule, lunchBreak),
+  [effectiveIntervalMinutes, selectedDate, businessSchedule, lunchBreak]);
 
   const currentDayCutoff = React.useMemo(() => {
     if (!businessSchedule || !selectedDate) return null;
