@@ -36,7 +36,7 @@ const getTodayStr = () => {
 
 // All appointments are now strictly database-driven.
 
-const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[] }> = ({ appointments, staff }) => {
+const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void }> = ({ appointments, staff, onRemove }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(getTodayStr());
 
@@ -143,8 +143,22 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[] }
                       </p>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
-                    {apt.time}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
+                      {apt.time}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`¿Estás seguro de cancelar la cita de ${apt.clientName}?`)) {
+                          onRemove(apt.id);
+                        }
+                      }}
+                      className="btn btn-outline" 
+                      style={{ color: 'var(--accent)', borderColor: 'var(--accent)', padding: '0.4rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Cancelar Cita"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -2330,7 +2344,7 @@ const getPlanCapabilities = (planName: string) => {
             })()}
           </div>
         ) : activeTab === 'agenda' ? (
-          <AgendaCalendarView appointments={appointments} staff={staff} />
+          <AgendaCalendarView appointments={appointments} staff={staff} onRemove={removeApt} />
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
         ) : activeTab === 'finance' ? (
