@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, Send, Link2Off } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, Send, Link2Off, Scissors, Heart, Activity, Coffee, Car, Smartphone, Zap, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -341,8 +341,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             icon: s.icon || 'Scissors'
           })) : [];
 
-          // Fetch Solo Professional Photo
-          const { data: stData } = await supabase.from('staff_members').select('image_url').eq('tenant_id', tenant.id).limit(1);
+          // Fetch Solo Professional Photo (latest one)
+          const { data: stData } = await supabase.from('staff_members')
+            .select('image_url')
+            .eq('tenant_id', tenant.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
           const profPhoto = stData && stData[0] ? stData[0].image_url : null;
 
           setDbBusiness({
@@ -1190,8 +1194,18 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         <h3 style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Servicios del Professional</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1rem' }}>
           {business?.services.map(s => (
-            <div key={s.id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }} />
+            <div key={s.id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ flexShrink: 0, width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                {s.icon?.startsWith('http') ? (
+                  <img src={s.icon} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (() => {
+                  const IconMap: Record<string, any> = { 
+                    Scissors, Star, Heart, Activity, Coffee, Car, Smartphone, Zap, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer
+                  };
+                  const FoundIcon = IconMap[s.icon] || Star;
+                  return <FoundIcon size={14} />;
+                })()}
+              </div>
               <div style={{ flex: 1 }}>
                 <div>{s.name}</div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>${s.price} • {s.duration} min</div>
