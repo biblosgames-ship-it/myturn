@@ -263,27 +263,37 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             .order('date_time', { ascending: true });
 
           if (allApts && allApts.length > 0) {
+            // Split appointments into "Within 1 week" and "After 1 week"
+            const now = new Date();
+            const cutoff = new Date();
+            cutoff.setDate(now.getDate() + 7);
+            cutoff.setHours(23, 59, 59, 999);
+
+            const filteredApts = allApts.filter(a => {
+              const aptDate = new Date(a.date_time);
+              return aptDate > cutoff;
+            });
+
             // Today's or active appointment → cronómetro
             const todayApt = allApts.find(a => {
               const aptDate = a.date_time ? a.date_time.split('T')[0] : '';
               return aptDate === today;
             });
+
             if (todayApt) {
               localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, todayApt.id);
               setHasAppointment(true);
             } else {
-              // Closest active apt for tracking
-              localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, allApts[0].id);
-              setHasAppointment(true);
+              // If no today appointment, don't show the timer, but keep active_appointment_id (maybe for the next one)
+              setHasAppointment(false);
             }
+
             // Enrich with service name for display
-            const { data: svcs } = await supabase
-              .from('services')
-              .select('id, name')
-              .eq('tenant_id', dbBusiness.id);
+            const { data: svcs } = await supabase.from('services').select('id, name').eq('tenant_id', dbBusiness.id);
             const svcMap: Record<string, string> = {};
             (svcs || []).forEach((s: any) => { svcMap[s.id] = s.name; });
-            setFutureAppointments(allApts.map(a => ({
+            
+            setFutureAppointments(filteredApts.map(a => ({
               ...a,
               serviceName: svcMap[a.service_id] || 'Servicio'
             })));
@@ -419,8 +429,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         .eq('tenant_id', dbBusiness.id);
 
       if (appts) {
+        const now = new Date();
+        const cutoff = new Date();
+        cutoff.setDate(now.getDate() + 7);
+        cutoff.setHours(23, 59, 59, 999);
+
+        // "La Cola" only shows up to 1 week
+        const currentQueue = appts.filter(a => new Date(a.date_time) <= cutoff);
+
         const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
-        setQueueItems(appts.map((d, index) => {
+        setQueueItems(currentQueue.map((d, index) => {
           const isAttending = d.status === 'attending';
           const isArrived = d.arrived;
           const isMyApt = d.id === myId;
@@ -616,60 +634,56 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         />
       )}
 
-      {showShareModal && (() => {
-        // Build the canonical business URL (clean link, not the user's current session URL)
-        const canonicalSlug = business?.slug || selectedBusinessSlug || dbBusiness?.id;
-        const businessUrl = `${window.location.origin}/${canonicalSlug}`;
-        const shareUrl = encodeURIComponent(businessUrl);
-        const shareText = encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`);
-        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${shareUrl}&margin=10`;
-        const links = [
-          { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${shareText}%20${shareUrl}` },
-          { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
-          { label: 'Twitter / X', color: '#000', emoji: '🐦', href: `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}` },
-          { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + (business?.name || 'el negocio'))}&body=${shareText}%20${shareUrl}` },
-        ];
-        return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir {business?.name || 'Negocio'}</h3>
-                <button className="btn btn-outline" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setShowShareModal(false)}><X size={18} /></button>
-              </div>
+      {showShareModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '380px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Compartir {business?.name || 'Negocio'}</h3>
+              <button className="btn btn-outline" style={{ padding: '0.3rem', borderRadius: '50%' }} onClick={() => setShowShareModal(false)}><X size={18} /></button>
+            </div>
 
-              {/* QR Code */}
-              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>ESCANEA PARA ABRIR EN OTRO TELÉFONO</p>
-                <img 
-                  src={qrSrc} 
-                  alt="QR Code" 
-                  style={{ width: '160px', height: '160px', borderRadius: 'var(--radius-md)', border: '4px solid white', background: 'white' }}
-                />
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', wordBreak: 'break-all' }}>{businessUrl}</p>
-              </div>
+            {/* QR Code */}
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>ESCANEA PARA ABRIR EN OTRO TELÉFONO</p>
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`)}&margin=10`} 
+                alt="QR Code" 
+                style={{ width: '160px', height: '160px', borderRadius: 'var(--radius-md)', border: '4px solid white', background: 'white' }}
+              />
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', wordBreak: 'break-all' }}>{`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`}</p>
+            </div>
 
-              {/* Social Links */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {links.map(l => (
-                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none' }}
-                  >
-                    <span style={{ fontSize: '1.2rem' }}>{l.emoji}</span>
-                    {l.label}
-                  </a>
-                ))}
-                <button
-                  className="btn btn-outline"
-                  style={{ width: '100%', marginTop: '0.25rem' }}
-                  onClick={() => { navigator.clipboard.writeText(businessUrl); alert('¡Enlace copiado!'); setShowShareModal(false); }}
+            {/* Social Links */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {[
+                { label: 'WhatsApp', color: '#25D366', emoji: '📱', href: `https://wa.me/?text=${encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`)}%20${encodeURIComponent(`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`)}` },
+                { label: 'Facebook', color: '#1877F2', emoji: '👥', href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`)}` },
+                { label: 'Twitter / X', color: '#000', emoji: '🐦', href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`)}&url=${encodeURIComponent(`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`)}` },
+                { label: 'Correo', color: '#EA4335', emoji: '✉️', href: `mailto:?subject=${encodeURIComponent('Reserva en ' + (business?.name || 'el negocio'))}&body=${encodeURIComponent(`¡Visita ${business?.name || 'este negocio'} y reserva tu turno en línea!`)}%20${encodeURIComponent(`${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`)}` },
+              ].map(l => (
+                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: l.color, color: '#fff', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none' }}
                 >
-                  📋 Copiar enlace
-                </button>
-              </div>
+                  <span style={{ fontSize: '1.2rem' }}>{l.emoji}</span>
+                  {l.label}
+                </a>
+              ))}
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', marginTop: '0.25rem' }}
+                onClick={() => { 
+                  const businessUrl = `${window.location.origin}/${business?.slug || selectedBusinessSlug || dbBusiness?.id}`;
+                  navigator.clipboard.writeText(businessUrl); 
+                  alert('¡Enlace copiado!'); 
+                  setShowShareModal(false); 
+                }}
+              >
+                📋 Copiar enlace
+              </button>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {showLinkModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
@@ -716,8 +730,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
         </div>
       )}
-      
-      {/* Header Navigation */}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button className="btn btn-outline" style={{ padding: '0.4rem', borderRadius: '50%' }} onClick={() => {
           localStorage.removeItem('myturn_active_business_slug');
@@ -1096,12 +1109,43 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         </div>
       )}
 
-      {/* Mis Citas Futuras — registered users only */}
+      {/* Live Queue Section */}
+      <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+            <LayoutGrid size={20} color="var(--primary)" /> En Vivo: La Cola
+          </h3>
+          <span style={{ 
+            fontSize: '0.75rem', 
+            background: !dbBusiness?.isOpen ? 'rgba(239,68,68,0.1)' : (isGlobalPaused ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'), 
+            color: !dbBusiness?.isOpen ? '#ef4444' : (isGlobalPaused ? 'var(--primary)' : 'var(--success)'), 
+            padding: '0.2rem 0.6rem', 
+            borderRadius: 'var(--radius-full)', 
+            fontWeight: 800 
+          }}>
+            {!dbBusiness?.isOpen ? 'Cerrado' : (isGlobalPaused ? 'En Pausa' : 'Abierto')}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {queueItems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+              La fila está vacía en este momento.
+            </div>
+          ) : (
+            queueItems.map((item) => (
+              <QueueItem key={item.pos} item={item} isGlobalPaused={isGlobalPaused} />
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* Mis Citas Futuras (Largo Plazo) — registered users only */}
       {isRegisteredUser && futureAppointments.length > 0 && (
         <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <Calendar size={20} color="var(--primary)" /> Mis Citas
+              <Calendar size={20} color="var(--primary)" /> Agenda a Largo Plazo
             </h3>
             {business.bookingMode !== 'manual' && (
               <button
@@ -1143,7 +1187,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                           if (!confirm('¿Cancelar esta cita?')) return;
                           await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', apt.id);
                           setFutureAppointments(prev => prev.filter(a => a.id !== apt.id));
-                          if (futureAppointments.length <= 1) setHasAppointment(false);
                         }}
                         style={{ display: 'block', marginTop: '0.2rem', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 700 }}
                       >
@@ -1157,37 +1200,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
         </section>
       )}
-
-      {/* Live Queue Section */}
-      <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-            <LayoutGrid size={20} color="var(--primary)" /> En Vivo: La Cola
-          </h3>
-          <span style={{ 
-            fontSize: '0.75rem', 
-            background: !dbBusiness?.isOpen ? 'rgba(239,68,68,0.1)' : (isGlobalPaused ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'), 
-            color: !dbBusiness?.isOpen ? '#ef4444' : (isGlobalPaused ? 'var(--primary)' : 'var(--success)'), 
-            padding: '0.2rem 0.6rem', 
-            borderRadius: 'var(--radius-full)', 
-            fontWeight: 800 
-          }}>
-            {!dbBusiness?.isOpen ? 'Cerrado' : (isGlobalPaused ? 'En Pausa' : 'Abierto')}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {queueItems.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-              La fila está vacía en este momento.
-            </div>
-          ) : (
-            queueItems.map((item) => (
-              <QueueItem key={item.pos} item={item} isGlobalPaused={isGlobalPaused} />
-            ))
-          )}
-        </div>
-      </section>
 
       {/* Services List Tagged */}
       <div className="card" style={{ padding: '1.25rem' }}>
