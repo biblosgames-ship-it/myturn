@@ -754,20 +754,21 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                     </button>
                   </div>
 
-                  {/* ROW 2: PRICE, MINUTES AND CAPACITY */}
+                  {/* ROW 2: PRICE, HOURS, MINUTES AND CAPACITY */}
                   <div style={{ 
                     display: 'flex', 
-                    gap: '1rem', 
+                    gap: '0.65rem', 
                     alignItems: 'center', 
                     flexWrap: 'wrap', 
                     background: 'var(--surface)', 
-                    padding: '0.75rem', 
+                    padding: '0.5rem 0.75rem', 
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border)'
+                    border: '1px solid var(--border)',
+                    width: '100%'
                   }}>
                     {/* PRICE */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '100px' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--success)' }}>$</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--success)' }}>$</span>
                       <input 
                         type="number" 
                         value={s.price}
@@ -776,24 +777,24 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'price', isNaN(val) ? 0 : val);
                         }}
                         style={{ 
-                          width: '75px', 
-                          padding: '0.4rem 0.6rem',
+                          width: '70px', 
+                          padding: '0.3rem 0.4rem',
                           background: 'var(--background)', 
                           border: '1px solid var(--border)', 
                           borderRadius: 'var(--radius-sm)',
                           color: 'var(--text)',
                           fontWeight: 800,
-                          fontSize: '1rem'
+                          fontSize: '0.95rem'
                         }}
                       />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Precio</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800 }}>PRECIO</span>
                     </div>
 
-                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {/* HOURS */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '95px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border)', padding: '0.2rem 0.4rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
                         <input 
                           type="number" 
                           min="0"
@@ -805,20 +806,21 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             updateService(idx, 'duration', h * 60 + m);
                           }}
                           style={{ 
-                            width: '35px', 
+                            width: '40px', 
                             background: 'transparent', 
                             border: 'none',
                             color: 'var(--text)',
                             textAlign: 'center',
                             fontWeight: 800,
-                            fontSize: '1.1rem'
+                            fontSize: '0.95rem',
+                            padding: 0
                           }}
                         />
-                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>HORAS</span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>H</span>
                       </div>
 
                       {/* MINUTES */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '105px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border)', padding: '0.2rem 0.4rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
                         <input 
                           type="number" 
                           min="0"
@@ -830,24 +832,25 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             updateService(idx, 'duration', h * 60 + m);
                           }}
                           style={{ 
-                            width: '35px', 
+                            width: '40px', 
                             background: 'transparent', 
                             border: 'none',
                             color: 'var(--text)',
                             textAlign: 'center',
                             fontWeight: 800,
-                            fontSize: '1.1rem'
+                            fontSize: '0.95rem',
+                            padding: 0
                           }}
                         />
                         <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
                       </div>
                     </div>
 
-                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
 
                     {/* CAPACITY */}
-                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(59,130,246,0.1)', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)', minWidth: '130px' }}>
-                      <Users size={16} style={{ color: '#3b82f6' }} />
+                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(59,130,246,0.1)', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                      <Users size={14} style={{ color: '#3b82f6' }} />
                       <input 
                         type="number" 
                         min="1"
@@ -858,16 +861,17 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'capacity', isNaN(val) ? 1 : Math.max(1, val));
                         }}
                         style={{ 
-                          width: '50px', 
+                          width: '40px', 
                           background: 'transparent', 
                           border: 'none',
                           color: 'var(--text)',
                           fontWeight: 800,
-                          fontSize: '1.1rem',
-                          textAlign: 'center'
+                          fontSize: '0.95rem',
+                          textAlign: 'center',
+                          padding: 0
                         }}
                       />
-                      <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
                     </div>
                   </div>
                 </div>
