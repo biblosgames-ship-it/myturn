@@ -754,13 +754,13 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                     </button>
                   </div>
 
-                  {/* ROW 2: PRICE, HOURS, MINUTES AND CAPACITY (Tight One-Line Layout) */}
+                  {/* ROW 2: PRICE, HOURS, MINUTES AND CAPACITY (Tight One-Line Layout with Expanded Squares) */}
                   <div style={{ 
                     display: 'flex', 
-                    gap: '0.5rem', 
+                    gap: '0.45rem', 
                     alignItems: 'center', 
                     background: 'var(--surface)', 
-                    padding: '0.4rem 0.6rem', 
+                    padding: '0.35rem 0.5rem', 
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border)',
                     width: '100%',
@@ -768,7 +768,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                     scrollbarWidth: 'none'
                   }}>
                     {/* PRICE */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--success)' }}>$</span>
                       <input 
                         type="number" 
@@ -778,8 +778,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'price', isNaN(val) ? 0 : val);
                         }}
                         style={{ 
-                          width: '65px', 
-                          padding: '0.25rem 0.35rem',
+                          width: '62px', 
+                          padding: '0.2rem 0.3rem',
                           background: 'var(--background)', 
                           border: '1px solid var(--border)', 
                           borderRadius: 'var(--radius-sm)',
@@ -788,14 +788,14 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           fontSize: '0.85rem'
                         }}
                       />
-                      <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 800 }}>PRECIO</span>
+                      <span style={{ fontSize: '0.5rem', color: 'var(--text-muted)', fontWeight: 800 }}>PRECIO</span>
                     </div>
 
-                    <div style={{ width: '1px', height: '14px', background: 'var(--border)', flexShrink: 0 }}></div>
+                    <div style={{ width: '1px', height: '12px', background: 'var(--border)', flexShrink: 0 }}></div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
                       {/* HOURS */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', border: '1px solid var(--border)', padding: '0.2rem 0.3rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', border: '1px solid var(--border)', padding: '0.15rem 0.25rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
                         <input 
                           type="number" 
                           min="0"
@@ -807,7 +807,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             updateService(idx, 'duration', h * 60 + m);
                           }}
                           style={{ 
-                            width: '38px', 
+                            width: '52px', 
                             background: 'transparent', 
                             border: 'none',
                             color: 'var(--text)',
@@ -817,11 +817,11 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             padding: 0
                           }}
                         />
-                        <span style={{ fontSize: '0.55rem', fontWeight: 900, color: 'var(--text-muted)' }}>HORAS</span>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>HORA</span>
                       </div>
 
                       {/* MINUTES */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', border: '1px solid var(--border)', padding: '0.2rem 0.3rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', border: '1px solid var(--border)', padding: '0.15rem 0.25rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)' }}>
                         <input 
                           type="number" 
                           min="0"
@@ -833,7 +833,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             updateService(idx, 'duration', h * 60 + m);
                           }}
                           style={{ 
-                            width: '38px', 
+                            width: '52px', 
                             background: 'transparent', 
                             border: 'none',
                             color: 'var(--text)',
@@ -843,15 +843,15 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                             padding: 0
                           }}
                         />
-                        <span style={{ fontSize: '0.55rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
                       </div>
                     </div>
 
-                    <div style={{ width: '1px', height: '14px', background: 'var(--border)', flexShrink: 0 }}></div>
+                    <div style={{ width: '1px', height: '12px', background: 'var(--border)', flexShrink: 0 }}></div>
 
                     {/* CAPACITY */}
-                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(59,130,246,0.1)', padding: '0.2rem 0.4rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)', flexShrink: 0 }}>
-                      <Users size={12} style={{ color: '#3b82f6' }} />
+                    <div title="Cupos por turno" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(59,130,246,0.1)', padding: '0.15rem 0.35rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59,130,246,0.2)', flexShrink: 0 }}>
+                      <Users size={11} style={{ color: '#3b82f6' }} />
                       <input 
                         type="number" 
                         min="1"
@@ -862,7 +862,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           updateService(idx, 'capacity', isNaN(val) ? 1 : Math.max(1, val));
                         }}
                         style={{ 
-                          width: '38px', 
+                          width: '52px', 
                           background: 'transparent', 
                           border: 'none',
                           color: 'var(--text)',
@@ -872,7 +872,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                           padding: 0
                         }}
                       />
-                      <span style={{ fontSize: '0.55rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
+                      <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
                     </div>
                   </div>
                 </div>
