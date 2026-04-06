@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Plus, X, Briefcase, Trash2, Lock } from 'lucide-react';
+import { Users, Plus, X, Briefcase, Trash2, Lock, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StaffMember } from './FinanceManagement';
 
@@ -166,17 +166,29 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan, t
           <div key={s.id} className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ position: 'relative', width: '48px', height: '48px' }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden' }}>
-                    {s.imageUrl ? (
-                      <img src={s.imageUrl} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : s.name.charAt(0).toUpperCase()}
-                  </div>
-                  <label 
-                    htmlFor={`edit-photo-${s.id}`} 
-                    style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)' }}
-                  >
-                    <Plus size={12} />
+                <div 
+                  style={{ 
+                    position: 'relative', 
+                    width: '56px', 
+                    height: '56px', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <label htmlFor={`edit-photo-${s.id}`} style={{ cursor: 'pointer' }}>
+                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--primary)', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.25rem', overflow: 'hidden', border: '2px solid var(--border)' }}>
+                      {s.imageUrl ? (
+                        <img src={s.imageUrl} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="avatar-hover">
+                      <Camera size={20} color="white" />
+                    </div>
+                    <div style={{ position: 'absolute', bottom: -2, right: -2, background: 'var(--primary)', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--surface)' }}>
+                      <Camera size={10} color="black" />
+                    </div>
                     <input 
                       id={`edit-photo-${s.id}`}
                       type="file" 
@@ -192,6 +204,9 @@ export const StaffManagement: React.FC<StaffProps> = ({ staff, setStaff, plan, t
                 <div>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>{s.name}</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{s.role}</p>
+                  <label htmlFor={`edit-photo-${s.id}`} style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', marginTop: '0.2rem', display: 'inline-block' }}>
+                    Cambiar Foto
+                  </label>
                 </div>
               </div>
               <button onClick={() => removeStaff(s.id)} style={{ background: 'none', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer', padding: '0.25rem' }} title="Eliminar">
