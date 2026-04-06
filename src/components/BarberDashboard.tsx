@@ -776,7 +776,7 @@ export const BarberDashboard: React.FC = () => {
       return;
     }
     
-    if (tabId === 'staff' && subscription?.plan === 'Free') {
+    if (tabId === 'staff' && subscription?.plan !== 'Enterprise') {
       setShowUpgradeModal(true);
       return;
     }
@@ -2893,10 +2893,10 @@ const getPlanCapabilities = (planName: string) => {
           <button 
             onClick={() => handleTabClick('staff')}
             className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan === 'Free' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Users size={20} /> Equipo</div>
-            {subscription?.plan === 'Free' && <Lock size={16} />}
+            {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
           </button>
           <button 
             onClick={() => setActiveTab('profile')}

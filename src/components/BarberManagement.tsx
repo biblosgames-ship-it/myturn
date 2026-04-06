@@ -4,7 +4,7 @@ import {
   Stethoscope, Palette, Brush, User, Users, Heart, Activity, Car, Smartphone, Zap, Star, 
   Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, 
   Image as ImageIcon, Eye, X, Minus, Sparkles, Cross, Wrench, Shield, Calculator, Building, 
-  Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer
+  Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer, Camera
 } from 'lucide-react';
 
 
@@ -85,6 +85,9 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
     requireConfirmation: false
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [staffImageFile, setStaffImageFile] = useState<File | null>(null);
+  const [mainStaffId, setMainStaffId] = useState<string | null>(null);
+  const [staffImageUrl, setStaffImageUrl] = useState<string>('');
 
   const [services, setServices] = useState<Service[]>([]);
   const [showSaved, setShowSaved] = useState(false);
@@ -199,7 +202,22 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
 
   useEffect(() => {
     loadCatalog();
-  }, [loadCatalog]);
+    
+    // Also fetch first staff member for branding sync
+    const fetchStaff = async () => {
+      const { data } = await supabase.from('staff_members').select('*').eq('tenant_id', tenantId).limit(1);
+      if (data && data.length > 0) {
+        setMainStaffId(data[0].id);
+        setStaffImageUrl(data[0].image_url || '');
+        setBrand(prev => ({
+          ...prev,
+          professionalName: data[0].name,
+          professionalTitle: data[0].role || ''
+        }));
+      }
+    };
+    if (tenantId) fetchStaff();
+  }, [tenantId, loadCatalog]);
 
 
 
@@ -306,6 +324,32 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           console.error("Error upserting services:", upError);
           throw new Error(`Error al guardar catálogo de servicios: ${upError.message}`);
         }
+      }
+
+      // 4. Update Staff Profile (Solo business sync)
+      if (mainStaffId) {
+        let finalStaffUrl = staffImageUrl;
+        if (staffImageFile) {
+          if (staffImageFile.size > 500 * 1024) throw new Error("La foto del profesional excede los 500KB.");
+          
+          const sExt = staffImageFile.name.split('.').pop();
+          const sName = `${tenantId}_staff_${Date.now()}.${sExt}`;
+          const sPath = `${tenantId}/${sName}`;
+
+          const { error: sUpError } = await supabase.storage.from('staff-avatars').upload(sPath, staffImageFile);
+          if (sUpError) throw sUpError;
+
+          const { data: { publicUrl } } = supabase.storage.from('staff-avatars').getPublicUrl(sPath);
+          finalStaffUrl = publicUrl;
+        }
+
+        const { error: stDbError } = await supabase.from('staff_members').update({
+          name: brand.professionalName,
+          role: brand.professionalTitle,
+          image_url: finalStaffUrl
+        }).eq('id', mainStaffId);
+
+        if (stDbError) console.error("Error syncing staff:", stDbError);
       }
 
       console.log('Guardado exitoso. Refrescando catálogo...');
@@ -452,24 +496,59 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                     style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontWeight: 600 }}
                   />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>NOMBRE PROFESIONAL</label>
-                    <input 
-                      type="text" 
-                      value={brand.professionalName}
-                      onChange={(e) => setBrand({...brand, professionalName: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
-                    />
+                <div style={{ display: 'grid', gridTemplateColumns: 'min-content 1fr', gap: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ 
+                      width: '80px', 
+                      height: '80px', 
+                      borderRadius: '50%', 
+                      background: staffImageUrl ? `url(${staffImageUrl}) center/cover` : 'var(--background)',
+                      border: '2px solid var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                    }}>
+                      {!staffImageUrl && <User size={32} color="var(--primary)" />}
+                    </div>
+                    <label style={{ position: 'absolute', bottom: -5, right: -5, background: 'var(--primary)', padding: '6px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--surface)' }}>
+                      <Camera size={12} color="black" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        style={{ display: 'none' }} 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 500 * 1024) return alert("Máximo 500KB");
+                            setStaffImageFile(file);
+                            setStaffImageUrl(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TÍTULO / ESPECIALIDAD</label>
-                    <input 
-                      type="text" 
-                      value={brand.professionalTitle}
-                      onChange={(e) => setBrand({...brand, professionalTitle: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
-                    />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TU NOMBRE</label>
+                        <input 
+                          type="text" 
+                          value={brand.professionalName}
+                          onChange={(e) => setBrand({...brand, professionalName: e.target.value})}
+                          style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TU ESPECIALIDAD</label>
+                        <input 
+                          type="text" 
+                          value={brand.professionalTitle}
+                          onChange={(e) => setBrand({...brand, professionalTitle: e.target.value})}
+                          style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text)', fontSize: '0.875rem' }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
