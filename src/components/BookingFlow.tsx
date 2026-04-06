@@ -38,7 +38,7 @@ export const BookingFlow: React.FC<{
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
-  const [existingSlotsCount, setExistingSlotsCount] = useState<{[time: string]: number}>({});
+  const [dayAppointments, setDayAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
@@ -170,29 +170,20 @@ export const BookingFlow: React.FC<{
 
   React.useEffect(() => {
     const fetchExisting = async () => {
-      // Create explicit 00:00:00 and 23:59:59 local dates to extract their true UTC bounds
       const [year, month, day] = selectedDate.split('-').map(Number);
       const startOfDay = new Date(year, month - 1, day, 0, 0, 0);
       const endOfDay = new Date(year, month - 1, day, 23, 59, 59);
 
       const { data } = await supabase
         .from('appointments')
-        .select('date_time')
+        .select('date_time, staff_id, services(duration_minutes, capacity)')
         .eq('tenant_id', tenantId)
-        .in('status', ['waiting', 'attending', 'arrived'])
+        .in('status', ['pending', 'waiting', 'attending', 'arrived'])
         .gte('date_time', startOfDay.toISOString())
         .lte('date_time', endOfDay.toISOString());
       
       if (data) {
-        const counts: {[time: string]: number} = {};
-        data.forEach(d => {
-          const dt = new Date(d.date_time);
-          const h = String(dt.getHours()).padStart(2, '0');
-          const m = String(dt.getMinutes()).padStart(2, '0');
-          const t = `${h}:${m}`;
-          counts[t] = (counts[t] || 0) + 1;
-        });
-        setExistingSlotsCount(counts);
+        setDayAppointments(data);
       }
     };
     fetchExisting();
@@ -514,16 +505,34 @@ export const BookingFlow: React.FC<{
                       </p>
                     </div>
                   ) : timeSlots.map((t: string) => {
-                    const currentCount = existingSlotsCount[t] || 0;
+                    // Availability Check based on duration overlap
+                    const [slotH, slotM] = t.split(':').map(Number);
+                    const slotStartMin = slotH * 60 + slotM;
+                    const slotEndMin = slotStartMin + (selectedService?.duration || 30);
+                    
+                    const overlappingApps = dayAppointments.filter(apt => {
+                      const aptDate = new Date(apt.date_time);
+                      const aptStartMin = aptDate.getHours() * 60 + aptDate.getMinutes();
+                      const aptDuration = apt.services?.duration_minutes || 30;
+                      const aptEndMin = aptStartMin + aptDuration;
+
+                      // Professional match
+                      const proMatch = selectedPro?.id === 'any' || !apt.staff_id || apt.staff_id === selectedPro?.id;
+                      if (!proMatch) return false;
+
+                      // Time Overlap: A starts before B ends AND B starts before A ends
+                      return aptStartMin < slotEndMin && aptEndMin > slotStartMin;
+                    });
+
+                    const currentCount = overlappingApps.length;
                     const maxCapacity = selectedService?.capacity || 1;
                     const isFull = currentCount >= maxCapacity;
                     
                     // NEW: check if time is in the past for today
                     const isPast = selectedDate === getTodayStr() && (() => {
-                      const [h, m] = t.split(':').map(Number);
                       const now = new Date();
                       const slotTime = new Date();
-                      slotTime.setHours(h, m, 0, 0);
+                      slotTime.setHours(slotH, slotM, 0, 0);
                       return slotTime < now;
                     })();
 
