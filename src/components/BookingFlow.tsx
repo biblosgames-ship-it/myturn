@@ -381,7 +381,9 @@ export const BookingFlow: React.FC<{
                     </div>
                     <div>
                       <p style={{ fontWeight: 600 }}>{s.name}</p>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{s.duration} min</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                        {s.duration >= 60 ? `${Math.floor(s.duration / 60)} h ${s.duration % 60 > 0 ? `${s.duration % 60} min` : ''}` : `${s.duration} min`}
+                      </p>
                     </div>
                   </div>
                   <p style={{ fontWeight: 700, color: 'var(--primary)' }}>${(s.price || 0).toFixed(2)}</p>

@@ -791,38 +791,56 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
 
                     <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
 
-                    {/* DURATION */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '130px' }}>
-                      <button 
-                        onClick={() => updateService(idx, 'duration', Math.max(1, s.duration - 1))}
-                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <input 
-                        type="number" 
-                        value={s.duration}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          updateService(idx, 'duration', isNaN(val) ? 0 : val);
-                        }}
-                        style={{ 
-                          width: '55px', 
-                          background: 'transparent', 
-                          border: 'none',
-                          color: 'var(--text)',
-                          textAlign: 'center',
-                          fontWeight: 800,
-                          fontSize: '1.1rem'
-                        }}
-                      />
-                      <button 
-                        onClick={() => updateService(idx, 'duration', s.duration + 1)}
-                        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text)' }}
-                      >
-                        <Plus size={14} />
-                      </button>
-                      <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {/* HOURS */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '95px' }}>
+                        <input 
+                          type="number" 
+                          min="0"
+                          max="24"
+                          value={Math.floor(s.duration / 60)}
+                          onChange={(e) => {
+                            const h = parseInt(e.target.value) || 0;
+                            const m = s.duration % 60;
+                            updateService(idx, 'duration', h * 60 + m);
+                          }}
+                          style={{ 
+                            width: '35px', 
+                            background: 'transparent', 
+                            border: 'none',
+                            color: 'var(--text)',
+                            textAlign: 'center',
+                            fontWeight: 800,
+                            fontSize: '1.1rem'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>HORAS</span>
+                      </div>
+
+                      {/* MINUTES */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', minWidth: '105px' }}>
+                        <input 
+                          type="number" 
+                          min="0"
+                          max="59"
+                          value={s.duration % 60}
+                          onChange={(e) => {
+                            const h = Math.floor(s.duration / 60);
+                            const m = parseInt(e.target.value) || 0;
+                            updateService(idx, 'duration', h * 60 + m);
+                          }}
+                          style={{ 
+                            width: '35px', 
+                            background: 'transparent', 
+                            border: 'none',
+                            color: 'var(--text)',
+                            textAlign: 'center',
+                            fontWeight: 800,
+                            fontSize: '1.1rem'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)' }}>MIN</span>
+                      </div>
                     </div>
 
                     <div style={{ width: '1px', height: '24px', background: 'var(--border)', display: isMobile ? 'none' : 'block' }}></div>
