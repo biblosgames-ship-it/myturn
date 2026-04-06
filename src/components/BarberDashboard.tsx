@@ -2743,11 +2743,18 @@ const getPlanCapabilities = (planName: string) => {
         ) : activeTab === 'profile' ? (
           <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
              <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', position: 'relative', overflow: 'hidden', border: '2px solid var(--border)' }}>
-                  {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <User size={40} color="var(--primary)" />
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '1rem' }}>
+                  <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', border: '2px solid var(--border)' }}>
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <Building size={32} color="var(--primary)" />
+                    )}
+                  </div>
+                  {staff[0]?.imageUrl && (
+                    <div style={{ width: '80px', height: '80px', background: 'var(--surface-hover)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', border: '2px solid var(--primary)' }}>
+                      <img src={staff[0].imageUrl} alt="Pro" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
                   )}
                 </div>
                 <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Mi Cuenta</h1>

@@ -20,6 +20,7 @@ interface BusinessData {
   awards: string[];
   services: { id: string, name: string, price: number, duration: number, icon: string }[];
   logo: string;
+  professionalPhoto?: string;
   rating: number;
   reviews: number;
   address: string;
@@ -340,6 +341,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             icon: s.icon || 'Scissors'
           })) : [];
 
+          // Fetch Solo Professional Photo
+          const { data: stData } = await supabase.from('staff_members').select('image_url').eq('tenant_id', tenant.id).limit(1);
+          const profPhoto = stData && stData[0] ? stData[0].image_url : null;
+
           setDbBusiness({
             id: tenant.id,
             name: tenant.name,
@@ -348,6 +353,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             awards: [],
             services: serviceList,
             logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            professionalPhoto: profPhoto,
             rating: tenant.rating_value || 5.0,
             reviews: tenant.reviews_count || 1,
             address: tenant.address || 'Ubicación local',
@@ -887,15 +893,33 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       {/* Header Profile */}
       <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', background: 'linear-gradient(135deg, var(--surface) 0%, rgba(245,158,11,0.05) 100%)' }}>
         <div style={{ display: 'flex', gap: isSmallScreen ? '0.75rem' : '1.25rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <img 
               src={business?.logo} 
               alt={business?.name} 
-              style={{ width: isSmallScreen ? '64px' : '84px', height: isSmallScreen ? '64px' : '84px', borderRadius: 'var(--radius-lg)', objectFit: 'cover', border: '2px solid var(--primary)' }} 
+              style={{ width: isSmallScreen ? '64px' : '84px', height: isSmallScreen ? '64px' : '84px', borderRadius: 'var(--radius-lg)', objectFit: 'cover', border: '2px solid var(--border)' }} 
             />
-            <div style={{ position: 'absolute', bottom: '-8px', right: '-8px', background: 'var(--primary)', color: 'black', padding: '4px', borderRadius: '50%', border: '2px solid var(--surface)' }}>
-              <Award size={14} />
-            </div>
+            {business?.professionalPhoto && (
+              <div style={{ 
+                position: 'absolute', 
+                bottom: '-25px', 
+                right: '-15px', 
+                width: isSmallScreen ? '40px' : '50px', 
+                height: isSmallScreen ? '40px' : '50px', 
+                borderRadius: '50%', 
+                border: '3px solid var(--surface)', 
+                overflow: 'hidden',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                background: 'var(--surface)'
+              }}>
+                <img src={business.professionalPhoto} alt="Pro" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            {!business?.professionalPhoto && (
+              <div style={{ position: 'absolute', bottom: '-8px', right: '-8px', background: 'var(--primary)', color: 'black', padding: '4px', borderRadius: '50%', border: '2px solid var(--surface)' }}>
+                <Award size={14} />
+              </div>
+            )}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <h2 style={{ 

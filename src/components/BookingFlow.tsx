@@ -143,6 +143,7 @@ export const BookingFlow: React.FC<{
           name: s.name,
           price: s.price,
           duration: s.duration_minutes,
+          icon: s.icon,
           capacity: s.capacity || 1
         })));
       }
