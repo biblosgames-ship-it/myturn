@@ -122,6 +122,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkData, setLinkData] = useState({ name: '', contact: '' });
   const [hasAppointment, setHasAppointment] = useState(false);
+  const [isRegisteredUser, setIsRegisteredUser] = useState(false);
+  const [futureAppointments, setFutureAppointments] = useState<any[]>([]);
   const [isGlobalPaused, setIsGlobalPaused] = useState(false);
   const [queueItems, setQueueItems] = useState<any[]>([]);
   const [notFound, setNotFound] = useState(false);
@@ -248,27 +250,49 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           });
         }
 
-        // 3. Fetch Active Appointment (Persistence Fix)
+        // 3. Fetch All Appointments for registered users
         if (dbBusiness?.id) {
-          const { data: activeAptList } = await supabase
+          const today = new Date().toISOString().split('T')[0];
+          const { data: allApts } = await supabase
             .from('appointments')
-            .select('id')
+            .select('id, date_time, service_id, status, client_name')
             .eq('tenant_id', dbBusiness.id)
             .eq('client_user_id', session.user.id)
-            .in('status', ['pending', 'waiting', 'attending'])
-            .order('date_time', { ascending: true })
-            .limit(1);
-          
-          const activeApt = activeAptList && activeAptList.length > 0 ? activeAptList[0] : null;
-          
-          if (activeApt) {
-            localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, activeApt.id);
-            setHasAppointment(true);
+            .in('status', ['pending', 'waiting', 'attending', 'scheduled'])
+            .order('date_time', { ascending: true });
+
+          if (allApts && allApts.length > 0) {
+            // Today's or active appointment → cronómetro
+            const todayApt = allApts.find(a => {
+              const aptDate = a.date_time ? a.date_time.split('T')[0] : '';
+              return aptDate === today;
+            });
+            if (todayApt) {
+              localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, todayApt.id);
+              setHasAppointment(true);
+            } else {
+              // Closest active apt for tracking
+              localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, allApts[0].id);
+              setHasAppointment(true);
+            }
+            // Enrich with service name for display
+            const { data: svcs } = await supabase
+              .from('services')
+              .select('id, name')
+              .eq('tenant_id', dbBusiness.id);
+            const svcMap: Record<string, string> = {};
+            (svcs || []).forEach((s: any) => { svcMap[s.id] = s.name; });
+            setFutureAppointments(allApts.map(a => ({
+              ...a,
+              serviceName: svcMap[a.service_id] || 'Servicio'
+            })));
           } else {
             localStorage.removeItem(`myturn_active_appointment_id_${dbBusiness.id}`);
             setHasAppointment(false);
+            setFutureAppointments([]);
           }
         }
+        setIsRegisteredUser(true);
       }
     };
     fetchProfileAndAppointment();
@@ -556,7 +580,29 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           sessionId={sessionId}
           queueInfo={queueInfo}
           onClose={() => setShowBooking(false)} 
-          onSuccess={() => setHasAppointment(true)}
+          onSuccess={async () => {
+            setShowBooking(false);
+            setHasAppointment(true);
+            // Re-fetch all appointments so the new one appears in "Mis Citas"
+            if (isRegisteredUser && dbBusiness?.id) {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                const { data: allApts } = await supabase
+                  .from('appointments')
+                  .select('id, date_time, service_id, status, client_name')
+                  .eq('tenant_id', dbBusiness.id)
+                  .eq('client_user_id', session.user.id)
+                  .in('status', ['pending', 'waiting', 'attending', 'scheduled'])
+                  .order('date_time', { ascending: true });
+                if (allApts) {
+                  const { data: svcs } = await supabase.from('services').select('id, name').eq('tenant_id', dbBusiness.id);
+                  const svcMap: Record<string, string> = {};
+                  (svcs || []).forEach((s: any) => { svcMap[s.id] = s.name; });
+                  setFutureAppointments(allApts.map(a => ({ ...a, serviceName: svcMap[a.service_id] || 'Servicio' })));
+                }
+              }
+            }
+          }}
         />
       )}
 
@@ -987,6 +1033,20 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             })()}
           />
         </div>
+      ) : isRegisteredUser ? (
+        /* Registered user with no appointments yet — show book button inline */
+        <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', textAlign: 'center' }}>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>📅 Agenda tu próxima cita</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Como cliente registrado puedes agendar múltiples citas futuras.</p>
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '1rem', fontWeight: 800, opacity: business.bookingMode === 'manual' ? 0.5 : 1, cursor: business.bookingMode === 'manual' ? 'not-allowed' : 'pointer' }}
+            onClick={() => business.bookingMode !== 'manual' && setShowBooking(true)}
+            disabled={business.bookingMode === 'manual'}
+          >
+            {business.bookingMode === 'manual' ? 'Agendamiento Online no disponible' : 'Agendar Cita'} <ArrowRight size={20} style={{ marginLeft: '0.5rem' }} />
+          </button>
+        </div>
       ) : (
         <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', textAlign: 'center' }}>
           <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>
@@ -1006,6 +1066,68 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             {business.bookingMode === 'manual' ? 'Agendamiento Online no disponible' : 'Agendar Turno Ahora'} <ArrowRight size={20} style={{ marginLeft: '0.5rem' }} />
           </button>
         </div>
+      )}
+
+      {/* Mis Citas Futuras — registered users only */}
+      {isRegisteredUser && futureAppointments.length > 0 && (
+        <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+              <Calendar size={20} color="var(--primary)" /> Mis Citas
+            </h3>
+            {business.bookingMode !== 'manual' && (
+              <button
+                onClick={() => setShowBooking(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem', fontWeight: 800, fontSize: '0.78rem', color: '#000', cursor: 'pointer' }}
+              >
+                <Plus size={14} /> Agendar otra
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {futureAppointments.map(apt => {
+              const aptDate = new Date(apt.date_time);
+              const now = new Date();
+              const diffMs = aptDate.getTime() - now.getTime();
+              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+              const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              const isToday = getLocalDateStr(aptDate) === getLocalDateStr();
+              const isPast = diffMs < 0;
+              const timeStr = aptDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+              const dateLabel = aptDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+              const countdownText = isPast ? 'Pasada' : isToday ? `Hoy a las ${timeStr}` : diffDays === 0 ? `En ${diffHrs}h` : diffDays === 1 ? 'Mañana' : `En ${diffDays} días`;
+              const countdownColor = isPast ? '#6b7280' : isToday ? 'var(--success)' : diffDays <= 3 ? 'var(--primary)' : 'var(--text)';
+              return (
+                <div key={apt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: isToday ? 'rgba(245,158,11,0.06)' : 'var(--surface-hover)', borderRadius: 'var(--radius-md)', border: `1px solid ${isToday ? 'var(--primary)' : 'var(--border)'}` }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: isToday ? 'var(--primary)' : 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: isToday ? '#000' : 'var(--text-muted)', textTransform: 'uppercase' }}>{aptDate.toLocaleDateString('es-ES', { month: 'short' })}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: isToday ? '#000' : 'var(--text)', lineHeight: 1 }}>{aptDate.getDate()}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'var(--text)' }}>{apt.serviceName}</p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{dateLabel} · {timeStr}</p>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 900, color: countdownColor, background: isToday ? 'rgba(245,158,11,0.12)' : 'transparent', padding: isToday ? '0.2rem 0.5rem' : '0', borderRadius: '6px' }}>{countdownText}</span>
+                    {!isPast && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('¿Cancelar esta cita?')) return;
+                          await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', apt.id);
+                          setFutureAppointments(prev => prev.filter(a => a.id !== apt.id));
+                          if (futureAppointments.length <= 1) setHasAppointment(false);
+                        }}
+                        style={{ display: 'block', marginTop: '0.2rem', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Live Queue Section */}
