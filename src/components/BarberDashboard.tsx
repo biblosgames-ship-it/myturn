@@ -412,22 +412,23 @@ export const BarberDashboard: React.FC = () => {
     return () => { supabase.removeChannel(msgChan); };
   }, [tenantId]);
 
-  // Mini-chat: load conversations list
+  // Mini-chat: load conversations list (uses session_id like MessagingCenter)
   useEffect(() => {
     if (!tenantId) return;
     const loadConvos = async () => {
       const { data } = await supabase
         .from('messages')
-        .select('client_name, client_id, content, created_at, is_from_client, is_read')
+        .select('session_id, customer_name, content, created_at, is_from_client, is_read')
         .eq('tenant_id', tenantId)
+        .eq('is_broadcast', false)
         .order('created_at', { ascending: false });
       if (!data) return;
-      // Group by client: keep only latest message per client
+      // Group by session_id: keep only latest message per session
       const map: Record<string, any> = {};
       data.forEach((m: any) => {
-        const key = m.client_id || m.client_name;
-        if (!map[key]) map[key] = { ...m, unread: 0 };
-        if (m.is_from_client && !m.is_read) map[key].unread++;
+        if (!m.session_id) return;
+        if (!map[m.session_id]) map[m.session_id] = { ...m, unread: 0 };
+        if (m.is_from_client && !m.is_read) map[m.session_id].unread++;
       });
       setMiniChatConvos(Object.values(map).slice(0, 8));
     };
@@ -438,7 +439,7 @@ export const BarberDashboard: React.FC = () => {
     return () => { supabase.removeChannel(chan); };
   }, [tenantId]);
 
-  // Mini-chat: load thread for selected client
+  // Mini-chat: load thread for selected session
   useEffect(() => {
     if (!tenantId || !miniChatSelected) return;
     const loadThread = async () => {
@@ -446,12 +447,12 @@ export const BarberDashboard: React.FC = () => {
         .from('messages')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq('client_id', miniChatSelected)
+        .eq('session_id', miniChatSelected)
         .order('created_at', { ascending: true });
       setMiniChatThread(data || []);
       // Mark as read
       await supabase.from('messages').update({ is_read: true })
-        .eq('tenant_id', tenantId).eq('client_id', miniChatSelected).eq('is_from_client', true).eq('is_read', false);
+        .eq('tenant_id', tenantId).eq('session_id', miniChatSelected).eq('is_from_client', true).eq('is_read', false);
       setTimeout(() => miniChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
     };
     loadThread();
@@ -1490,7 +1491,7 @@ const getPlanCapabilities = (planName: string) => {
                       ) : miniChatConvos.map((c, i) => (
                         <div
                           key={i}
-                          onClick={() => setMiniChatSelected(c.client_id || c.client_name)}
+                          onClick={() => setMiniChatSelected(c.session_id)}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '0.6rem',
                             padding: '0.6rem 1rem', cursor: 'pointer',
@@ -1500,10 +1501,10 @@ const getPlanCapabilities = (planName: string) => {
                           }}
                         >
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0 }}>
-                            {(c.client_name || '?').charAt(0).toUpperCase()}
+                            {(c.customer_name || '?').charAt(0).toUpperCase()}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: c.unread > 0 ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.client_name || 'Cliente'}</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: c.unread > 0 ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.customer_name || 'Cliente'}</p>
                             <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {c.is_from_client ? '' : 'Tú: '}{c.content}
                             </p>
@@ -1539,7 +1540,7 @@ const getPlanCapabilities = (planName: string) => {
                             if (e.key === 'Enter' && !e.shiftKey && miniChatReply.trim() && !miniChatSending) {
                               e.preventDefault();
                               setMiniChatSending(true);
-                              await supabase.from('messages').insert({ tenant_id: tenantId, client_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                              await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
                               setMiniChatReply('');
                               setMiniChatSending(false);
                             }
@@ -1552,7 +1553,7 @@ const getPlanCapabilities = (planName: string) => {
                           onClick={async () => {
                             if (!miniChatReply.trim() || miniChatSending) return;
                             setMiniChatSending(true);
-                            await supabase.from('messages').insert({ tenant_id: tenantId, client_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                            await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
                             setMiniChatReply('');
                             setMiniChatSending(false);
                           }}
