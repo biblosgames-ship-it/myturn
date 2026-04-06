@@ -2254,9 +2254,12 @@ const getPlanCapabilities = (planName: string) => {
             {(() => {
               const pendingAppointments = appointments.filter(a => a.status === 'pending');
               const missedAppointments = appointments.filter(a => a.date < getTodayStr() && a.status === 'waiting');
+              const futureAppointments = appointments.filter(a => a.date > getTodayStr() && a.status === 'waiting');
               
               return (
-                <>
+                <div style={{ marginTop: '3rem', padding: '1rem', borderTop: '2px dashed var(--border)' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '1.5rem', opacity: 0.7, textTransform: 'uppercase' }}>Citas Programadas y Pendientes</h3>
+                  
                   {pendingAppointments.length > 0 && (
                     <div className="card animate-fade-in" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid var(--success)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--success)', fontWeight: 800, fontSize: '0.9rem' }}>
@@ -2339,7 +2342,40 @@ const getPlanCapabilities = (planName: string) => {
                     </div>
                   </div>
                   )}
-                </>
+                  {futureAppointments.length > 0 && (
+                    <div className="card animate-fade-in" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)', fontWeight: 800, fontSize: '0.9rem' }}>
+                        <Calendar size={20} />
+                        <span>Tienes {futureAppointments.length} cita(s) programada(s) para los próximos días</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        {futureAppointments.map(fut => (
+                          <div key={fut.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem', background: 'var(--background)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                            <div>
+                              <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{fut.clientName}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
+                                {new Date(`${fut.date}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} {fut.time} - {fut.service}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--accent)', border: '1px solid var(--accent)', background: 'transparent' }}
+                                onClick={() => {
+                                  if (confirm(`¿Seguro que quieres cancelar la cita de ${fut.clientName}?`)) {
+                                    removeApt(fut.id);
+                                  }
+                                }}
+                              >
+                                <X size={14} /> Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })()}
           </div>
