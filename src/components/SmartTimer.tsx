@@ -31,15 +31,21 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
 
   useEffect(() => {
     // If it's not today, the timer should not run
-    if (!isToday || status === 'completed' || timeLeft <= 0 || isPaused || isStalled) return;
+    if (!isToday || status === 'completed' || isPaused || isStalled) return;
     
     // Note: We ignore !isOpen here because we want it to run during "receso" if it's today
     const timer = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
+      setTimeLeft((prev) => {
+        if (prev <= 0) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status, timeLeft, isToday, isPaused, isStalled]);
+  }, [status, isToday, isPaused, isStalled]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);

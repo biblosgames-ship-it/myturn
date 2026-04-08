@@ -22,6 +22,17 @@ function App() {
   const [editData, setEditData] = useState({ full_name: '', phone: '' });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [showRetry, setShowRetry] = useState(false);
+
+  useEffect(() => {
+    let timer: any;
+    if (loading) {
+      timer = setTimeout(() => setShowRetry(true), 5000);
+    } else {
+      setShowRetry(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -63,97 +74,115 @@ function App() {
   // 2. Real Auth Check & Routing
   useEffect(() => {
     const initApp = async () => {
-      setLoading(true);
-      
-      // Check for tenant slug in URL (Priority 1)
-      const path = window.location.pathname.replace(/^\/|\/$/g, '');
-      if (path === 'reset-password') {
-        setView('reset_password');
+      const timeoutId = setTimeout(() => {
         setLoading(false);
-        return;
-      }
+        console.warn('App initialization timed out, forcing load.');
+      }, 8000); // 8 second safety timeout
 
-      if (path && path !== '') {
-        setTenant({ id: path, name: '' });
-        setView('client');
-      }
-
-      // Check current session (Priority 2)
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Query user role and tenant
-        let { data: userData, error: fetchError } = await supabase
-          .from('users')
-          .select('role, tenant_id')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        // If user document is missing (e.g. first Google Login), create it
-        if (!userData && !fetchError) {
-          const { data: newUser, error: insertError } = await supabase
-            .from('users')
-            .insert({
-              id: session.user.id,
-              role: 'client',
-              full_name: session.user.user_metadata.full_name || 'Nuevo Cliente',
-              phone: session.user.phone || null
-            })
-            .select('role, tenant_id')
-            .maybeSingle();
-          
-          if (!insertError) {
-            userData = newUser;
-          }
+      try {
+        setLoading(true);
+        
+        // 1. Check for tenant slug in URL (Priority 1 - Immediate Routing)
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        if (path === 'reset-password') {
+          setView('reset_password');
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return;
         }
 
-        if (userData) {
-          setUser(session.user);
-          setEditData({
-            full_name: session.user.user_metadata.full_name || '',
-            phone: session.user.phone || ''
-          });
-          const savedView = localStorage.getItem('myturn_last_view');
-          
-          if (userData.role === 'superadmin' || userData.role === 'admin') {
-            handleSetView('superadmin');
-          } else if (userData.role === 'client') {
-            const savedSlug = localStorage.getItem('myturn_active_business_slug');
-            if (savedView === 'client' && savedSlug) {
-              setTenant({ id: savedSlug, name: '' });
-              handleSetView('client');
-            } else {
-              handleSetView('landing');
-            }
-          } else {
-            // User is owner/professional
-            // If they were in superadmin view and are now just owners, but they came from superadmin_login,
-            // we should allow it if role is admin? Actually, standard owners go to barber.
-            // FIX: If we are already in superadmin view, don't force jump to barber if we just updated.
-            if (savedView === 'superadmin' && userData.role === 'superadmin') {
-               handleSetView('superadmin');
-            } else {
-               handleSetView('barber');
-            }
-            
-            if (userData.tenant_id) {
-              setTenant({ id: userData.tenant_id, name: '' });
-            }
-          }
-        }
-      } else {
-        // No session, check query params or stay on landing/storage fallback
-        const params = new URLSearchParams(window.location.search);
-        const barberId = params.get('barber');
-        if (barberId) {
-          setTenant({ id: barberId, name: '' });
+        if (path && path !== '') {
+          setTenant({ id: path, name: '' });
           setView('client');
-        } else if (localStorage.getItem('myturn_last_view') === 'landing') {
-           setView('landing');
+          // We don't return here because we still want to check auth in background
         }
+
+        // 2. Real Auth Check
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (session?.user) {
+          // Query user role and tenant
+          let { data: userData, error: fetchError } = await supabase
+            .from('users')
+            .select('role, tenant_id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (fetchError) console.error('Error fetching user data:', fetchError);
+
+          // If user document is missing (e.g. first Google Login), create it
+          if (!userData && !fetchError) {
+            const { data: newUser, error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: session.user.id,
+                role: 'client',
+                full_name: session.user.user_metadata.full_name || 'Nuevo Cliente',
+                phone: session.user.phone || null
+              })
+              .select('role, tenant_id')
+              .maybeSingle();
+            
+            if (!insertError) {
+              userData = newUser;
+            }
+          }
+
+          if (userData) {
+            setUser(session.user);
+            setEditData({
+              full_name: session.user.user_metadata.full_name || '',
+              phone: session.user.phone || ''
+            });
+            const savedView = localStorage.getItem('myturn_last_view');
+            
+            if (userData.role === 'superadmin' || userData.role === 'admin') {
+              handleSetView('superadmin');
+            } else if (userData.role === 'client') {
+              const savedSlug = localStorage.getItem('myturn_active_business_slug');
+              // If we already have a path-based tenant, keep it. 
+              // Otherwise fallback to saved slug if they were in client view.
+              if (!path && savedView === 'client' && savedSlug) {
+                setTenant({ id: savedSlug, name: '' });
+                handleSetView('client');
+              } else if (!path) {
+                handleSetView('landing');
+              }
+            } else {
+              // Priority: If they are a professional but came via a client link, 
+              // we should probably still show them the client view or their dashboard?
+              // Standard behavior: professionals go to barber dashboard.
+              if (!path) {
+                if (savedView === 'superadmin' && userData.role === 'superadmin') {
+                   handleSetView('superadmin');
+                } else {
+                   handleSetView('barber');
+                }
+              }
+              
+              if (userData.tenant_id && !path) {
+                setTenant({ id: userData.tenant_id, name: '' });
+              }
+            }
+          }
+        } else {
+          // No session, check query params
+          const params = new URLSearchParams(window.location.search);
+          const barberId = params.get('barber');
+          if (barberId) {
+            setTenant({ id: barberId, name: '' });
+            setView('client');
+          } else if (!path && localStorage.getItem('myturn_last_view') === 'landing') {
+             setView('landing');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+      } finally {
+        setLoading(false);
+        clearTimeout(timeoutId);
       }
-      
-      setLoading(false);
     };
 
     initApp();
@@ -220,11 +249,25 @@ function App() {
         alignItems: 'center', 
         justifyContent: 'center', 
         background: '#000',
-        gap: '2rem'
+        gap: '2rem',
+        padding: '2rem',
+        textAlign: 'center'
       }}>
-        <div style={{ animation: 'logoRise 1.5s ease-out forwards', textAlign: 'center' }}>
+        <div style={{ animation: 'logoRise 1.5s ease-out forwards' }}>
           <img src="/logo-inicio.png" alt="My Turn" style={{ height: '120px', filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.1))' }} />
         </div>
+        {showRetry && (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>La conexión está tardando más de lo habitual...</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="btn btn-primary"
+              style={{ padding: '0.75rem 1.5rem', fontWeight: 800 }}
+            >
+              🔄 REINTENTAR CARGA
+            </button>
+          </div>
+        )}
       </div>
     );
   }

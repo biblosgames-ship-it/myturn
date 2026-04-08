@@ -36,6 +36,7 @@ interface Service {
   duration: number;
   icon: string;
   capacity: number;
+  station_id?: string | null;
 }
 
 interface DaySchedule {
@@ -90,6 +91,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
   const [staffImageUrl, setStaffImageUrl] = useState<string>('');
 
   const [services, setServices] = useState<Service[]>([]);
+  const [stations, setStations] = useState<any[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -204,12 +206,17 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         price: s.price,
         duration: s.duration_minutes,
         icon: s.icon || 'Scissors',
-        capacity: s.capacity || 1
+        capacity: s.capacity || 1,
+        station_id: s.station_id || null
       })));
     } else {
       setServices([]);
     }
     setIsLoading(false);
+
+    // 3. Load Work Stations for Enterprise
+    const { data: wsData } = await supabase.from('work_stations').select('id, name, is_active').eq('tenant_id', tenantId);
+    if (wsData) setStations(wsData.filter((ws: any) => ws.is_active));
   }, [tenantId]);
 
   useEffect(() => {
@@ -223,7 +230,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
   const addService = () => {
     // Generate a temporary UUID for the new service to avoid DB null constraint issues during upsert
     const newId = crypto.randomUUID();
-    setServices([...services, { id: newId, name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star', capacity: 1 }]);
+    setServices([...services, { id: newId, name: 'Nuevo Servicio', price: 0, duration: 30, icon: 'Star', capacity: 1, station_id: null }]);
   };
 
   const removeService = (index: number) => {
@@ -305,13 +312,14 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
       }
 
       const toUpsert = services.map(s => ({
-        id: s.id || crypto.randomUUID(), // Guarantee an ID is always present
+        id: s.id || crypto.randomUUID(),
         tenant_id: tenantId,
         name: s.name,
         price: s.price,
         duration_minutes: s.duration,
         icon: s.icon,
-        capacity: s.capacity || 1
+        capacity: s.capacity || 1,
+        station_id: s.station_id || null
       }));
 
       if (toUpsert.length > 0) {
@@ -974,6 +982,30 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                       />
                       <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>CUPOS</span>
                     </div>
+
+                    {/* STATION SELECTOR */}
+                    {stations.length > 0 && (
+                      <div title="Estación de trabajo" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(139,92,246,0.1)', padding: '0.15rem 0.35rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(139,92,246,0.2)', flexShrink: 0 }}>
+                        <select
+                          value={s.station_id || ''}
+                          onChange={(e) => updateService(idx, 'station_id', e.target.value || null)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: s.station_id ? '#8b5cf6' : 'var(--text-muted)',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                            padding: '0.15rem 0.2rem'
+                          }}
+                        >
+                          <option value="">Sin estación</option>
+                          {stations.map(ws => (
+                            <option key={ws.id} value={ws.id}>{ws.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
                 

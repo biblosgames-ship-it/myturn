@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, Send, Link2Off, Scissors, Heart, Activity, Coffee, Car, Smartphone, Zap, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Calendar, Bell, ArrowRight, Share2, History, MessageSquare, Award, CheckCircle, CheckCircle2, LayoutGrid, X, Plus, Send, Link2Off, Scissors, Heart, Activity, Coffee, Car, Smartphone, Zap, Smile, Wind, Droplets, Briefcase, ShoppingBag, Sparkles, Cross, Wrench, Shield, Calculator, Building, Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SmartTimer } from './SmartTimer';
 import { BookingFlow } from './BookingFlow';
@@ -150,6 +150,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [isSwitchingBusiness, setIsSwitchingBusiness] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -274,17 +275,17 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               return aptDate > cutoff;
             });
 
-            // Today's or active appointment → cronómetro
-            const todayApt = allApts.find(a => {
-              const aptDate = a.date_time ? a.date_time.split('T')[0] : '';
-              return aptDate === today;
+            // Corto plazo (within 1 week) goes to the SmartTimer
+            const shortTermApt = allApts.find(a => {
+              const aptDate = new Date(a.date_time);
+              return aptDate <= cutoff;
             });
 
-            if (todayApt) {
-              localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, todayApt.id);
+            if (shortTermApt) {
+              localStorage.setItem(`myturn_active_appointment_id_${dbBusiness.id}`, shortTermApt.id);
               setHasAppointment(true);
             } else {
-              // If no today appointment, don't show the timer, but keep active_appointment_id (maybe for the next one)
+              // If no short term appointment, don't show the timer
               setHasAppointment(false);
             }
 
@@ -330,8 +331,16 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       return;
     }
 
+    setIsSwitchingBusiness(true);
     // Dynamic SaaS fetch by Slug
     const fetchSaaSInfo = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        setNotFound(true);
+        console.error('Business fetch timed out');
+      }, 7000);
+
       try {
         // Search by slug OR by ID
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(selectedBusinessSlug);
@@ -340,9 +349,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           : supabase.from('tenants').select('*').eq('slug', selectedBusinessSlug).single();
         
         const { data: tenant, error } = await query;
+        clearTimeout(timeoutId);
         
         if (tenant && !error) {
-          const { data: sData } = await supabase.from('services').select('*').eq('tenant_id', tenant.id);
+          const { data: sData, error: sError } = await supabase.from('services').select('*').eq('tenant_id', tenant.id);
+          if (sError) console.warn('Error fetching services:', sError);
+          
           const serviceList = sData ? sData.map(s => ({
             id: s.id,
             name: s.name,
@@ -382,30 +394,54 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
           }
-          // Dynamic OG meta tags so social shares show the business logo & name
-          const setMeta = (property: string, content: string) => {
-            let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
-            if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el); }
+          // Dynamic Meta Tags (OG, Twitter, WhatsApp)
+          const setMeta = (name: string, content: string, isProperty = true) => {
+            const attr = isProperty ? 'property' : 'name';
+            let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+            if (!el) {
+              el = document.createElement('meta');
+              el.setAttribute(attr, name);
+              document.head.appendChild(el);
+            }
             el.setAttribute('content', content);
           };
+
           const businessLogo = tenant.logo || '';
           const businessSlogan = tenant.slogan || `Reserva tu turno en ${tenant.name}`;
-          document.title = tenant.name;
+          
+          document.title = `${tenant.name} | MyTurn`;
+          
+          // Open Graph (Facebook, WhatsApp, LinkedIn)
           setMeta('og:title', tenant.name);
           setMeta('og:description', businessSlogan);
           setMeta('og:image', businessLogo);
           setMeta('og:url', window.location.href);
           setMeta('og:type', 'website');
-          // Persistence for refresh
+          setMeta('og:site_name', 'MyTurn');
+
+          // Twitter
+          setMeta('twitter:card', 'summary_large_image', false);
+          setMeta('twitter:title', tenant.name, false);
+          setMeta('twitter:description', businessSlogan, false);
+          setMeta('twitter:image', businessLogo, false);
+
+          // WhatsApp / General
+          setMeta('description', businessSlogan, false);
+          
           localStorage.setItem('myturn_last_view', 'client');
           localStorage.setItem('myturn_active_business_slug', selectedBusinessSlug);
           setNotFound(false);
         } else {
+          console.error('Tenant not found or error:', error);
           setDbBusiness(null);
           setNotFound(true);
         }
       } catch (err) {
+        console.error('Error fetching SaaS info:', err);
         setNotFound(true);
+      } finally {
+        clearTimeout(timeoutId);
+        setIsSwitchingBusiness(false);
       }
     };
     fetchSaaSInfo();
@@ -570,6 +606,15 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
 
 
+
+  if (isSwitchingBusiness) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>
+        <Loader2 className="animate-spin" size={48} color="var(--primary)" />
+        <p style={{ fontWeight: 800, color: 'var(--text-muted)' }}>Cargando negocio...</p>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
@@ -1077,8 +1122,6 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       ) : isRegisteredUser ? (
         /* Registered user with no appointments yet — show book button inline */
         <div className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', textAlign: 'center' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>📅 Agenda tu próxima cita</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Como cliente registrado puedes agendar múltiples citas futuras.</p>
           <button
             className="btn btn-primary"
             style={{ width: '100%', padding: '1rem', fontWeight: 800, opacity: business.bookingMode === 'manual' ? 0.5 : 1, cursor: business.bookingMode === 'manual' ? 'not-allowed' : 'pointer' }}
@@ -1145,7 +1188,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
         <section className="card" style={{ padding: isSmallScreen ? '1rem' : '1.5rem', border: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <Calendar size={20} color="var(--primary)" /> Agenda a Largo Plazo
+              <Calendar size={20} color="var(--primary)" /> Agenda: Citas
             </h3>
             {business.bookingMode !== 'manual' && (
               <button

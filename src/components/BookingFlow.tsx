@@ -9,6 +9,7 @@ interface Service {
   duration: number;
   capacity: number;
   icon?: string;
+  station_id?: string | null;
 }
 
 const getTodayStr = () => {
@@ -44,6 +45,7 @@ export const BookingFlow: React.FC<{
   const [businessSchedule, setBusinessSchedule] = useState<any[]>([]);
   const [lunchBreak, setLunchBreak] = useState<any>(null);
   const [requireConfirmation, setRequireConfirmation] = useState(false);
+  const [stationsMap, setStationsMap] = useState<Record<string, number>>({});
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -144,8 +146,17 @@ export const BookingFlow: React.FC<{
           price: s.price,
           duration: s.duration_minutes,
           icon: s.icon,
-          capacity: s.capacity || 1
+          capacity: s.capacity || 1,
+          station_id: s.station_id || null
         })));
+      }
+
+      // 1c. Fetch Work Stations capacity
+      const { data: wsData } = await supabase.from('work_stations').select('id, capacity, is_active').eq('tenant_id', tenantId);
+      if (wsData) {
+        const map: Record<string, number> = {};
+        wsData.filter((w: any) => w.is_active).forEach((w: any) => { map[w.id] = w.capacity; });
+        setStationsMap(map);
       }
 
       // 1b. Fetch Schedule & Lunch Break
@@ -190,7 +201,7 @@ export const BookingFlow: React.FC<{
 
       const { data } = await supabase
         .from('appointments')
-        .select('date_time, staff_id, services(duration_minutes, capacity)')
+        .select('date_time, staff_id, station_id, services(duration_minutes, capacity)')
         .eq('tenant_id', tenantId)
         .in('status', ['pending', 'waiting', 'attending', 'arrived'])
         .gte('date_time', startOfDay.toISOString())
@@ -290,7 +301,8 @@ export const BookingFlow: React.FC<{
           status: requireConfirmation ? 'pending' : 'waiting',
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
           client_user_id: session?.user?.id || null,
-          session_id: sessionId
+          session_id: sessionId,
+          station_id: selectedService.station_id || null
         }).select('id').single();
 
         if (data?.id) {
@@ -560,27 +572,45 @@ export const BookingFlow: React.FC<{
 
                     const isDisabled = isFull || isPast;
 
+                    // Station capacity check: if service requires a station, check it too
+                    let stationFull = false;
+                    const svcStationId = selectedService?.station_id;
+                    if (svcStationId && stationsMap[svcStationId] !== undefined) {
+                      const stationCap = stationsMap[svcStationId];
+                      const stationOverlaps = dayAppointments.filter(apt => {
+                        if (apt.station_id !== svcStationId) return false;
+                        const aptDate = new Date(apt.date_time);
+                        const aptStartMin = aptDate.getHours() * 60 + aptDate.getMinutes();
+                        const aptDuration = apt.services?.duration_minutes || 30;
+                        const aptEndMin = aptStartMin + aptDuration;
+                        return aptStartMin < slotEndMin && aptEndMin > slotStartMin;
+                      });
+                      stationFull = stationOverlaps.length >= stationCap;
+                    }
+
+                    const finalDisabled = isDisabled || stationFull;
+
                     return (
                       <button 
                         key={t}
-                        onClick={() => { if (!isDisabled && !isTransitioning) { setSelectedTime(t); handleStepChange(4); } }}
-                        disabled={isDisabled}
+                        onClick={() => { if (!finalDisabled && !isTransitioning) { setSelectedTime(t); handleStepChange(4); } }}
+                        disabled={finalDisabled}
                         style={{ 
                           padding: '0.5rem', 
-                          background: selectedTime === t ? 'var(--primary)' : isDisabled ? 'var(--surface-hover)' : 'var(--background)',
-                          color: selectedTime === t ? 'var(--background-alt)' : isDisabled ? 'var(--text-muted)' : 'var(--text)',
+                          background: selectedTime === t ? 'var(--primary)' : finalDisabled ? 'var(--surface-hover)' : 'var(--background)',
+                          color: selectedTime === t ? 'var(--background-alt)' : finalDisabled ? 'var(--text-muted)' : 'var(--text)',
                           border: '1px solid var(--border)',
                           borderRadius: 'var(--radius-sm)',
                           fontWeight: 600,
                           fontSize: '0.875rem',
-                          cursor: isDisabled ? 'not-allowed' : 'pointer',
-                          opacity: isDisabled ? 0.5 : 1
+                          cursor: finalDisabled ? 'not-allowed' : 'pointer',
+                          opacity: finalDisabled ? 0.5 : 1
                         }}
                       >
                         {t}
                         {maxCapacity > 1 && (
                           <div style={{ fontSize: '0.6rem', marginTop: '0.1rem', opacity: 0.8 }}>
-                            {isFull ? 'Lleno' : `${maxCapacity - currentCount} cupos`}
+                            {isFull || stationFull ? 'Lleno' : `${maxCapacity - currentCount} cupos`}
                           </div>
                         )}
                       </button>

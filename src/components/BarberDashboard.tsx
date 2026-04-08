@@ -4,11 +4,12 @@ import { BarberManagement } from './BarberManagement';
 import { InventoryManagement } from './InventoryManagement';
 import { FinanceManagement, Transaction, StaffMember } from './FinanceManagement';
 import { StaffManagement } from './StaffManagement';
+import { WorkStations } from './WorkStations';
 import { MessagingCenter } from './MessagingCenter';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers } from 'lucide-react';
 
 
 interface Appointment {
@@ -21,6 +22,7 @@ interface Appointment {
   arrived?: boolean;
   staffId?: string;
   sessionId?: string;
+  adminNotes?: string;
 }
 
 interface Subscription {
@@ -34,11 +36,37 @@ const getTodayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const MOTIVATIONAL_QUOTES = [
+  "¡Buen día! Hoy es un excelente día para llenar tu agenda y hacer crecer tu negocio.",
+  "¡Hola! La excelencia no es un acto, es un hábito. ¡Vamos con todo hoy!",
+  "Un nuevo día, una nueva oportunidad de ofrecer el mejor servicio.",
+  "¡A darle! El éxito de hoy empieza con el primer cliente.",
+  "Buenos días. Tu talento hace la diferencia. ¡Que tengas una jornada productiva!",
+  "Grandes resultados requieren gran dedicación. ¡Que sea un excelente día!",
+  "¡Buen día! Cada cliente que atiendes, es un cliente que puedes fidelizar.",
+  "Detrás de un gran servicio, hay un profesional como tú. ¡A triunfar hoy!",
+  "Hoy es el día ideal para que tu trabajo hable por ti. ¡Mucho éxito!",
+  "¡Buenos días! Un cliente feliz es la mejor publicidad. ¡A transformar estilos!",
+  "¡Hola! Prende las máquinas, afila las herramientas, y que sea un gran día.",
+  "¡Bienvenido! Sistema listo, agenda preparada... ¡A trabajar se ha dicho!",
+  "Un café, buena energía y a empezar la jornada. ¡Éxitos hoy!",
+  "¡Excelente día! Todo listo por aquí para que gestiones tus citas fácilmente.",
+  "Tú pones el talento, la plataforma se encarga del resto. ¡A romperla hoy!"
+];
+
 // All appointments are now strictly database-driven.
 
-const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void }> = ({ appointments, staff, onRemove }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<string | null>(getTodayStr());
+const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void, onEdit: (apt: Appointment) => void, initialTargetDate?: string | null }> = ({ appointments, staff, onRemove, onEdit, initialTargetDate }) => {
+  const [currentMonth, setCurrentMonth] = useState(initialTargetDate ? new Date(initialTargetDate + 'T00:00:00') : new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(initialTargetDate || getTodayStr());
+
+  // Si cambia la fecha desde el exterior, actualizamos
+  useEffect(() => {
+    if (initialTargetDate) {
+      setCurrentMonth(new Date(initialTargetDate + 'T00:00:00'));
+      setSelectedDay(initialTargetDate);
+    }
+  }, [initialTargetDate]);
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -133,33 +161,50 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {selectedAppointments.map((apt, idx) => (
-                <div key={apt.id} style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--background)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ fontWeight: 900, color: 'var(--text-muted)', fontSize: '1.25rem', opacity: 0.5 }}>{idx + 1}</div>
-                    <div>
-                      <h5 style={{ margin: 0, fontWeight: 900, fontSize: '1rem' }}>{apt.clientName}</h5>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                        {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name || '...'}`}
-                      </p>
+                <div key={apt.id} style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ fontWeight: 900, color: 'var(--text-muted)', fontSize: '1.25rem', opacity: 0.5 }}>{idx + 1}</div>
+                      <div>
+                        <h5 style={{ margin: 0, fontWeight: 900, fontSize: '1rem' }}>{apt.clientName}</h5>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                          {apt.service} {apt.staffId && `• ${staff.find(s => s.id === apt.staffId)?.name || '...'}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
+                        {apt.time}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          onClick={() => onEdit(apt)}
+                          className="btn btn-outline" 
+                          style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}
+                          title="Modificar Cita o Agregar Nota"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm(`¿Estás seguro de cancelar la cita de ${apt.clientName}?`)) {
+                              onRemove(apt.id);
+                            }
+                          }}
+                          className="btn btn-outline" 
+                          style={{ color: 'var(--accent)', borderColor: 'var(--accent)', padding: '0.4rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Cancelar Cita"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.125rem', background: 'rgba(245,158,11,0.1)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)' }}>
-                      {apt.time}
+                  {apt.adminNotes && (
+                    <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--text-muted)' }}>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}><span style={{ fontWeight: 800, color: 'var(--text)' }}>Notas:</span> {apt.adminNotes}</p>
                     </div>
-                    <button 
-                      onClick={() => {
-                        if (confirm(`¿Estás seguro de cancelar la cita de ${apt.clientName}?`)) {
-                          onRemove(apt.id);
-                        }
-                      }}
-                      className="btn btn-outline" 
-                      style={{ color: 'var(--accent)', borderColor: 'var(--accent)', padding: '0.4rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Cancelar Cita"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -171,7 +216,12 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
 };
 
 export const BarberDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'profile' | 'customers' | 'messages'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'stations' | 'profile' | 'customers' | 'messages'>('queue');
+  const [targetAgendaDate, setTargetAgendaDate] = useState<string | null>(null);
+
+  const todaysDateObj = new Date();
+  const dayOfYear = Math.floor((todaysDateObj.getTime() - new Date(todaysDateObj.getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+  const todaysQuote = MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [regFilterType, setRegFilterType] = useState<'day' | 'week' | 'month' | 'year' | 'range'>('day');
   const [regFilterValue, setRegFilterValue] = useState(getTodayStr());
@@ -341,7 +391,8 @@ export const BarberDashboard: React.FC = () => {
             status: d.status === 'arrived' ? 'waiting' : d.status as any,
             arrived: d.status === 'attending' || d.status === 'arrived',
             staffId: d.staff_id || undefined,
-            sessionId: d.session_id || undefined
+            sessionId: d.session_id || undefined,
+            adminNotes: d.admin_notes || ''
           };
         }));
       } else {
@@ -800,6 +851,11 @@ export const BarberDashboard: React.FC = () => {
     }
     
     if (tabId === 'staff' && subscription?.plan !== 'Enterprise') {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (tabId === 'stations' && subscription?.plan !== 'Enterprise') {
       setShowUpgradeModal(true);
       return;
     }
@@ -1491,9 +1547,10 @@ const getPlanCapabilities = (planName: string) => {
                     return "Consejo: Revisa tu 'Reporte de Actividad' para ver tus horas productivas.";
                   };
                   return (
-                    <div className="card" style={{ flex: 1, margin: 0, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1rem' }}>
-                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente MyTurn</h3>
-                      <p style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, margin: 0 }}>"{getMessage()}"</p>
+                    <div className="card" style={{ flex: 1, margin: 0, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1rem', gap: '0.5rem' }}>
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente MyTurn</h3>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.85, margin: 0 }}>📊 "{getMessage()}"</p>
+                      <p style={{ fontSize: '0.72rem', fontWeight: 600, opacity: 0.75, margin: 0, borderTop: '1px solid rgba(0,0,0,0.12)', paddingTop: '0.4rem' }}>💬 "{todaysQuote}"</p>
                     </div>
                   );
                 })()}
@@ -1845,6 +1902,29 @@ const getPlanCapabilities = (planName: string) => {
           >
             <BarChart2 size={18} />
             <span>Reporte</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'stations' ? 'active' : ''}`}
+            onClick={() => handleTabClick('stations')}
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              border: activeTab === 'stations' ? 'none' : '1px solid var(--border)', 
+              background: activeTab === 'stations' ? '#8b5cf6' : 'var(--surface)', 
+              color: activeTab === 'stations' ? 'white' : subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : 'var(--text)', 
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-md)',
+              flexShrink: 0,
+              fontWeight: 800,
+              transition: 'all 0.2s',
+              position: 'relative'
+            }}
+          >
+            <Layers size={18} />
+            <span>Estaciones</span>
+            {subscription?.plan !== 'Enterprise' && <Lock size={12} style={{ marginLeft: '2px' }} />}
           </button>
           <button 
             className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
@@ -2237,6 +2317,25 @@ const getPlanCapabilities = (planName: string) => {
                               </button>
                             ) : null;
                           })()}
+                        {apt.sessionId && (
+                          <button
+                            title="Chatear con este cliente"
+                            className="btn btn-outline"
+                            onClick={() => {
+                              setMiniChatSelected(apt.sessionId!);
+                            }}
+                            style={{
+                              color: miniChatSelected === apt.sessionId ? 'var(--primary)' : 'var(--text-muted)',
+                              borderColor: miniChatSelected === apt.sessionId ? 'var(--primary)' : 'var(--border)',
+                              background: miniChatSelected === apt.sessionId ? 'rgba(245,158,11,0.1)' : 'transparent',
+                              padding: '0', width: '32px', height: '32px',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <MessageCircle size={15} />
+                          </button>
+                        )}
                         <button 
                           className="btn btn-outline" 
                           onClick={() => removeApt(apt.id)} 
@@ -2291,6 +2390,17 @@ const getPlanCapabilities = (planName: string) => {
                                 }}
                               >
                                 <Check size={14} /> Aprobar
+                              </button>
+                              <button
+                                className="btn btn-outline"
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                                onClick={() => {
+                                  setTargetAgendaDate(pend.date);
+                                  setActiveTab('agenda');
+                                }}
+                                title="Ver en Agenda"
+                              >
+                                <Calendar size={14} />
                               </button>
                             </div>
                           </div>
@@ -2369,6 +2479,17 @@ const getPlanCapabilities = (planName: string) => {
                               >
                                 <X size={14} /> Cancelar
                               </button>
+                              <button
+                                className="btn btn-outline"
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                                onClick={() => {
+                                  setTargetAgendaDate(fut.date);
+                                  setActiveTab('agenda');
+                                }}
+                                title="Ver en Agenda"
+                              >
+                                <Calendar size={14} />
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -2380,7 +2501,16 @@ const getPlanCapabilities = (planName: string) => {
             })()}
           </div>
         ) : activeTab === 'agenda' ? (
-          <AgendaCalendarView appointments={appointments} staff={staff} onRemove={removeApt} />
+          <AgendaCalendarView 
+            appointments={appointments} 
+            staff={staff} 
+            onRemove={removeApt} 
+            initialTargetDate={targetAgendaDate}
+            onEdit={(apt) => {
+              setEditingApt(apt);
+              setShowEditModal(true);
+            }} 
+          />
         ) : activeTab === 'inventory' ? (
           <InventoryManagement />
         ) : activeTab === 'finance' ? (
@@ -2489,6 +2619,8 @@ const getPlanCapabilities = (planName: string) => {
           </div>
         ) : activeTab === 'staff' ? (
           <StaffManagement staff={staff} setStaff={setStaff} plan={subscription?.plan || 'Free'} tenantId={tenantId || ''} />
+        ) : activeTab === 'stations' ? (
+          <WorkStations tenantId={tenantId || ''} />
         ) : activeTab === 'customers' ? (
           <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
@@ -2968,6 +3100,14 @@ const getPlanCapabilities = (planName: string) => {
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Users size={20} /> Equipo</div>
+            {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
+          </button>
+          <button 
+            onClick={() => handleTabClick('stations')}
+            className={`btn ${activeTab === 'stations' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'stations' ? 'white' : 'var(--text)', background: activeTab === 'stations' ? '#8b5cf6' : undefined }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Layers size={20} /> Work Stations</div>
             {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
           </button>
           <button 
@@ -3546,7 +3686,19 @@ const getPlanCapabilities = (planName: string) => {
                   />
                 </div>
               </div>
-            </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NOTAS INTERNAS / ADELANTOS</label>
+                  <textarea 
+                    rows={3}
+                    value={editingApt.adminNotes || ''}
+                    placeholder="Ej: Dejó $10 de adelanto. Quiere corte clásico..."
+                    onChange={(e) => setEditingApt({...editingApt, adminNotes: e.target.value})}
+                    className="input"
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+              </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem' }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowEditModal(false)}>Cancelar</button>
@@ -3554,19 +3706,27 @@ const getPlanCapabilities = (planName: string) => {
                 className="btn btn-primary" 
                 style={{ flex: 1 }}
                 onClick={async () => {
-                  const { error } = await supabase.from('appointments').update({
-                    client_name: editingApt.clientName,
-                    service: editingApt.service,
-                    date: editingApt.date,
-                    time: editingApt.time
-                  }).eq('id', editingApt.id);
+                  try {
+                    const aptDate = new Date(`${editingApt.date}T${editingApt.time}:00`);
+                    const selectedServiceObj = dbServices.find(s => s.name === editingApt.service);
+                    
+                    const { error } = await supabase.from('appointments').update({
+                      client_name: editingApt.clientName,
+                      service_id: selectedServiceObj?.id,
+                      date_time: aptDate.toISOString(),
+                      admin_notes: editingApt.adminNotes
+                    }).eq('id', editingApt.id);
 
-                  if (!error) {
-                    setShowEditModal(false);
-                    setTargetAptAction(null);
-                    setEditingApt(null);
-                  } else {
-                    alert("Error al actualizar: " + error.message);
+                    if (!error) {
+                      setShowEditModal(false);
+                      setTargetAptAction(null);
+                      setEditingApt(null);
+                    } else {
+                      alert("Error al actualizar: " + error.message);
+                    }
+                  } catch (err) {
+                    console.error("Update error:", err);
+                    alert("Error al actualizar la cita.");
                   }
                 }}
               >
