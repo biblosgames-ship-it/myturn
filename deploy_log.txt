@@ -1,0 +1,48 @@
+Retrieving project…
+Deploying biblosgames-5479s-projects/myturn
+Uploading [--------------------] (0.0B/66B)
+Uploading [====================] (66.0B/66B)
+Inspect: https://vercel.com/biblosgames-5479s-projects/myturn/7LoSFK3fxidXMxxqAwDiZ4RiBoc5 [3s]
+Production: https://myturn-3y3ej7jzd-biblosgames-5479s-projects.vercel.app [3s]
+https://myturn-3y3ej7jzd-biblosgames-5479s-projects.vercel.appBuilding...
+Building...
+Building: Running build in Washington, D.C., USA (East) – iad1
+Building: Build machine configuration: 2 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Downloading 92 deployment files...
+Building: Restored build cache from previous deployment (GgSVrjRyKhDnk7bAGkqi25qMk3uP)
+Building: Running "vercel build"
+Building: Vercel CLI 50.38.2
+Building: Installing dependencies...
+Building: up to date in 860ms
+Building: 100 packages are looking for funding
+Building: run `npm fund` for details
+Building: Running "npm run build"
+Building: > myturn@0.0.0 build
+Building: > tsc && vite build
+Building: vite v5.4.21 building for production...
+Building: transforming...
+Building: ✓ 1935 modules transformed.
+Building: rendering chunks...
+Building: computing gzip size...
+Building: dist/registerSW.js                     0.13 kB
+Building: dist/manifest.webmanifest              0.51 kB
+Building: dist/index.html                        1.01 kB │ gzip:   0.51 kB
+Building: dist/assets/index-D1xlRxPu.css         5.25 kB │ gzip:   1.76 kB
+Building: dist/assets/purify.es-BgtpMKW3.js     22.77 kB │ gzip:   8.79 kB
+Building: dist/assets/index.es-z2puwPwI.js     150.69 kB │ gzip:  51.55 kB
+Building: dist/assets/index-BDZCEt5p.js      1,743.57 kB │ gzip: 481.08 kB
+Building: (!) Some chunks are larger than 500 kB after minification. Consider:
+Building: - Using dynamic import() to code-split the application
+Building: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+Building: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+Building: ✓ built in 7.20s
+Building: PWA v1.2.0
+Building: mode      generateSW
+Building: precache  7 entries (1880.05 KiB)
+Building: files generated
+Building: dist/sw.js
+Building: dist/workbox-8c29f6e4.js
+Building: Using TypeScript 5.9.3 (local user-provided)
+Error: The Edge Function "middleware" is referencing unsupported modules:
+	- __vc__ns__/0/middleware.js: next/server

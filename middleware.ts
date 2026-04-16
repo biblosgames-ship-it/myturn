@@ -1,11 +1,8 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
 // Este middleware solo servirá si despliegas en Vercel. 
 // Captura las peticiones de WhatsApp/Facebook y les da el logo correcto.
 
-export async function middleware(request: NextRequest) {
-  const url = request.nextUrl.clone();
+export async function middleware(request: Request) {
+  const url = new URL(request.url);
   const path = url.pathname.replace(/^\/|\/$/g, '');
 
   // 1. Ignorar archivos estáticos (imágenes, js, css, etc.)
@@ -16,7 +13,7 @@ export async function middleware(request: NextRequest) {
     path === 'barber' || 
     path === 'superadmin'
   ) {
-    return NextResponse.next();
+    return;
   }
 
   // 2. Si llegamos aquí, es probable que sea un slug de un negocio (ej: abner-barber-shop)
@@ -25,7 +22,7 @@ export async function middleware(request: NextRequest) {
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) return NextResponse.next();
+    if (!supabaseUrl || !supabaseKey) return;
 
     // Consultamos solo los metadatos necesarios
     const response = await fetch(
@@ -43,7 +40,7 @@ export async function middleware(request: NextRequest) {
     if (tenants && tenants.length > 0) {
       const tenant = tenants[0];
       const businessName = tenant.name;
-      const businessLogo = tenant.logo || 'https://myturn-sigma.vercel.app/logo-myturn.png';
+      const businessLogo = tenant.logo || 'https://myturn-sigma.vercel.app/logo-minurno-5.png';
       const businessSlogan = tenant.slogan || `Reserva tu turno en ${tenant.name}`;
 
       // Si es un bot de redes sociales, le entregamos un HTML modificado
@@ -70,7 +67,7 @@ export async function middleware(request: NextRequest) {
             </body>
           </html>
         `;
-        return new NextResponse(html, {
+        return new Response(html, {
           headers: { 'Content-Type': 'text/html' },
         });
       }
@@ -79,7 +76,7 @@ export async function middleware(request: NextRequest) {
     console.error('Middleware error:', e);
   }
 
-  return NextResponse.next();
+  return;
 }
 
 // Configuramos qué rutas debe vigilar el middleware

@@ -46,6 +46,9 @@ export const BookingFlow: React.FC<{
   const [lunchBreak, setLunchBreak] = useState<any>(null);
   const [requireConfirmation, setRequireConfirmation] = useState(false);
   const [stationsMap, setStationsMap] = useState<Record<string, number>>({});
+  const [enableCustomForm, setEnableCustomForm] = useState(false);
+  const [customFormConfig, setCustomFormConfig] = useState<any[]>([]);
+  const [formResponses, setFormResponses] = useState<Record<string, string>>({});
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -165,6 +168,8 @@ export const BookingFlow: React.FC<{
         if (tData.schedule) setBusinessSchedule(tData.schedule);
         if (tData.lunch_break) setLunchBreak(tData.lunch_break);
         if (tData.require_confirmation) setRequireConfirmation(tData.require_confirmation);
+        if (tData.enable_custom_form) setEnableCustomForm(tData.enable_custom_form);
+        if (tData.custom_form_config) setCustomFormConfig(tData.custom_form_config);
       }
 
       // 2. Fetch Staff
@@ -237,6 +242,17 @@ export const BookingFlow: React.FC<{
       alert("Por favor, ingresa tu nombre para reservar.");
       return;
     }
+    
+    // Check required custom fields
+    if (enableCustomForm) {
+      for (const field of customFormConfig) {
+        if (field.required && !formResponses[field.id]?.trim()) {
+          alert(`Por favor, completa el campo: ${field.label}`);
+          return;
+        }
+      }
+    }
+
     if (!selectedTime) {
       alert("Por favor, selecciona un horario válido.");
       setStep(3);
@@ -302,7 +318,8 @@ export const BookingFlow: React.FC<{
           staff_id: selectedPro?.id !== 'any' ? selectedPro?.id : null,
           client_user_id: session?.user?.id || null,
           session_id: sessionId,
-          station_id: selectedService.station_id || null
+          station_id: selectedService.station_id || null,
+          custom_form_responses: formResponses
         }).select('id').single();
 
         if (data?.id) {
@@ -668,6 +685,34 @@ export const BookingFlow: React.FC<{
                   style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '1rem' }}
                 />
               </div>
+
+              {enableCustomForm && customFormConfig.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left', marginBottom: '1.5rem' }}>
+                  {customFormConfig.map((field) => (
+                    <div key={field.id}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                        {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                      </label>
+                      {field.type === 'textarea' ? (
+                        <textarea 
+                          value={formResponses[field.id] || ''}
+                          onChange={(e) => setFormResponses({...formResponses, [field.id]: e.target.value})}
+                          placeholder="Escribe aquí..."
+                          style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '1rem', minHeight: '80px', resize: 'vertical' }}
+                        />
+                      ) : (
+                        <input 
+                          type={field.type === 'number' ? 'number' : 'text'}
+                          value={formResponses[field.id] || ''}
+                          onChange={(e) => setFormResponses({...formResponses, [field.id]: e.target.value})}
+                          placeholder={field.type === 'number' ? '0' : 'Escribe aquí...'}
+                          style={{ width: '100%', padding: '0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '1rem' }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

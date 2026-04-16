@@ -1,0 +1,59 @@
+Retrieving project…
+Deploying biblosgames-5479s-projects/myturn
+Uploading [--------------------] (0.0B/29.3KB)
+Uploading [============--------] (18.8KB/29.3KB)
+Uploading [===============-----] (22.4KB/29.3KB)
+Uploading [====================] (29.3KB/29.3KB)
+Inspect: https://vercel.com/biblosgames-5479s-projects/myturn/4SbKhg4M2kCoMHraeNwxYPjXhjAj [3s]
+Production: https://myturn-k5390u3re-biblosgames-5479s-projects.vercel.app [3s]
+https://myturn-k5390u3re-biblosgames-5479s-projects.vercel.appBuilding...
+Building...
+Building: Running build in Washington, D.C., USA (East) – iad1
+Building: Build machine configuration: 2 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Downloading 96 deployment files...
+Building: Restored build cache from previous deployment (HnzBFXLQzyihqGu7KCbxibwQ8Epa)
+Building: Running "vercel build"
+Building: Vercel CLI 50.38.2
+Building: Installing dependencies...
+Building: up to date in 998ms
+Building: 100 packages are looking for funding
+Building: run `npm fund` for details
+Building: Running "npm run build"
+Building: > myturn@0.0.0 build
+Building: > tsc && vite build
+Building: vite v5.4.21 building for production...
+Building: transforming...
+Building: ✓ 1935 modules transformed.
+Building: rendering chunks...
+Building: computing gzip size...
+Building: dist/registerSW.js                     0.13 kB
+Building: dist/manifest.webmanifest              0.51 kB
+Building: dist/index.html                        1.01 kB │ gzip:   0.51 kB
+Building: dist/assets/index-4h2o5qgp.css         5.52 kB │ gzip:   1.82 kB
+Building: dist/assets/purify.es-BgtpMKW3.js     22.77 kB │ gzip:   8.79 kB
+Building: dist/assets/index.es-CktUi32d.js     150.69 kB │ gzip:  51.55 kB
+Building: dist/assets/index-AaqE6iMs.js      1,743.65 kB │ gzip: 481.14 kB
+Building: ✓ built in 6.95s
+Building: (!) Some chunks are larger than 500 kB after minification. Consider:
+Building: - Using dynamic import() to code-split the application
+Building: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+Building: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+Building: PWA v1.2.0
+Building: mode      generateSW
+Building: precache  7 entries (1880.39 KiB)
+Building: files generated
+Building: dist/sw.js
+Building: dist/workbox-8c29f6e4.js
+Building: Using TypeScript 5.9.3 (local user-provided)
+Building: Build Completed in /vercel/output [24s]
+Building: Deploying outputs...
+Building: Deployment completed
+Building: Creating build cache...
+[2K[1A[2K[GProduction: https://myturn-k5390u3re-biblosgames-5479s-projects.vercel.app [41s]
+Completing...
+Aliased: https://myturn-sigma.vercel.app [41s]
+
+Common next commands:
+- `vercel inspect myturn-k5390u3re-biblosgames-5479s-projects.vercel.app --logs`
+- `vercel redeploy myturn-k5390u3re-biblosgames-5479s-projects.vercel.app`

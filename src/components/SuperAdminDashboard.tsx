@@ -503,7 +503,7 @@ export const SuperAdminDashboard: React.FC = () => {
             {/* Print Header (Visible only when printing) */}
             <div className="print-only" style={{ display: 'none', marginBottom: '2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                <img src="/logo-myturn.png" alt="Logo" style={{ height: '40px' }} />
+                <img src="/logo-minurno-5.png" alt="Logo" style={{ height: '40px' }} />
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'black' }}>Reporte de Cuentas Vinculadas - MyTurn SaaS</h1>
               </div>
               <p style={{ color: '#666', fontSize: '0.875rem' }}>Fecha del reporte: {new Date().toLocaleDateString()}</p>

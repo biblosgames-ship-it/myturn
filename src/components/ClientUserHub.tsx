@@ -564,7 +564,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       >
         <div style={{ color: '#fff' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.25rem', lineHeight: 1.2, color: '#fff' }}>
-            Recomienda <span style={{ color: 'var(--primary)', fontSize: '1.15rem', verticalAlign: 'middle' }}>My Turn</span> a todos tus negocios...
+            Recomienda <span style={{ color: 'var(--primary)', fontSize: '1.15rem', verticalAlign: 'middle' }}>My Turn</span> a esos negocios donde tienes que esperar...
           </h4>
           <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             y olvídate de hacer fila.

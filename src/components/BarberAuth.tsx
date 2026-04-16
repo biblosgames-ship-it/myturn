@@ -189,7 +189,7 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             justifyContent: 'center',
             margin: '0 auto 1.5rem'
           }}>
-            {mode === 'admin' ? <ShieldCheck size={56} color="var(--primary)" /> : <img src="/logo-myturn.png" alt="Logo" style={{ width: '84px', height: '84px', objectFit: 'contain' }} />}
+            {mode === 'admin' ? <ShieldCheck size={56} color="var(--primary)" /> : <img src="/logo-minurno-5.png" alt="Logo" style={{ width: '84px', height: '84px', objectFit: 'contain' }} />}
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>
             {mode === 'admin' ? 'Super Admin' : (mode === 'login' ? 'Bienvenido de nuevo' : 'Crea tu Negocio')}

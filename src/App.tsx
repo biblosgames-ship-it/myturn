@@ -253,8 +253,17 @@ function App() {
         padding: '2rem',
         textAlign: 'center'
       }}>
-        <div style={{ animation: 'logoRise 1.5s ease-out forwards' }}>
-          <img src="/logo-inicio.png" alt="My Turn" style={{ height: '120px', filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.1))' }} />
+        <div style={{ animation: 'logoEntrance 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
+          <img 
+            src="/logo-inicio-v6.png" 
+            alt="My Turn" 
+            style={{ 
+              height: '140px', 
+              filter: 'drop-shadow(0 0 20px rgba(245,158,11,0.2))',
+              animation: 'pulse 2s infinite ease-in-out',
+              display: 'block'
+            }} 
+          />
         </div>
         {showRetry && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
@@ -295,7 +304,7 @@ function App() {
     <div className="app-container">
        <header className="no-print">
         <div className="logo" onClick={() => { handleSetView('client'); setIsMenuOpen(false); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <img src="/logo-myturn.png" alt="MyTurn Logo" style={{ height: '32px', width: 'auto' }} />
+          <img src="/logo-minurno-5.png" alt="MyTurn Logo" style={{ height: '32px', width: 'auto' }} />
           <span style={{ letterSpacing: '2px', fontWeight: 900 }}>MYTURN</span>
         </div>
         

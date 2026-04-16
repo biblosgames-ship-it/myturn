@@ -9,7 +9,7 @@ import { MessagingCenter } from './MessagingCenter';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff } from 'lucide-react';
 
 
 interface Appointment {
@@ -23,6 +23,7 @@ interface Appointment {
   staffId?: string;
   sessionId?: string;
   adminNotes?: string;
+  customFormResponses?: Record<string, any>;
 }
 
 interface Subscription {
@@ -205,6 +206,18 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
                       <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}><span style={{ fontWeight: 800, color: 'var(--text)' }}>Notas:</span> {apt.adminNotes}</p>
                     </div>
                   )}
+                  {apt.customFormResponses && Object.keys(apt.customFormResponses).length > 0 && (
+                    <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--primary)' }}>
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase' }}>Detalles del Formulario:</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        {Object.entries(apt.customFormResponses).map(([key, val]) => (
+                          <div key={key} style={{ fontSize: '0.8rem', color: 'var(--text)' }}>
+                            <span style={{ fontWeight: 700, opacity: 0.7 }}>Campo:</span> {val || 'Sin respuesta'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -233,6 +246,8 @@ export const BarberDashboard: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [targetAptAction, setTargetAptAction] = useState<{ type: 'edit' | 'delete', apt: Appointment } | null>(null);
+  const [showDeleteAptModal, setShowDeleteAptModal] = useState<Appointment | null>(null);
+  const [assistantDismissed, setAssistantDismissed] = useState(() => localStorage.getItem('myturn_assistant_dismissed') === 'true');
   const [editingApt, setEditingApt] = useState<Appointment | null>(null);
   const [verifiedPin, setVerifiedPin] = useState('');
   const [extraServices, setExtraServices] = useState<any[]>([]);
@@ -265,6 +280,31 @@ export const BarberDashboard: React.FC = () => {
   const activityReportRef = React.useRef<HTMLDivElement>(null);
   const [upgradeCode, setUpgradeCode] = useState('');
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [alarmEnabled, setAlarmEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('myturn_client_alarm') !== 'false';
+  });
+  const [showAlarmFlash, setShowAlarmFlash] = useState(false);
+
+  // Sound effect for new clients
+  const [alarmSounds] = useState([
+    { id: '2869', name: 'Digital (Clásico)', url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+    { id: '1003', name: 'Largo (Efectivo)', url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
+    { id: '2568', name: 'Variado (Chime)', url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' },
+    { id: '951',  name: 'Alerta (Tono)', url: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3' }
+  ]);
+  const [selectedAlarmId, setSelectedAlarmId] = useState(() => localStorage.getItem('myturn_alarm_id') || '2869');
+  const [alarmAudio, setAlarmAudio] = useState(new Audio(alarmSounds.find(s => s.id === selectedAlarmId)?.url || alarmSounds[0].url));
+
+  useEffect(() => {
+    const selected = alarmSounds.find(s => s.id === selectedAlarmId);
+    if (selected) {
+      const newAudio = new Audio(selected.url);
+      newAudio.preload = 'auto';
+      setAlarmAudio(newAudio);
+      localStorage.setItem('myturn_alarm_id', selectedAlarmId);
+    }
+  }, [selectedAlarmId]);
 
   // Mini-chat gadget state
   const [miniChatConvos, setMiniChatConvos] = useState<any[]>([]);
@@ -392,7 +432,8 @@ export const BarberDashboard: React.FC = () => {
             arrived: d.status === 'attending' || d.status === 'arrived',
             staffId: d.staff_id || undefined,
             sessionId: d.session_id || undefined,
-            adminNotes: d.admin_notes || ''
+            adminNotes: d.admin_notes || '',
+            customFormResponses: d.custom_form_responses || {}
           };
         }));
       } else {
@@ -403,13 +444,33 @@ export const BarberDashboard: React.FC = () => {
     fetchAppointments();
 
     const channel = supabase.channel('realtime:appointments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${tenantId}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `tenant_id=eq.${tenantId}` }, (payload) => {
+         if (payload.eventType === 'INSERT') {
+           const newApt = payload.new as any;
+           // Only sound alarm for non-manual registrations (online bookings)
+           if (newApt.source !== 'walkin' && alarmEnabled) {
+             alarmAudio.currentTime = 0;
+             alarmAudio.play().catch(e => console.warn("Audio play blocked:", e));
+             
+             // System Notification (Bubble)
+             if (Notification.permission === 'granted') {
+               new Notification('🚨 ¡Nuevo Registro!', {
+                 body: `${newApt.client_name || 'Alguien'} se ha registrado para ${newApt.service_name || 'un servicio'}.`,
+                 icon: '/logo-minurno-5.png'
+               });
+             }
+
+             // Trigger visual flash
+             setShowAlarmFlash(true);
+             setTimeout(() => setShowAlarmFlash(false), 5000);
+           }
+         }
          fetchAppointments();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId]);
+  }, [tenantId, alarmEnabled, alarmAudio]);
 
   // 1. Resolve Tenant Identity (Only once on mount)
   useEffect(() => {
@@ -1449,7 +1510,19 @@ const getPlanCapabilities = (planName: string) => {
   };
 
    return (
-    <div className={`animate-fade-in ${isMobile ? 'stack-on-mobile' : ''}`} style={{ 
+     <>
+       {showAlarmFlash && (
+         <div style={{ 
+           position: 'fixed', inset: 0, 
+           background: 'rgba(245,158,11,0.08)', 
+           border: '10px solid var(--primary)', 
+           boxShadow: 'inset 0 0 100px var(--primary)',
+           zIndex: 99999, 
+           pointerEvents: 'none',
+           animation: 'pulse 0.5s infinite' 
+         }} />
+       )}
+       <div className={`animate-fade-in ${isMobile ? 'stack-on-mobile' : ''}`} style={{ 
       display: 'flex', 
       flexDirection: isMobile ? 'column' : 'row', 
       gap: isMobile ? '1rem' : '2rem', 
@@ -1525,16 +1598,17 @@ const getPlanCapabilities = (planName: string) => {
                         ${transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0).toFixed(2)}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
-                       <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.15rem' }}>ESTADO</p>
-                          <p style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>Activo</p>
-                       </div>
+                         <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                           <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.15rem' }}>ESTADO</p>
+                           <p style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--success)' }}>Activo</p>
+                        </div>
                     </div>
                   </div>
                 </div>
+              )}
 
-                {(() => {
+
+                {!isMobile && (() => {
                   const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
                   const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
                   const cancelledToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'cancelled').length;
@@ -1555,106 +1629,198 @@ const getPlanCapabilities = (planName: string) => {
                   );
                 })()}
 
-                {/* Mini-Chat Gadget */}
-                <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <MessageCircle size={15} color="var(--primary)" />
-                      Chat Rápido
-                      {unreadMessages > 0 && (
-                        <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.45rem', lineHeight: 1.4 }}>{unreadMessages}</span>
-                      )}
-                    </h3>
-                    {miniChatSelected && (
-                      <button onClick={() => { setMiniChatSelected(null); setMiniChatThread([]); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>← Volver</button>
-                    )}
-                  </div>
+                  {!isMobile && (
+                    <div 
+                      className="card" 
+                      style={{ 
+                        flex: 1, margin: 0, 
+                        background: alarmEnabled ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
+                        border: alarmEnabled ? '1px solid var(--primary)' : '1px solid var(--border)',
+                        transition: 'all 0.2s',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
+                        <div 
+                          onClick={() => {
+                            const newState = !alarmEnabled;
+                            setAlarmEnabled(newState);
+                            localStorage.setItem('myturn_client_alarm', newState.toString());
 
-                  {!miniChatSelected ? (
-                    /* Conversations list */
-                    <div style={{ overflowY: 'auto', maxHeight: '220px' }}>
-                      {miniChatConvos.length === 0 ? (
-                        <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Sin mensajes aún</p>
-                      ) : miniChatConvos.map((c, i) => (
-                        <div
-                          key={i}
-                          onClick={() => setMiniChatSelected(c.session_id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '0.6rem',
-                            padding: '0.6rem 1rem', cursor: 'pointer',
-                            borderBottom: '1px solid var(--border)',
-                            background: c.unread > 0 ? 'rgba(var(--primary-rgb, 245,158,11),0.07)' : 'transparent',
-                            transition: 'background 0.15s'
+                            if (newState && Notification.permission !== 'granted') {
+                              Notification.requestPermission();
+                            }
                           }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', flex: 1 }}
                         >
-                          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0 }}>
-                            {(c.customer_name || '?').charAt(0).toUpperCase()}
+                          <div style={{ 
+                            width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
+                            background: alarmEnabled ? 'var(--primary)' : 'var(--surface-hover)', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: alarmEnabled ? 'black' : 'var(--text-muted)'
+                          }}>
+                            {alarmEnabled ? <Bell size={18} /> : <BellOff size={18} />}
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: c.unread > 0 ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.customer_name || 'Cliente'}</p>
-                            <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {c.is_from_client ? '' : 'Tú: '}{c.content}
+                          <div>
+                            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0 }}>Alarmas Registro</h3>
+                            <p style={{ fontSize: '0.65rem', color: alarmEnabled ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700, margin: 0 }}>
+                              {alarmEnabled ? 'ESTADO: ACTIVA' : 'ESTADO: SILENCIADA'}
                             </p>
                           </div>
-                          {c.unread > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 800, padding: '0.1rem 0.4rem' }}>{c.unread}</span>}
                         </div>
-                      ))}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                        {alarmSounds.map(s => (
+                          <button
+                            key={s.id}
+                            onClick={() => setSelectedAlarmId(s.id)}
+                            style={{ 
+                              padding: '0.3rem 0.6rem', fontSize: '0.6rem', fontWeight: 800,
+                              borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                              background: selectedAlarmId === s.id ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
+                              color: selectedAlarmId === s.id ? '#000' : 'var(--text-muted)',
+                              cursor: 'pointer', flex: 1, minWidth: '70px', transition: 'all 0.2s'
+                            }}
+                          >
+                            {s.name.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          
+                          if (Notification.permission !== 'granted') {
+                            Notification.requestPermission().then(permission => {
+                              if (permission === 'granted') {
+                                new Notification('🔔 Notificaciones Activadas', {
+                                  body: 'Recibirás avisos como este cuando lleguen clientes.',
+                                  icon: '/logo-minurno-5.png'
+                                });
+                              }
+                            });
+                          } else {
+                            new Notification('🔔 Prueba de Alerta', {
+                              body: 'Así se verá cuando un cliente se registre.',
+                              icon: '/logo-minurno-5.png'
+                            });
+                          }
+
+                          alarmAudio.currentTime = 0;
+                          alarmAudio.play().catch(e => {
+                            console.warn("Audio test blocked:", e);
+                            alert("Por favor haz clic en cualquier parte de la pantalla primero para habilitar sonidos.");
+                          });
+                          setShowAlarmFlash(true);
+                          setTimeout(() => setShowAlarmFlash(false), 5000);
+                        }}
+                        className="btn btn-outline"
+                        style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.7rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', fontWeight: 800 }}
+                      >
+                        PROBAR SONIDO Y FLASH
+                      </button>
                     </div>
-                  ) : (
-                    /* Thread view */
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '260px' }}>
-                      <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                        {miniChatThread.map((msg, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: msg.is_from_client ? 'flex-start' : 'flex-end' }}>
-                            <div style={{
-                              maxWidth: '80%', padding: '0.4rem 0.7rem',
-                              borderRadius: msg.is_from_client ? '0 12px 12px 12px' : '12px 0 12px 12px',
-                              background: msg.is_from_client ? 'var(--surface-hover)' : 'var(--primary)',
-                              color: msg.is_from_client ? 'var(--text)' : '#000',
-                              fontSize: '0.72rem', lineHeight: 1.4
-                            }}>
-                              {msg.content}
+                  )}
+
+                {!isMobile && (
+                  <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <MessageCircle size={15} color="var(--primary)" />
+                        Chat Rápido
+                        {unreadMessages > 0 && (
+                          <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.45rem', lineHeight: 1.4 }}>{unreadMessages}</span>
+                        )}
+                      </h3>
+                      {miniChatSelected && (
+                        <button onClick={() => { setMiniChatSelected(null); setMiniChatThread([]); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}>← Volver</button>
+                      )}
+                    </div>
+
+                    {!miniChatSelected ? (
+                      <div style={{ overflowY: 'auto', maxHeight: '220px' }}>
+                        {miniChatConvos.length === 0 ? (
+                          <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Sin mensajes aún</p>
+                        ) : miniChatConvos.map((c, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setMiniChatSelected(c.session_id)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '0.6rem',
+                              padding: '0.6rem 1rem', cursor: 'pointer',
+                              borderBottom: '1px solid var(--border)',
+                              background: c.unread > 0 ? 'rgba(var(--primary-rgb, 245,158,11),0.07)' : 'transparent',
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0 }}>
+                              {(c.customer_name || '?').charAt(0).toUpperCase()}
                             </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: c.unread > 0 ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.customer_name || 'Cliente'}</p>
+                              <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {c.is_from_client ? '' : 'Tú: '}{c.content}
+                              </p>
+                            </div>
+                            {c.unread > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 800, padding: '0.1rem 0.4rem' }}>{c.unread}</span>}
                           </div>
                         ))}
-                        <div ref={miniChatBottomRef} />
                       </div>
-                      <div style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border)' }}>
-                        <input
-                          value={miniChatReply}
-                          onChange={e => setMiniChatReply(e.target.value)}
-                          onKeyDown={async e => {
-                            if (e.key === 'Enter' && !e.shiftKey && miniChatReply.trim() && !miniChatSending) {
-                              e.preventDefault();
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '260px' }}>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {miniChatThread.map((msg, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: msg.is_from_client ? 'flex-start' : 'flex-end' }}>
+                              <div style={{
+                                maxWidth: '80%', padding: '0.4rem 0.7rem',
+                                borderRadius: msg.is_from_client ? '0 12px 12px 12px' : '12px 0 12px 12px',
+                                background: msg.is_from_client ? 'var(--surface-hover)' : 'var(--primary)',
+                                color: msg.is_from_client ? 'var(--text)' : '#000',
+                                fontSize: '0.72rem', lineHeight: 1.4
+                              }}>
+                                {msg.content}
+                              </div>
+                            </div>
+                          ))}
+                          <div ref={miniChatBottomRef} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border)' }}>
+                          <input
+                            value={miniChatReply}
+                            onChange={e => setMiniChatReply(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter' && !e.shiftKey && miniChatReply.trim() && !miniChatSending) {
+                                e.preventDefault();
+                                setMiniChatSending(true);
+                                await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                                setMiniChatReply('');
+                                setMiniChatSending(false);
+                              }
+                            }}
+                            placeholder="Escribe y presiona Enter…"
+                            style={{ flex: 1, background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: 'var(--text)', outline: 'none' }}
+                          />
+                          <button
+                            disabled={miniChatSending || !miniChatReply.trim()}
+                            onClick={async () => {
+                              if (!miniChatReply.trim() || miniChatSending) return;
                               setMiniChatSending(true);
                               await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
                               setMiniChatReply('');
                               setMiniChatSending(false);
-                            }
-                          }}
-                          placeholder="Escribe y presiona Enter…"
-                          style={{ flex: 1, background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: 'var(--text)', outline: 'none' }}
-                        />
-                        <button
-                          disabled={miniChatSending || !miniChatReply.trim()}
-                          onClick={async () => {
-                            if (!miniChatReply.trim() || miniChatSending) return;
-                            setMiniChatSending(true);
-                            await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
-                            setMiniChatReply('');
-                            setMiniChatSending(false);
-                          }}
-                          style={{ background: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', cursor: 'pointer', color: '#000', opacity: miniChatSending ? 0.6 : 1 }}
-                        >
-                          <Send size={13} />
-                        </button>
+                            }}
+                            style={{ background: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.6rem', cursor: 'pointer', color: '#000', opacity: miniChatSending ? 0.6 : 1 }}
+                          >
+                            <Send size={13} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            )}
+                    )}
+                  </div>
+                )}
         </section>
 
         {/* Drag Handle — desktop only */}
@@ -1690,10 +1856,56 @@ const getPlanCapabilities = (planName: string) => {
         )}
 
       <main style={{ flex: 1, padding: isMobile ? '0.5rem 0' : '0 2rem 2rem 0', height: 'calc(100vh - 80px)', overflowY: 'auto', position: 'relative', minWidth: 0 }}>
+        {isMobile && !assistantDismissed && (() => {
+          const finishedToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'finished').length;
+          const totalToday = appointments.filter((a: Appointment) => a.date === selectedDate).length;
+          const cancelledToday = appointments.filter((a: Appointment) => a.date === selectedDate && a.status === 'cancelled').length;
+          const incomeToday = transactions.filter(t => t.date === selectedDate && t.type === 'ingreso').reduce((acc, t) => acc + t.amount, 0);
+          const getMessage = () => {
+            if (totalToday === 0) return "¡Día nuevo! Asegúrate de que tus clientes tengan tu enlace.";
+            if (incomeToday > 200) return "¡Vaya ritmo llevas! Tus ingresos de hoy están por encima del promedio.";
+            return "Revisa tu reporte de actividad para optimizar tus horas.";
+          };
+          return (
+            <div style={{ margin: '0 1rem 1rem 1rem', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: 'var(--radius-md)', padding: '1rem', position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              <button 
+                onClick={() => {
+                  setAssistantDismissed(true);
+                  localStorage.setItem('myturn_assistant_dismissed', 'true');
+                }}
+                style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'rgba(0,0,0,0.1)', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <X size={14} color="#000" />
+              </button>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: '#000', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>✨ Asistente MyTurn</h3>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#000', opacity: 0.9, margin: 0, paddingRight: '1.5rem' }}>"{getMessage()}"</p>
+            </div>
+          );
+        })()}
         
         {/* Open/Close + Pause buttons — above nav tabs, left-aligned */}
         {(activeTab === 'queue' || activeTab === 'agenda') && (
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem', padding: isMobile ? '0 1rem' : '0' }}>
+            <button
+              onClick={() => {
+                const newState = !alarmEnabled;
+                setAlarmEnabled(newState);
+                localStorage.setItem('myturn_client_alarm', newState.toString());
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)',
+                border: `1px solid ${alarmEnabled ? 'var(--primary)' : 'var(--border)'}`,
+                background: alarmEnabled ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+                color: alarmEnabled ? 'var(--primary)' : 'var(--text-muted)',
+                fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+              title={alarmEnabled ? "Alarma de Clientes Activada" : "Alarma de Clientes Desactivada"}
+            >
+              {alarmEnabled ? <Bell size={14} fill="currentColor" /> : <BellOff size={14} />}
+              <span className="hide-on-mobile">{alarmEnabled ? 'SONIDO ON' : 'SONIDO OFF'}</span>
+            </button>
+
             <button 
               className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
               onClick={async () => {
@@ -3015,7 +3227,7 @@ const getPlanCapabilities = (planName: string) => {
       }}>
         <div className="card">
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img src="/logo-myturn.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Mi Suscripción
+            <img src="/logo-minurno-5.png" alt="Logo" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Mi Suscripción
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
@@ -3193,6 +3405,101 @@ const getPlanCapabilities = (planName: string) => {
             </div>
           );
         })() : null}
+
+        {isMobile && (
+          <div className="card" style={{ margin: '1rem 0', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MessageCircle size={18} color="var(--primary)" />
+                Chat con Clientes
+                {unreadMessages > 0 && (
+                  <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800, padding: '0.1rem 0.5rem' }}>{unreadMessages}</span>
+                )}
+              </h3>
+              {miniChatSelected && (
+                <button onClick={() => { setMiniChatSelected(null); setMiniChatThread([]); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>← Volver</button>
+              )}
+            </div>
+
+            {!miniChatSelected ? (
+              <div style={{ overflowY: 'auto', maxHeight: '300px' }}>
+                {miniChatConvos.length === 0 ? (
+                  <p style={{ padding: '2rem 1rem', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Sin mensajes registrados</p>
+                ) : miniChatConvos.map((c, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setMiniChatSelected(c.session_id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.8rem',
+                      padding: '1rem', cursor: 'pointer',
+                      borderBottom: '1px solid var(--border)',
+                      background: c.unread > 0 ? 'rgba(var(--primary-rgb, 245,158,11),0.1)' : 'transparent'
+                    }}
+                  >
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 800, fontSize: '0.9rem', flexShrink: 0 }}>
+                      {(c.customer_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: '0 0 0.2rem 0', fontSize: '0.9rem', fontWeight: c.unread > 0 ? 800 : 700 }}>{c.customer_name || 'Cliente'}</p>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.is_from_client ? '' : 'Tú: '}{c.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', height: '350px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {miniChatThread.map((msg, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: msg.is_from_client ? 'flex-start' : 'flex-end' }}>
+                      <div style={{
+                        maxWidth: '85%', padding: '0.6rem 0.9rem',
+                        borderRadius: msg.is_from_client ? '0 16px 16px 16px' : '16px 0 16px 16px',
+                        background: msg.is_from_client ? 'var(--surface-hover)' : 'var(--primary)',
+                        color: msg.is_from_client ? 'var(--text)' : '#000',
+                        fontSize: '0.85rem', lineHeight: 1.5
+                      }}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={miniChatBottomRef} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', padding: '0.75rem', borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.1)' }}>
+                  <input
+                    value={miniChatReply}
+                    onChange={e => setMiniChatReply(e.target.value)}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && !e.shiftKey && miniChatReply.trim() && !miniChatSending) {
+                        e.preventDefault();
+                        setMiniChatSending(true);
+                        await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                        setMiniChatReply('');
+                        setMiniChatSending(false);
+                      }
+                    }}
+                    placeholder="Escribe un mensaje..."
+                    style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '0.6rem 0.8rem', fontSize: '0.9rem', color: 'var(--text)', outline: 'none' }}
+                  />
+                  <button
+                    disabled={miniChatSending || !miniChatReply.trim()}
+                    onClick={async () => {
+                      if (!miniChatReply.trim() || miniChatSending) return;
+                      setMiniChatSending(true);
+                      await supabase.from('messages').insert({ tenant_id: tenantId, session_id: miniChatSelected, content: miniChatReply.trim(), is_from_client: false, is_read: true });
+                      setMiniChatReply('');
+                      setMiniChatSending(false);
+                    }}
+                    style={{ background: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-md)', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#000', opacity: miniChatSending ? 0.6 : 1 }}
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: '0.5rem', marginBottom: '1rem' }}>
           <button 
@@ -3895,5 +4202,6 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       )}
     </div>
+    </>
   );
 };

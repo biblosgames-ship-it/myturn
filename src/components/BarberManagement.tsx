@@ -39,6 +39,13 @@ interface Service {
   station_id?: string | null;
 }
 
+interface CustomField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'textarea';
+  required: boolean;
+}
+
 interface DaySchedule {
   day: string;
   isOpen: boolean;
@@ -51,7 +58,7 @@ interface DaySchedule {
 
 
 export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) => {
-  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews'>('brand');
+  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews' | 'form'>('brand');
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(tenantId);
 
 
@@ -83,7 +90,9 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
     ratingValue: 5.0,
     reviewsCount: 1,
     category: 'Belleza',
-    requireConfirmation: false
+    requireConfirmation: false,
+    enableCustomForm: false,
+    customFormConfig: [] as CustomField[]
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [staffImageFile, setStaffImageFile] = useState<File | null>(null);
@@ -161,7 +170,9 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           ratingValue: tenant.rating_value || 5.0,
           reviewsCount: tenant.reviews_count || 1,
           category: tenant.category || 'Belleza',
-          requireConfirmation: tenant.require_confirmation ?? false
+          requireConfirmation: tenant.require_confirmation ?? false,
+          enableCustomForm: tenant.enable_custom_form ?? false,
+          customFormConfig: tenant.custom_form_config || []
         });
         if (tenant.schedule) setWeeksSchedule(tenant.schedule);
         if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
@@ -287,6 +298,8 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         reviews_count: brand.reviewsCount,
         category: brand.category,
         require_confirmation: brand.requireConfirmation,
+        enable_custom_form: brand.enableCustomForm,
+        custom_form_config: brand.customFormConfig,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
       }).eq('id', tenantId);
@@ -448,6 +461,20 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           }}
         >
           Reseñas y Feedback
+        </button>
+        <button 
+          onClick={() => setActiveTab('form')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'form' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'form' ? '2px solid var(--primary)' : 'none'
+          }}
+        >
+          Formulario de Registro
         </button>
 
 
@@ -790,6 +817,101 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                 />
               </div>
             </div>
+          </div>
+        ) : activeTab === 'form' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ padding: '1.5rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary)', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Habilitar Formulario Personalizado</h4>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    Solicita información adicional a tus clientes al momento de reservar.
+                  </p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={brand.enableCustomForm}
+                  onChange={(e) => setBrand({...brand, enableCustomForm: e.target.checked})}
+                  style={{ width: '24px', height: '24px', cursor: 'pointer' }}
+                />
+              </div>
+            </div>
+
+            {brand.enableCustomForm && (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Campos del Formulario</h3>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => {
+                      const newField: CustomField = { id: crypto.randomUUID(), label: 'Pregunta nueva', type: 'text', required: false };
+                      setBrand({...brand, customFormConfig: [...brand.customFormConfig, newField]});
+                    }}
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                  >
+                    <Plus size={16} /> Añadir Pregunta
+                  </button>
+                </div>
+
+                {brand.customFormConfig.length === 0 ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--background)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}>
+                    <p>No has añadido ninguna pregunta personalizada aún.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {brand.customFormConfig.map((field, idx) => (
+                      <div key={field.id} style={{ padding: '1.25rem', background: 'var(--background)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 140px 100px 40px', gap: '1rem', alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          value={field.label}
+                          placeholder="Título del campo (ej: ¿Tienes alguna alergia?)"
+                          onChange={(e) => {
+                            const newCfg = [...brand.customFormConfig];
+                            newCfg[idx].label = e.target.value;
+                            setBrand({...brand, customFormConfig: newCfg});
+                          }}
+                          style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)' }}
+                        />
+                        <select 
+                          value={field.type}
+                          onChange={(e) => {
+                            const newCfg = [...brand.customFormConfig];
+                            newCfg[idx].type = e.target.value as any;
+                            setBrand({...brand, customFormConfig: newCfg});
+                          }}
+                          style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)' }}
+                        >
+                          <option value="text">Texto Corto</option>
+                          <option value="textarea">Texto Largo</option>
+                          <option value="number">Número</option>
+                        </select>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={field.required}
+                            onChange={(e) => {
+                              const newCfg = [...brand.customFormConfig];
+                              newCfg[idx].required = e.target.checked;
+                              setBrand({...brand, customFormConfig: newCfg});
+                            }}
+                          />
+                          Oblig.
+                        </label>
+                        <button 
+                          onClick={() => {
+                            const newCfg = brand.customFormConfig.filter((_, i) => i !== idx);
+                            setBrand({...brand, customFormConfig: newCfg});
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : activeTab === 'services' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
