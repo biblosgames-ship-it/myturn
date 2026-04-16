@@ -163,7 +163,7 @@ export const BookingFlow: React.FC<{
       }
 
       // 1b. Fetch Schedule & Lunch Break
-      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break, require_confirmation').eq('id', tenantId).single();
+      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break, require_confirmation, enable_custom_form, custom_form_config').eq('id', tenantId).single();
       if (tData) {
         if (tData.schedule) setBusinessSchedule(tData.schedule);
         if (tData.lunch_break) setLunchBreak(tData.lunch_break);
