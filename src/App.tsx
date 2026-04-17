@@ -113,12 +113,37 @@ function App() {
 
           // If user document is missing (e.g. first Google Login), create it
           if (!userData && !fetchError) {
+            const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
+            let roleToSet = 'client';
+            let tenantToAssign = null;
+
+            if (isBarberRegistration) {
+              roleToSet = 'owner';
+              // Create a default tenant for the new barber
+              const rawName = `Barbería de ${session.user.user_metadata.full_name?.split(' ')[0] || 'Nuevo Propietario'}`;
+              const baseSlug = rawName.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+              
+              const { data: tData } = await supabase.from('tenants').insert({
+                name: rawName,
+                slug: `${baseSlug}-${Math.random().toString(36).substring(7)}`,
+                industry: 'Barbería',
+                plan_id: 'Professional',
+                expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                owner: session.user.email
+              }).select().single();
+
+              if (tData) tenantToAssign = tData.id;
+              localStorage.removeItem('myturn_pending_barber_setup');
+              localStorage.setItem('myturn_last_view', 'barber'); // Auto-switch to barber view
+            }
+
             const { data: newUser, error: insertError } = await supabase
               .from('users')
               .insert({
                 id: session.user.id,
-                role: 'client',
-                full_name: session.user.user_metadata.full_name || 'Nuevo Cliente',
+                role: roleToSet,
+                tenant_id: tenantToAssign,
+                full_name: session.user.user_metadata.full_name || 'Nuevo Usuario',
                 phone: session.user.phone || null
               })
               .select('role, tenant_id')

@@ -121,7 +121,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
   const [dbBusiness, setDbBusiness] = useState<BusinessData | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkData, setLinkData] = useState({ name: '', contact: '' });
+  const [linkData, setLinkData] = useState({ 
+    name: localStorage.getItem('myturn_client_name') || '', 
+    contact: localStorage.getItem('myturn_client_contact') || '' 
+  });
   const [hasAppointment, setHasAppointment] = useState(false);
   const [isRegisteredUser, setIsRegisteredUser] = useState(false);
   const [futureAppointments, setFutureAppointments] = useState<any[]>([]);
@@ -147,6 +150,12 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
     }
     return id;
   });
+
+  // Sync linkData to localStorage for chat persistence
+  useEffect(() => {
+    if (linkData.name) localStorage.setItem('myturn_client_name', linkData.name);
+    if (linkData.contact) localStorage.setItem('myturn_client_contact', linkData.contact);
+  }, [linkData]);
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [showMoreActions, setShowMoreActions] = useState(false);
@@ -201,7 +210,8 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
       is_from_client: true
     });
     if (error) {
-      alert('Error enviando mensaje');
+      console.error('Send message error:', error);
+      alert('Error enviando mensaje: ' + error.message);
       setChatInput(msg);
     }
   };
@@ -378,7 +388,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             title: tenant.professional_title || tenant.industry || 'Servicios Profesionales',
             awards: [],
             services: serviceList,
-            logo: tenant.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            logo: tenant.logo || '/logo-myturn.png',
             professionalPhoto: profPhoto,
             rating: tenant.rating_value || 5.0,
             reviews: tenant.reviews_count || 1,
@@ -887,8 +897,20 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 </div>
                 
                 <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--background)' }}>
+                  {(!linkData.name || linkData.name === 'Cliente') && (
+                    <div style={{ padding: '0.75rem', background: 'rgba(245,158,11,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', marginBottom: '0.5rem' }}>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, marginBottom: '0.4rem', textAlign: 'center' }}>IDENTIFICATE PARA EL BARBERO</p>
+                      <input 
+                        type="text" 
+                        placeholder="Tu nombre aquí..."
+                        value={linkData.name}
+                        onChange={(e) => setLinkData({ ...linkData, name: e.target.value })}
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  )}
                   {chatMessages.length === 0 ? (
-                    <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
+                    <div style={{ textAlign: 'center', marginTop: '1rem', color: 'var(--text-muted)' }}>
                       <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>¿Alguna duda sobre tu turno?</p>
                     </div>
                   ) : (
@@ -993,7 +1015,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
               overflow: 'hidden',
               textOverflow: 'ellipsis'
             }} title={business?.name}>
-              {business?.name}
+              {business?.name} <Sparkles size={isSmallScreen ? 16 : 20} style={{ display: 'inline', color: 'var(--primary)', marginBottom: '4px' }} />
             </h2>
             <div style={{ color: 'var(--primary)', fontSize: '0.875rem', fontWeight: 800, marginTop: '0.2rem', textTransform: 'uppercase' }}>
               {business?.professional}

@@ -115,6 +115,37 @@ export const MessagingCenter: React.FC<{ tenantId: string }> = ({ tenantId }) =>
 
     return () => { supabase.removeChannel(msgChan); };
   }, [tenantId]);
+
+  const [sessionNames, setSessionNames] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    if (!tenantId || chatMessages.length === 0) return;
+    
+    const fetchNamesFromApps = async () => {
+      const sids = Array.from(new Set(chatMessages.map(m => m.session_id).filter(Boolean)));
+      if (sids.length === 0) return;
+      
+      const { data: apps } = await supabase
+        .from('appointments')
+        .select('session_id, client_name')
+        .eq('tenant_id', tenantId)
+        .in('session_id', sids)
+        .order('created_at', { ascending: false });
+        
+      if (apps) {
+        const nameMap: Record<string, string> = {};
+        (apps as any[]).forEach(a => {
+          if (!nameMap[a.session_id]) {
+            // Remove service name suffix like " (Barba)" if present
+            nameMap[a.session_id] = (a.client_name || 'Desconocido').split(' (')[0];
+          }
+        });
+        setSessionNames(prev => ({ ...prev, ...nameMap }));
+      }
+    };
+    
+    fetchNamesFromApps();
+  }, [tenantId, chatMessages]);
   
   // Mark messages as read when a session is selected
   useEffect(() => {
@@ -288,7 +319,7 @@ export const MessagingCenter: React.FC<{ tenantId: string }> = ({ tenantId }) =>
                 const sessionMsgs = chatMessages.filter(m => m.session_id === sid);
                 const lastMsg = sessionMsgs[sessionMsgs.length - 1];
                 const unreadCount = sessionMsgs.filter(m => !m.is_read && m.is_from_client).length;
-                const customerName = sessionMsgs.find(m => m.customer_name)?.customer_name || 'Cliente Anónimo';
+                const customerName = sessionNames[sid] || sessionMsgs.find(m => m.customer_name && m.customer_name !== 'Cliente')?.customer_name || 'Cliente Nuevo';
                 
                 return (
                   <div 
@@ -331,7 +362,7 @@ export const MessagingCenter: React.FC<{ tenantId: string }> = ({ tenantId }) =>
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <User size={18} />
                 </div>
-                <span style={{ fontWeight: 800 }}>{chatMessages.find(m => m.session_id === selectedSessionId)?.customer_name || 'Conversación'}</span>
+                <span style={{ fontWeight: 800 }}>{sessionNames[selectedSessionId] || chatMessages.find(m => m.session_id === selectedSessionId && m.customer_name !== 'Cliente')?.customer_name || 'Conversación'}</span>
               </div>
               <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#070707' }}>
                 {chatMessages.filter(m => m.session_id === selectedSessionId).map(m => (

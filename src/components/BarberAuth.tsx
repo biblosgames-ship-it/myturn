@@ -17,10 +17,13 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
 
   const handleGoogleLogin = async () => {
     setLoading(true);
+    if (mode === 'register') {
+      localStorage.setItem('myturn_pending_barber_setup', 'true');
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: `${window.location.origin}/`,
       }
     });
     if (error) {
@@ -71,9 +74,19 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
     try {
       if (mode === 'admin') {
         const adminEmails = ['admin@myturn.app', 'miturno.me@gmail.com'];
-        const isAdmin = adminEmails.includes(email.toLowerCase().trim()) && password === 'admin123';
-        if (isAdmin) onSuccess();
-        else setErrorMsg('Credenciales de Super Admin inválidas.');
+        if (!adminEmails.includes(email.toLowerCase().trim())) {
+          setErrorMsg('Este correo no tiene permisos de Administrador Global.');
+          setLoading(false);
+          return;
+        }
+        
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) throw error;
+        if (data.user) onSuccess();
         setLoading(false);
         return;
       }
@@ -117,7 +130,8 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
               name: businessName || 'Mi Negocio',
               slug: slug,
               industry: 'General',
-              plan_id: 'Free',
+              plan_id: 'Professional',
+              expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               owner: email
             }).select().single();
 
@@ -128,7 +142,8 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                 name: businessName || 'Mi Negocio',
                 slug: uniqueSlug,
                 industry: 'General',
-                plan_id: 'Free',
+                plan_id: 'Professional',
+                expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 owner: email
               }).select().single();
               if (retryError) throw retryError;
@@ -304,6 +319,21 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                 <>
                   <div style={{ padding: '0.75rem', background: 'rgba(16,185,129,0.1)', color: 'var(--success)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <CheckCircle2 size={14} /> Código Valido! Ahora crea tu perfil.
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="btn btn-outline"
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'white', color: '#000', border: '1px solid #ddd', marginBottom: '0.5rem' }}
+                  >
+                    <Chrome size={20} /> Registrar con Google
+                  </button>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800 }}>O USA EMAIL</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
                   </div>
                   <div style={{ position: 'relative' }}>
                     <Building2 size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />

@@ -1,0 +1,21 @@
+Retrieving project…
+Deploying biblosgames-5479s-projects/myturn
+Inspect: https://vercel.com/biblosgames-5479s-projects/myturn/94Ym4BjPdCDv5GnoNZNHPahAZndH [3s]
+Production: https://myturn-oetqyu0bt-biblosgames-5479s-projects.vercel.app [3s]
+https://myturn-oetqyu0bt-biblosgames-5479s-projects.vercel.appBuilding...
+Building...
+Building: Running build in Washington, D.C., USA (East) – iad1
+Building: Build machine configuration: 2 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Downloading 99 deployment files...
+Building: Restored build cache from previous deployment (AE9oEhqB6Na1kbwTWE2Uq9nXTWiL)
+Building: Running "vercel build"
+Building: Vercel CLI 51.2.1
+Building: Installing dependencies...
+Building: up to date in 900ms
+Building: 100 packages are looking for funding
+Building: run `npm fund` for details
+Building: Running "npm run build"
+Building: > myturn@0.0.0 build
+Building: > tsc && vite build
+Error: Command "npm run build" exited with 2

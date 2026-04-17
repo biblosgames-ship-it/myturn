@@ -165,11 +165,12 @@ export const BookingFlow: React.FC<{
       // 1b. Fetch Schedule & Lunch Break
       const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break, require_confirmation, enable_custom_form, custom_form_config').eq('id', tenantId).single();
       if (tData) {
-        if (tData.schedule) setBusinessSchedule(tData.schedule);
-        if (tData.lunch_break) setLunchBreak(tData.lunch_break);
-        if (tData.require_confirmation) setRequireConfirmation(tData.require_confirmation);
-        if (tData.enable_custom_form) setEnableCustomForm(tData.enable_custom_form);
-        if (tData.custom_form_config) setCustomFormConfig(tData.custom_form_config);
+        const tenant = tData as any;
+        if (tenant.schedule) setBusinessSchedule(tenant.schedule);
+        if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
+        if (tenant.require_confirmation) setRequireConfirmation(tenant.require_confirmation);
+        if (tenant.enable_custom_form) setEnableCustomForm(tenant.enable_custom_form);
+        if (tenant.custom_form_config) setCustomFormConfig(tenant.custom_form_config);
       }
 
       // 2. Fetch Staff

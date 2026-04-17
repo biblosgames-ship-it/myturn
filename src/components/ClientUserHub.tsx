@@ -42,9 +42,9 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   };
 
   const shareMessage = `¡Hola! 😃
-Quería contarte sobre My Turn, es una aplicación que uso pa agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
+Quería contarte sobre My Turn, es una aplicación que uso para agendar mis citas sin necesidad de hacer fila, si la implementas en tu negocio, me ayudarías a aprovechar mejor mi tiempo. 
 
-Te dejo el link para que la pruebes: https://myturn-sigma.vercel.app/
+Te dejo el link para que la pruebes: ${window.location.origin}/
 
 Estoy seguro de que te va a encantar y te ahorrará muchísimo tiempo y llevara tu negocio a otro nivel. 
 
@@ -66,7 +66,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
   const handlePlatformShare = (platform: 'whatsapp' | 'gmail' | 'messenger' | 'instagram' | 'copy') => {
     const encodedMessage = encodeURIComponent(shareMessage);
-    const url = 'https://myturn-sigma.vercel.app/';
+    const url = window.location.origin;
 
     switch (platform) {
       case 'whatsapp':

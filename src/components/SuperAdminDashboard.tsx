@@ -26,7 +26,7 @@ interface Tenant {
   owner: string;
   industry: 'Barbería' | 'Salón' | 'Salud' | 'Taller' | 'Otro';
   status: 'active' | 'pending' | 'suspended';
-  plan: 'Free' | 'Professional' | 'Enterprise';
+  plan: 'Free' | 'Professional' | 'Multi-Professional' | 'Multi-Negocios';
   appointmentsToday: number;
   revenue: number;
   logo: string;
@@ -60,9 +60,10 @@ const GLOBAL_STATS = {
 const initialTenants: Tenant[] = [];
 
 const initialSaasPlans: SaasPlan[] = [
-  { id: 'free', name: 'Plan Free', price: '$0', priceAnnual: '$0', features: ['Hasta 50 turnos/mes', 'Soporte básico', '1 profesional', 'Estéticas básicas'], capabilities: { advancedFinance: false, multipleStaff: false, whiteLabel: false, maxAppointments: 50, maxStaff: 1 } },
-  { id: 'pro', name: 'Plan Professional', price: '$29.99', priceAnnual: '$290.00', features: ['Turnos ilimitados', 'Soporte 24/7', 'Hasta 5 profesionales', 'Inventario y Finanzas'], capabilities: { advancedFinance: true, multipleStaff: true, whiteLabel: false, maxAppointments: 300, maxStaff: 5 } },
-  { id: 'enterprise', name: 'Plan Enterprise', price: '$99.00', priceAnnual: '$990.00', features: ['Multi-sucursal', 'API de integración', 'Marca blanca', 'Analítica avanzada'], capabilities: { advancedFinance: true, multipleStaff: true, whiteLabel: true, maxAppointments: 'Unlimited', maxStaff: 'Unlimited' } },
+  { id: 'Free', name: 'Free', price: '$0', priceAnnual: '$0', features: ['Hasta 100 turnos/mes', 'Soporte básico', '1 profesional', 'Panel básico'], capabilities: { advancedFinance: false, multipleStaff: false, whiteLabel: false, maxAppointments: 100, maxStaff: 1 } },
+  { id: 'Professional', name: 'Professional', price: '$29', priceAnnual: '$290', features: ['Turnos ilimitados', 'Inventario y Finanzas', '1 profesional principal', 'Reportes básicos'], capabilities: { advancedFinance: true, multipleStaff: false, whiteLabel: false, maxAppointments: 'Unlimited', maxStaff: 1 } },
+  { id: 'Multi-Professional', name: 'Multi-Professional', price: '$79', priceAnnual: '$790', features: ['Todo lo de Professional', 'Hasta 5 profesionales', 'Estaciones de trabajo', 'WhatsApp API'], capabilities: { advancedFinance: true, multipleStaff: true, whiteLabel: false, maxAppointments: 'Unlimited', maxStaff: 5 } },
+  { id: 'Multi-Negocios', name: 'Multi-Negocios', price: '$149', priceAnnual: '$1490', features: ['Multi-sucursal', 'Panel Centralizado', 'Profesionales ilimitados', 'Account Manager'], capabilities: { advancedFinance: true, multipleStaff: true, whiteLabel: true, maxAppointments: 'Unlimited', maxStaff: 'Unlimited' } },
 ];
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -152,16 +153,13 @@ export const SuperAdminDashboard: React.FC = () => {
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
   
   // New state for SaaS Plans with LocalStorage Persistence
-  const [saasPlans, setSaasPlans] = useState<SaasPlan[]>(() => {
-    const saved = localStorage.getItem('myturn_saas_plans');
-    return saved ? JSON.parse(saved) : initialSaasPlans;
-  });
+  const [saasPlans, setSaasPlans] = useState<SaasPlan[]>(initialSaasPlans);
   const [editingPlan, setEditingPlan] = useState<SaasPlan | null>(null);
   const [manualPaymentData, setManualPaymentData] = useState({
-    amount: 29.99,
+    amount: 29.00,
     method: 'Transferencia',
     expiryDate: '',
-    plan: 'Professional' as 'Free' | 'Professional' | 'Enterprise',
+    plan: 'Professional' as 'Free' | 'Professional' | 'Multi-Professional' | 'Multi-Negocios',
     status: 'active' as 'active' | 'pending' | 'suspended',
   });
   // New state for password update in Advanced Settings
@@ -173,11 +171,18 @@ export const SuperAdminDashboard: React.FC = () => {
     const currentExpiry = new Date(tenant.expiryDate);
     const nextExpiry = new Date(currentExpiry > new Date() ? currentExpiry : new Date());
     nextExpiry.setDate(nextExpiry.getDate() + 30);
+    
+    // Calculate price based on plan name
+    let price = 0;
+    if (tenant.plan === 'Professional') price = 29;
+    else if (tenant.plan === 'Multi-Professional') price = 79;
+    else if (tenant.plan === 'Multi-Negocios') price = 149;
+
     setManualPaymentData({
-      amount: tenant.plan === 'Professional' ? 29.99 : (tenant.plan === 'Enterprise' ? 99.00 : 0),
+      amount: price,
       method: 'Transferencia',
       expiryDate: nextExpiry.toISOString().split('T')[0],
-      plan: tenant.plan,
+      plan: tenant.plan as any,
       status: tenant.status
     });
   };
@@ -564,7 +569,7 @@ export const SuperAdminDashboard: React.FC = () => {
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.plan === 'Enterprise' ? 'var(--primary)' : 'var(--text-muted)' }} />
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.plan === 'Multi-Negocios' ? 'var(--primary)' : 'var(--text-muted)' }} />
                               <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{t.plan}</span>
                             </div>
                             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -923,7 +928,8 @@ export const SuperAdminDashboard: React.FC = () => {
                   >
                     <option value="Free">Plan Free</option>
                     <option value="Professional">Plan Professional</option>
-                    <option value="Enterprise">Plan Enterprise</option>
+                    <option value="Multi-Professional">Plan Multi-Professional</option>
+                    <option value="Multi-Negocios">Plan Multi-Negocios</option>
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -1060,23 +1066,30 @@ export const SuperAdminDashboard: React.FC = () => {
                     <option value="Otro">Otro Negocio</option>
                   </select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>NUEVA CONTRASEÑA</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>CONFIRMAR CONTRASEÑA</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                  />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)' }}>
+                    <ShieldAlert size={20} />
+                    <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Seguridad y Acceso</h4>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                    Por seguridad, las contraseñas están encriptadas por Supabase. No se pueden cambiar directamente desde aquí, pero puedes enviar un enlace de recuperación al dueño.
+                  </p>
+                  <button 
+                    onClick={async () => {
+                      if (!editingTenant.owner) return alert('No hay un correo de usuario vinculado.');
+                      setLoading(true);
+                      const { error } = await supabase.auth.resetPasswordForEmail(editingTenant.owner, {
+                        redirectTo: `${window.location.origin}/reset-password`
+                      });
+                      setLoading(false);
+                      if (error) alert('Error: ' + error.message);
+                      else alert('¡Enlace de recuperación enviado con éxito a: ' + editingTenant.owner);
+                    }}
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.8rem', padding: '0.6rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                  >
+                    📩 Enviar Enlace de Recuperación
+                  </button>
                 </div>
             </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
@@ -1086,18 +1099,8 @@ export const SuperAdminDashboard: React.FC = () => {
                 setConfirmPassword('');
               }} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
               <button onClick={() => {
-                if (newPassword && newPassword !== confirmPassword) {
-                  alert('Las contraseñas no coinciden');
-                  return;
-                }
-                // Here you would normally send the new password to backend
-                handleUpdateTenant({
-                  ...editingTenant,
-                  // password field could be added if needed
-                });
-                setNewPassword('');
-                setConfirmPassword('');
-              }} className="btn btn-primary" style={{ flex: 1 }}>Guardar Cambios</button>
+                handleUpdateTenant(editingTenant);
+              }} className="btn btn-primary" style={{ flex: 1 }}>Guardar Datos Básicos</button>
             </div>
           </div>
         </div>

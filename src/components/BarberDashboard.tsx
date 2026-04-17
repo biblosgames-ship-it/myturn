@@ -9,7 +9,8 @@ import { MessagingCenter } from './MessagingCenter';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff } from 'lucide-react';
+import { PricingPlans } from './PricingPlans';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap } from 'lucide-react';
 
 
 interface Appointment {
@@ -229,7 +230,7 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
 };
 
 export const BarberDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'stations' | 'profile' | 'customers' | 'messages'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'stations' | 'profile' | 'customers' | 'messages' | 'pricing'>('queue');
   const [targetAgendaDate, setTargetAgendaDate] = useState<string | null>(null);
 
   const todaysDateObj = new Date();
@@ -274,6 +275,7 @@ export const BarberDashboard: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean | null>(null);
   const [closingTime, setClosingTime] = useState('20:00');
   const [weeksSchedule, setWeeksSchedule] = useState<{day: string, isOpen: boolean, hours: string}[]>([]);
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [lastAutoCloseDate, setLastAutoCloseDate] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -906,17 +908,22 @@ export const BarberDashboard: React.FC = () => {
   const handleTabClick = (tabId: string) => {
     if (subscription?.status === 'suspended') return;
     
+    if (tabId === 'pricing') {
+      setShowPricingModal(true);
+      return;
+    }
+
     if (tabId === 'finance' && subscription?.plan === 'Free') {
       setShowUpgradeModal(true);
       return;
     }
     
-    if (tabId === 'staff' && subscription?.plan !== 'Enterprise') {
+    if (tabId === 'staff' && !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '')) {
       setShowUpgradeModal(true);
       return;
     }
 
-    if (tabId === 'stations' && subscription?.plan !== 'Enterprise') {
+    if (tabId === 'stations' && !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '')) {
       setShowUpgradeModal(true);
       return;
     }
@@ -2125,7 +2132,7 @@ const getPlanCapabilities = (planName: string) => {
               gap: '0.5rem', 
               border: activeTab === 'stations' ? 'none' : '1px solid var(--border)', 
               background: activeTab === 'stations' ? '#8b5cf6' : 'var(--surface)', 
-              color: activeTab === 'stations' ? 'white' : subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : 'var(--text)', 
+              color: activeTab === 'stations' ? 'white' : !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') ? 'var(--text-muted)' : 'var(--text)', 
               cursor: 'pointer',
               borderRadius: 'var(--radius-md)',
               flexShrink: 0,
@@ -2136,7 +2143,7 @@ const getPlanCapabilities = (planName: string) => {
           >
             <Layers size={18} />
             <span>Estaciones</span>
-            {subscription?.plan !== 'Enterprise' && <Lock size={12} style={{ marginLeft: '2px' }} />}
+            {!['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') && <Lock size={12} style={{ marginLeft: '2px' }} />}
           </button>
           <button 
             className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`}
@@ -3247,6 +3254,14 @@ const getPlanCapabilities = (planName: string) => {
             <button className="btn btn-primary" onClick={() => setShowShareModal(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
               <Share2 size={18} /> Compartir mi negocio
             </button>
+
+            <button 
+              className="btn btn-outline" 
+              onClick={() => handleTabClick('pricing')} 
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.75rem', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 800 }}
+            >
+              <CreditCard size={18} /> Ver Planes y Precios
+            </button>
           </div>
         </div>
 
@@ -3309,18 +3324,18 @@ const getPlanCapabilities = (planName: string) => {
           <button 
             onClick={() => handleTabClick('staff')}
             className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Users size={20} /> Equipo</div>
-            {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
+            {!['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') && <Lock size={16} />}
           </button>
           <button 
             onClick={() => handleTabClick('stations')}
             className={`btn ${activeTab === 'stations' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: subscription?.plan !== 'Enterprise' ? 'var(--text-muted)' : activeTab === 'stations' ? 'white' : 'var(--text)', background: activeTab === 'stations' ? '#8b5cf6' : undefined }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') ? 'var(--text-muted)' : activeTab === 'stations' ? 'white' : 'var(--text)', background: activeTab === 'stations' ? '#8b5cf6' : undefined }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Layers size={20} /> Work Stations</div>
-            {subscription?.plan !== 'Enterprise' && <Lock size={16} />}
+            {!['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') && <Lock size={16} />}
           </button>
           <button 
             onClick={() => setActiveTab('profile')}
@@ -3761,27 +3776,57 @@ const getPlanCapabilities = (planName: string) => {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className="btn btn-outline" 
-                onClick={() => setShowUpgradeModal(false)} 
-                style={{ flex: 1, padding: '0.8rem' }}
-              >
-                Cerrar
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <button 
                 className="btn btn-primary" 
                 onClick={handleUpgradeWithCode}
-                disabled={isUpgrading}
-                style={{ flex: 2, padding: '0.8rem', fontWeight: 800 }}
+                disabled={isUpgrading || !upgradeCode.trim()}
+                style={{ width: '100%', padding: '1rem', fontWeight: 900 }}
               >
-                {isUpgrading ? 'Validando...' : 'Activar Plan Premium'}
+                {isUpgrading ? 'Validando...' : 'ACTIVAR CÓDIGO'}
+              </button>
+              
+              <button 
+                className="btn btn-outline" 
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  setActiveTab('pricing');
+                }}
+                style={{ width: '100%', padding: '0.8rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+              >
+                Ver Planes y Precios
+              </button>
+
+              <button 
+                onClick={() => setShowUpgradeModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginTop: '0.5rem' }}
+              >
+                Cerrar
               </button>
             </div>
             
             <p style={{ marginTop: '1.5rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               ¿No tienes un código? Contacta a soporte para adquirir uno.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Modal */}
+      {showPricingModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(15px)', zIndex: 2000, overflowY: 'auto', padding: isMobile ? '1rem' : '4rem 2rem' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', position: 'relative' }}>
+            <button 
+              onClick={() => setShowPricingModal(false)}
+              style={{ position: 'absolute', top: isMobile ? '-0.5rem' : '0', right: isMobile ? '0' : '0', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+            >
+              <X size={24} />
+            </button>
+            <PricingPlans 
+              currentPlan={subscription?.plan || 'Free'} 
+              isMobile={isMobile}
+              onUpgrade={(p) => alert(`¡Próximamente! Estamos habilitando el portal de pagos para el plan ${p}.`)} 
+            />
           </div>
         </div>
       )}
