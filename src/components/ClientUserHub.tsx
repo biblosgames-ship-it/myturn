@@ -118,34 +118,44 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
   const syncSavedBusinesses = async (userId: string | null) => {
     const deviceId = getDeviceId();
     
-    if (userId) {
-      await supabase.from('saved_tenants').update({ user_id: userId }).eq('client_device_id', deviceId).is('user_id', null);
-    }
-
-    const query = userId 
-      ? supabase.from('saved_tenants').select('tenant_id, is_favorite').eq('user_id', userId)
-      : supabase.from('saved_tenants').select('tenant_id, is_favorite').eq('client_device_id', deviceId);
-    
-    const { data: savedIds } = await query;
-    
-    if (savedIds && savedIds.length > 0) {
-      const ids = savedIds.map(s => s.tenant_id);
-      const { data: tenants } = await supabase.from('tenants').select('*').in('id', ids);
-      if (tenants) {
-        setSavedBusinesses(tenants.map(t => ({
-          id: t.slug || t.id,
-          realId: t.id,
-          name: t.name,
-          professional: t.professional_name || 'Personal Principal',
-          title: t.professional_title || 'Servicios',
-          logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-          rating: 5.0,
-          lastVisit: 'Guardado',
-          category: t.category,
-          isFavorite: savedIds.find(s => s.tenant_id === t.id)?.is_favorite || false
-        })).sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0)));
+    try {
+      if (userId) {
+        await supabase.from('saved_tenants').update({ user_id: userId }).eq('client_device_id', deviceId).is('user_id', null);
       }
-    } else {
+
+      const query = userId 
+        ? supabase.from('saved_tenants').select('tenant_id, is_favorite').eq('user_id', userId)
+        : supabase.from('saved_tenants').select('tenant_id, is_favorite').eq('client_device_id', deviceId);
+      
+      const { data: savedIds, error } = await query;
+      
+      if (error) throw error;
+
+      if (savedIds && savedIds.length > 0) {
+        const ids = savedIds.map(s => s.tenant_id);
+        const { data: tenants, error: tError } = await supabase.from('tenants').select('*').in('id', ids);
+        if (tError) throw tError;
+
+        if (tenants) {
+          setSavedBusinesses(tenants.map(t => ({
+            id: t.slug || t.id,
+            realId: t.id,
+            name: t.name,
+            professional: t.professional_name || 'Personal Principal',
+            title: t.professional_title || 'Servicios',
+            logo: t.logo || '/logo-myturn.png',
+            rating: 5.0,
+            lastVisit: 'Guardado',
+            category: t.category,
+            isFavorite: savedIds.find(s => s.tenant_id === t.id)?.is_favorite || false
+          })).sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0)));
+        }
+      } else {
+        setSavedBusinesses([]);
+      }
+    } catch (err) {
+      console.warn('Error syncing saved businesses:', err);
+      // Fallback: don't block the UI
       setSavedBusinesses([]);
     }
   };
@@ -169,14 +179,23 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        await syncSavedBusinesses(session.user.id);
-      } else {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (session?.user) {
+          setUser(session.user);
+          await syncSavedBusinesses(session.user.id);
+        } else {
+          await syncSavedBusinesses(null);
+        }
+      } catch (err) {
+        console.warn('Auth initialization error:', err);
+        // Ensure we still try to sync anonymously
         await syncSavedBusinesses(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();
@@ -196,30 +215,37 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
   }, []);
 
   const fetchDiscoverBusinesses = async () => {
-    let query = supabase
-      .from('tenants')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    
-    if (selectedCategory !== 'Todas') {
-      query = query.eq('category', selectedCategory);
-    }
-    
-    const { data } = await query;
-    
-    if (data) {
-      setDiscoverBusinesses(data.map(t => ({
-        id: t.slug || t.id,
-        realId: t.id,
-        name: t.name,
-        professional: t.professional_name || 'Personal Principal',
-        title: t.professional_title || 'Servicios',
-        logo: t.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
-        rating: 5.0,
-        lastVisit: 'Sugerido',
-        category: t.category
-      })));
+    try {
+      let query = supabase
+        .from('tenants')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (selectedCategory !== 'Todas') {
+        query = query.eq('category', selectedCategory);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      if (data) {
+        setDiscoverBusinesses(data.map(t => ({
+          id: t.slug || t.id,
+          realId: t.id,
+          name: t.name,
+          professional: t.professional_name || 'Personal Principal',
+          title: t.professional_title || 'Servicios',
+          logo: t.logo || '/logo-myturn.png',
+          rating: 5.0,
+          lastVisit: 'Sugerido',
+          category: t.category
+        })));
+      }
+    } catch (err) {
+      console.warn('Error fetching discover businesses:', err);
+      // No businesses found? Keep it empty but don't crash
+      setDiscoverBusinesses([]);
     }
   };
 

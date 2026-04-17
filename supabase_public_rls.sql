@@ -17,3 +17,17 @@ CREATE POLICY "Public insert messages" ON public.messages FOR INSERT WITH CHECK 
 
 DROP POLICY IF EXISTS "Public read messages" ON public.messages;
 CREATE POLICY "Public read messages" ON public.messages FOR SELECT USING (true);
+
+-- 5. Permitir que los negocios guardados sean visibles por device_id o user_id
+-- Esto soluciona el problema de los negocios que "desaparecen" cuando el usuario se desloguea o se elimina.
+DROP POLICY IF EXISTS "Manage own saved tenants" ON public.saved_tenants;
+CREATE POLICY "Allow management by user_id or device_id" ON public.saved_tenants
+    FOR ALL
+    USING (
+        (auth.uid() = user_id) OR 
+        (auth.uid() IS NULL) -- Si es invitado, permitimos acceso (el frontend filtra por device_id)
+    )
+    WITH CHECK (
+        (auth.uid() = user_id) OR
+        (auth.uid() IS NULL)
+    );

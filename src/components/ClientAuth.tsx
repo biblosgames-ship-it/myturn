@@ -92,7 +92,13 @@ export const ClientAuth: React.FC<ClientAuthProps> = ({ onSuccess, onClose }) =>
         onSuccess();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error en la autenticación');
+      let msg = err.message || 'Error en la autenticación';
+      if (msg.includes('Database error')) {
+        msg = 'El servidor de base de datos está en mantenimiento. Por favor, intenta de nuevo en unos minutos.';
+      } else if (msg.includes('Invalid login credentials')) {
+        msg = 'Correo o contraseña incorrectos. Verifica tus datos o recupera tu cuenta.';
+      }
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
