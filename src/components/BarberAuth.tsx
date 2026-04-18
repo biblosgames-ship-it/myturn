@@ -23,7 +23,7 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.hostname === 'localhost' ? window.location.origin : 'https://miturno.me'
+        redirectTo: window.location.hostname === 'localhost' ? window.location.origin : 'https://miturno.me/?utm_source=pwa'
       }
     });
     if (error) {

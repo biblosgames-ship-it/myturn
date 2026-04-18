@@ -13,7 +13,7 @@ export default defineConfig({
         name: "MyTurn",
         short_name: "MyTurn",
         description: "Reserva y sigue tu turno en tiempo real",
-        start_url: "/",
+        start_url: "/?utm_source=pwa",
         scope: "/",
         display: "standalone",
         background_color: "#09090b",
