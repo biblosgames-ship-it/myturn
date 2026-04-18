@@ -160,6 +160,11 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
     }
   };
 
+  const toggleFavorite = async (realId: string, currentStatus: boolean) => {
+    const deviceId = getDeviceId();
+    const { data: { session } } = await supabase.auth.getSession();
+    const newStatus = !currentStatus;
+
     try {
       if (session?.user?.id) {
         const { error } = await supabase.from('saved_tenants').upsert({ 
