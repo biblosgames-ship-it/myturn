@@ -188,9 +188,9 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         const updated = prev.map(b => b.realId === realId ? { ...b, isFavorite: newStatus } : b);
         return [...updated].sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error toggling favorite:', err);
-      alert('Error al actualizar favoritos. Por favor intenta de nuevo.');
+      alert('Error al actualizar favoritos: ' + (err.message || 'Error desconocido'));
     }
   };
 
