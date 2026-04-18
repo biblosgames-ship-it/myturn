@@ -160,30 +160,32 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
     }
   };
 
-  const toggleFavorite = async (realId: string, currentStatus: boolean) => {
-    const deviceId = getDeviceId();
-    const { data: { session } } = await supabase.auth.getSession();
-    const newStatus = !currentStatus;
+    try {
+      if (session?.user?.id) {
+        const { error } = await supabase.from('saved_tenants').upsert({ 
+          tenant_id: realId, 
+          user_id: session.user.id, 
+          client_device_id: deviceId,
+          is_favorite: newStatus 
+        }, { onConflict: 'tenant_id,user_id' });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('saved_tenants').upsert({ 
+          tenant_id: realId, 
+          client_device_id: deviceId,
+          is_favorite: newStatus 
+        }, { onConflict: 'tenant_id,client_device_id' });
+        if (error) throw error;
+      }
 
-    if (session?.user?.id) {
-      await supabase.from('saved_tenants').upsert({ 
-        tenant_id: realId, 
-        user_id: session.user.id, 
-        client_device_id: deviceId,
-        is_favorite: newStatus 
-      }, { onConflict: 'tenant_id,user_id' });
-    } else {
-      await supabase.from('saved_tenants').upsert({ 
-        tenant_id: realId, 
-        client_device_id: deviceId,
-        is_favorite: newStatus 
-      }, { onConflict: 'tenant_id,client_device_id' });
+      setSavedBusinesses(prev => {
+        const updated = prev.map(b => b.realId === realId ? { ...b, isFavorite: newStatus } : b);
+        return [...updated].sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
+      });
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert('Error al actualizar favoritos. Por favor intenta de nuevo.');
     }
-
-    setSavedBusinesses(prev => {
-      const updated = prev.map(b => b.realId === realId ? { ...b, isFavorite: newStatus } : b);
-      return [...updated].sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
-    });
   };
 
   useEffect(() => {
@@ -282,18 +284,28 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
   });
 
   const linkBusiness = async (biz: SavedBusiness & { realId?: string }) => {
-    const deviceId = getDeviceId();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (biz.realId) {
-      await supabase.from('saved_tenants').upsert({
-        client_device_id: deviceId,
-        tenant_id: biz.realId,
-        user_id: session?.user?.id || null
-      });
+    try {
+      const deviceId = getDeviceId();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (biz.realId) {
+        const { error } = await supabase.from('saved_tenants').upsert({
+          client_device_id: deviceId,
+          tenant_id: biz.realId,
+          user_id: session?.user?.id || null
+        }, { 
+          onConflict: session?.user?.id ? 'tenant_id,user_id' : 'tenant_id,client_device_id' 
+        });
+        
+        if (error) throw error;
+      }
+      
+      setSavedBusinesses([...savedBusinesses, { ...biz, isSaved: true }]);
+      setSearchTerm('');
+    } catch (err) {
+      console.error('Error linking business:', err);
+      alert('Error al guardar el negocio. Inténtalo de nuevo.');
     }
-    setSavedBusinesses([...savedBusinesses, biz]);
-    setSearchTerm('');
   };
 
   const startScan = () => {

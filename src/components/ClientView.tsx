@@ -240,7 +240,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             tenant_id: dbBusiness.id,
             user_id: session.user.id,
             client_device_id: deviceId
-          });
+          }, { onConflict: 'tenant_id,user_id' });
           setIsLinked(true);
         } else {
           setIsLinked(false);
