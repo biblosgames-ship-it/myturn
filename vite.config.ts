@@ -10,7 +10,6 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo-myturn.png'],
       manifest: {
-        id: "/",
         name: "MyTurn",
         short_name: "MyTurn",
         description: "Reserva y sigue tu turno en tiempo real",
