@@ -165,11 +165,20 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
     const { data: { session } } = await supabase.auth.getSession();
     const newStatus = !currentStatus;
 
-    const query = session?.user?.id 
-      ? supabase.from('saved_tenants').update({ is_favorite: newStatus }).eq('tenant_id', realId).eq('user_id', session.user.id)
-      : supabase.from('saved_tenants').update({ is_favorite: newStatus }).eq('tenant_id', realId).eq('client_device_id', deviceId);
-    
-    await query;
+    if (session?.user?.id) {
+      await supabase.from('saved_tenants').upsert({ 
+        tenant_id: realId, 
+        user_id: session.user.id, 
+        client_device_id: deviceId,
+        is_favorite: newStatus 
+      }, { onConflict: 'tenant_id,user_id' });
+    } else {
+      await supabase.from('saved_tenants').upsert({ 
+        tenant_id: realId, 
+        client_device_id: deviceId,
+        is_favorite: newStatus 
+      }, { onConflict: 'tenant_id,client_device_id' });
+    }
 
     setSavedBusinesses(prev => {
       const updated = prev.map(b => b.realId === realId ? { ...b, isFavorite: newStatus } : b);
@@ -547,7 +556,12 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '50%', padding: '3px', border: '2px solid var(--primary)', background: 'var(--background)' }}>
                   <img src={biz.logo} alt={biz.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                   {!biz.isSaved && (
-                    <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'var(--primary)', color: 'black', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        linkBusiness(biz);
+                      }}
+                      style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'var(--primary)', color: 'black', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer', zIndex: 10 }}>
                       <Plus size={14} strokeWidth={3} />
                     </div>
                   )}
