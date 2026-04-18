@@ -14,6 +14,7 @@ interface SavedBusiness {
   rating: number;
   lastVisit: string;
   isAlreadySaved?: boolean;
+  isSaved?: boolean;
   isFavorite?: boolean;
   category?: string;
 }
