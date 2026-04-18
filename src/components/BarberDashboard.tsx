@@ -229,8 +229,13 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
   );
 };
 
-export const BarberDashboard: React.FC = () => {
+interface BarberDashboardProps {
+  onSwitchToAdmin?: () => void;
+}
+
+export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmin }) => {
   const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'stations' | 'profile' | 'customers' | 'messages' | 'pricing'>('queue');
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [targetAgendaDate, setTargetAgendaDate] = useState<string | null>(null);
 
   const todaysDateObj = new Date();
@@ -481,8 +486,9 @@ export const BarberDashboard: React.FC = () => {
       if (user) {
         setUserEmail(user.email || '');
         try {
-          const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+          const { data: userData } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single();
           let currentTenantId = userData?.tenant_id;
+          if (userData?.role) setUserRole(userData.role);
 
           if (!currentTenantId) {
             const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
@@ -2172,6 +2178,31 @@ const getPlanCapabilities = (planName: string) => {
               </span>
             )}
           </button>
+
+          {(userRole === 'superadmin' || userRole === 'admin') && onSwitchToAdmin && (
+            <button 
+              className="nav-item"
+              onClick={onSwitchToAdmin}
+              style={{ 
+                padding: '0.6rem 1.25rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                border: '1px solid rgba(245,158,11,0.2)', 
+                background: 'rgba(245,158,11,0.05)', 
+                color: 'var(--primary)', 
+                cursor: 'pointer',
+                borderRadius: 'var(--radius-md)',
+                flexShrink: 0,
+                fontWeight: 800,
+                transition: 'all 0.2s',
+                marginTop: '0.5rem'
+              }}
+            >
+              <Shield size={18} />
+              <span>Panel SaaS</span>
+            </button>
+          )}
         </div>
         
         {/* Subscription Grace Banner */}
@@ -3314,6 +3345,16 @@ const getPlanCapabilities = (planName: string) => {
               </span>
             )}
           </button>
+          
+          {(userRole === 'superadmin' || userRole === 'admin') && onSwitchToAdmin && (
+            <button 
+              onClick={onSwitchToAdmin}
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem', color: 'var(--primary)', borderColor: 'rgba(245,158,11,0.2)', marginTop: '0.5rem' }}
+            >
+              <Shield size={20} /> Panel SaaS
+            </button>
+          )}
           <button 
             onClick={() => handleTabClick('customers')}
             className={`btn ${activeTab === 'customers' ? 'btn-primary' : 'btn-outline'}`}

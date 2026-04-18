@@ -163,7 +163,11 @@ function App() {
             const savedView = localStorage.getItem('myturn_last_view');
             
             if (userData.role === 'superadmin' || userData.role === 'admin') {
-              handleSetView('superadmin');
+              if (savedView === 'barber' && userData.tenant_id) {
+                if (!path) handleSetView('barber');
+              } else {
+                handleSetView('superadmin');
+              }
             } else if (userData.role === 'client') {
               const savedSlug = localStorage.getItem('myturn_active_business_slug');
               // If we already have a path-based tenant, keep it. 
@@ -179,16 +183,12 @@ function App() {
               // we should probably still show them the client view or their dashboard?
               // Standard behavior: professionals go to barber dashboard.
               if (!path) {
-                if (savedView === 'superadmin' && userData.role === 'superadmin') {
-                   handleSetView('superadmin');
-                } else {
-                   handleSetView('barber');
-                }
+                handleSetView('barber');
               }
-              
-              if (userData.tenant_id && !path) {
-                setTenant({ id: userData.tenant_id, name: '' });
-              }
+            }
+
+            if (userData.tenant_id && !path) {
+              setTenant({ id: userData.tenant_id, name: '' });
             }
           }
         } else {
@@ -309,13 +309,13 @@ function App() {
   const renderView = () => {
     switch (view) {
       case 'superadmin': 
-        return <SuperAdminDashboard />;
+        return <SuperAdminDashboard onSwitchToBarber={() => handleSetView('barber')} />;
       case 'superadmin_login':
         return <BarberAuth isSuperAdmin onSuccess={() => handleSetView('superadmin')} />;
       case 'barber_login':
         return <BarberAuth onSuccess={() => handleSetView('barber')} />;
       case 'barber': 
-        return <BarberDashboard />;
+        return <BarberDashboard onSwitchToAdmin={() => handleSetView('superadmin')} />;
       case 'client': 
         return <ClientView initialSlug={tenant?.id} />;
       case 'reset_password':

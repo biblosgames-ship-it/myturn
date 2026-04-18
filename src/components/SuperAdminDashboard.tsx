@@ -66,7 +66,11 @@ const initialSaasPlans: SaasPlan[] = [
   { id: 'Multi-Negocios', name: 'Multi-Negocios', price: '$149', priceAnnual: '$1490', features: ['Multi-sucursal', 'Panel Centralizado', 'Profesionales ilimitados', 'Account Manager'], capabilities: { advancedFinance: true, multipleStaff: true, whiteLabel: true, maxAppointments: 'Unlimited', maxStaff: 'Unlimited' } },
 ];
 
-export const SuperAdminDashboard: React.FC = () => {
+interface SuperAdminDashboardProps {
+  onSwitchToBarber?: () => void;
+}
+
+export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwitchToBarber }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'tickets' | 'settings'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -74,6 +78,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [lastInviteCode, setLastInviteCode] = useState<string | null>(null);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [userTenantId, setUserTenantId] = useState<string | null>(null);
 
   const fetchSupportTickets = async () => {
     try {
@@ -118,6 +123,14 @@ export const SuperAdminDashboard: React.FC = () => {
   const fetchTenants = async () => {
     try {
       setLoading(true);
+      
+      // Fetch current user tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData } = await supabase.from('users').select('tenant_id').eq('id', user.id).single();
+        if (userData?.tenant_id) setUserTenantId(userData.tenant_id);
+      }
+
       const { data: tData, error } = await supabase.from('tenants').select('*').order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -347,6 +360,30 @@ export const SuperAdminDashboard: React.FC = () => {
               {item.label}
             </button>
           ))}
+
+          {userTenantId && onSwitchToBarber && (
+            <button
+              onClick={onSwitchToBarber}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.875rem 1rem',
+                marginTop: '1rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(59,130,246,0.1)',
+                color: '#3b82f6',
+                border: '1px solid rgba(59,130,246,0.2)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontWeight: 700,
+                transition: 'all 0.2s'
+              }}
+            >
+              <Scissors size={20} />
+              Ir a mi Negocio
+            </button>
+          )}
         </nav>
 
         <div style={{ marginTop: 'auto', padding: '1rem', background: 'var(--background)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
