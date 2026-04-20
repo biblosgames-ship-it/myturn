@@ -23,7 +23,7 @@ export const ClientAuth: React.FC<ClientAuthProps> = ({ onSuccess, onClose }) =>
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.hostname === 'localhost' ? window.location.origin : 'https://miturno.me/?utm_source=pwa'
+          redirectTo: window.location.hostname === 'localhost' ? window.location.origin : 'https://miturno.me/'
         }
       });
       if (error) throw error;
