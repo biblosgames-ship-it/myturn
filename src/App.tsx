@@ -111,13 +111,16 @@ function App() {
 
           if (fetchError) console.error('Error fetching user data:', fetchError);
 
+          const userEmail = session.user.email?.toLowerCase().trim() || '';
+          const isGlobalAdmin = ['admin@myturn.app', 'miturno.me@gmail.com'].includes(userEmail);
+
           // If user document is missing (e.g. first Google Login), create it
           if (!userData && !fetchError) {
             const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
-            let roleToSet = 'client';
+            let roleToSet = isGlobalAdmin ? 'superadmin' : 'client';
             let tenantToAssign = null;
 
-            if (isBarberRegistration) {
+            if (isBarberRegistration && !isGlobalAdmin) {
               roleToSet = 'owner';
               // Create a default tenant for the new barber
               const rawName = `Barbería de ${session.user.user_metadata.full_name?.split(' ')[0] || 'Nuevo Propietario'}`;
@@ -155,6 +158,11 @@ function App() {
           }
 
           if (userData) {
+            if (isGlobalAdmin && userData.role !== 'superadmin') {
+              userData.role = 'superadmin';
+              supabase.from('users').update({ role: 'superadmin' }).eq('id', session.user.id).then();
+            }
+
             setUser(session.user);
             setEditData({
               full_name: session.user.user_metadata.full_name || '',
@@ -162,7 +170,7 @@ function App() {
             });
             const savedView = localStorage.getItem('myturn_last_view');
             
-            if (userData.role === 'superadmin' || userData.role === 'admin') {
+            if (userData.role === 'superadmin' || userData.role === 'admin' || isGlobalAdmin) {
               if (savedView === 'barber' && userData.tenant_id) {
                 if (!path) handleSetView('barber');
               } else {

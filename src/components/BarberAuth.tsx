@@ -257,8 +257,8 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             </div>
           )}
 
-          {/* Google Login for Business (Experimental/Existing Owners) */}
-          {mode === 'login' && !isSuperAdmin && (
+          {/* Google Login for Business and SuperAdmin */}
+          {(mode === 'login' || mode === 'admin') && (
             <>
               <button 
                 type="button"
