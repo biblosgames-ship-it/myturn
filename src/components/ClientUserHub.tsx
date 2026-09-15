@@ -144,7 +144,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             name: t.name,
             professional: t.professional_name || 'Personal Principal',
             title: t.professional_title || 'Servicios',
-            logo: t.logo || '/logo-myturn.png',
+            logo: t.logo_url || t.logo || '/logo-myturn.png',
             rating: 5.0,
             lastVisit: 'Guardado',
             category: t.category,
@@ -253,7 +253,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
           name: t.name,
           professional: t.professional_name || 'Personal Principal',
           title: t.professional_title || 'Servicios',
-          logo: t.logo || '/logo-myturn.png',
+          logo: t.logo_url || t.logo || '/logo-myturn.png',
           rating: 5.0,
           lastVisit: 'Sugerido',
           category: t.category
@@ -344,7 +344,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             name: data.name,
             professional: data.professional_name || 'Personal Principal',
             title: data.professional_title || 'Servicios',
-            logo: data.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
+            logo: data.logo_url || data.logo || 'https://images.unsplash.com/photo-1593702295974-2510d9ec9a57?w=128&h=128&fit=crop',
             rating: 5.0,
             lastVisit: 'Recién Escaneado'
           };
