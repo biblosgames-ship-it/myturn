@@ -300,16 +300,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   return (
     <div className="animate-fade-in" style={{ 
       display: 'grid', 
-      gridTemplateColumns: '260px 1fr', 
-      minHeight: '100vh', 
+      gridTemplateColumns: '270px 1fr', 
+      minHeight: 'calc(100vh - 72px)', 
       background: 'var(--background)',
-      margin: '-2rem' // Compensate for parent padding
+      margin: 0
     }}>
       {/* Sidebar Navigation */}
       <aside className="no-print" style={{ 
         background: 'var(--surface)', 
         borderRight: '1px solid var(--border)', 
-        padding: '2rem 1rem',
+        padding: '2.5rem 1.25rem',
         display: 'flex',
         flexDirection: 'column',
         gap: '2rem'

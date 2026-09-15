@@ -116,10 +116,72 @@ function App() {
 
       const userEmail = session.user.email?.toLowerCase().trim() || '';
       const isGlobalAdmin = ['admin@myturn.app', 'miturno.me@gmail.com'].includes(userEmail);
+      const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
+      const savedView = localStorage.getItem('myturn_last_view');
 
-      // Instant SuperAdmin bypass - never block on database or role tables
+      // 1. Explicit Barber / Business Registration (Takes top priority)
+      if (isBarberRegistration) {
+        localStorage.removeItem('myturn_pending_barber_setup');
+        const rawName = session.user.user_metadata?.full_name 
+          ? `Barbería de ${session.user.user_metadata.full_name.split(' ')[0]}`
+          : 'Mi Negocio';
+        const baseSlug = rawName.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+        const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
+
+        let newTenantId: string | null = null;
+        try {
+          const { data: tData, error: tErr } = await supabase.from('tenants').insert({
+            name: rawName,
+            slug: uniqueSlug,
+            industry: 'General',
+            plan_id: 'Professional',
+            expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            owner: session.user.email
+          }).select().single();
+
+          if (tData) {
+            newTenantId = tData.id;
+          } else {
+            console.error("Error creating tenant:", tErr);
+            const { data: fallbackT } = await supabase.from('tenants').insert({
+              name: rawName,
+              slug: uniqueSlug,
+              plan_id: 'Professional'
+            }).select().single();
+            if (fallbackT) newTenantId = fallbackT.id;
+          }
+        } catch (err) {
+          console.error("Tenant creation error:", err);
+        }
+
+        const roleToSet = isGlobalAdmin ? 'superadmin' : 'owner';
+        try {
+          await supabase.from('users').upsert({
+            id: session.user.id,
+            role: roleToSet,
+            tenant_id: newTenantId,
+            full_name: session.user.user_metadata?.full_name || 'Propietario',
+            phone: session.user.phone || null
+          });
+        } catch (err) {
+          console.error("User upsert error:", err);
+        }
+
+        if (newTenantId) {
+          setTenant({ id: newTenantId, name: rawName });
+        }
+        handleSetView('barber');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Global Admin Normal Login (portal or direct)
       if (isGlobalAdmin) {
-        handleSetView('superadmin');
+        if (savedView === 'barber') {
+          handleSetView('barber');
+        } else {
+          handleSetView('superadmin');
+        }
         setLoading(false);
         try {
           supabase.from('users').upsert({
@@ -134,6 +196,7 @@ function App() {
         return;
       }
 
+      // 3. Regular users
       try {
         let { data: userData, error: fetchError } = await supabase
           .from('users')
@@ -143,56 +206,52 @@ function App() {
 
         if (fetchError) console.error('Error fetching user data:', fetchError);
 
-        if (!userData && !fetchError) {
-          const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
-          let roleToSet = 'client';
-          let tenantToAssign = null;
-
-          if (isBarberRegistration) {
-            roleToSet = 'owner';
-            const rawName = `Barbería de ${session.user.user_metadata.full_name?.split(' ')[0] || 'Nuevo Propietario'}`;
+        // If user document is missing and they entered from barber view, auto-provision business
+        if (!userData) {
+          if (savedView === 'barber') {
+            const rawName = `Negocio de ${session.user.user_metadata?.full_name?.split(' ')[0] || 'Propietario'}`;
             const baseSlug = rawName.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+            const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
             
+            let newTenantId = null;
             const { data: tData } = await supabase.from('tenants').insert({
               name: rawName,
-              slug: `${baseSlug}-${Math.random().toString(36).substring(7)}`,
-              industry: 'Barbería',
+              slug: uniqueSlug,
+              industry: 'General',
               plan_id: 'Professional',
-              expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               owner: session.user.email
             }).select().single();
+            if (tData) newTenantId = tData.id;
 
-            if (tData) tenantToAssign = tData.id;
-            localStorage.removeItem('myturn_pending_barber_setup');
-            localStorage.setItem('myturn_last_view', 'barber');
-          }
-
-          const { data: newUser, error: insertError } = await supabase
-            .from('users')
-            .insert({
+            const { data: newUser } = await supabase.from('users').upsert({
               id: session.user.id,
-              role: roleToSet,
-              tenant_id: tenantToAssign,
-              full_name: session.user.user_metadata.full_name || 'Nuevo Usuario',
+              role: 'owner',
+              tenant_id: newTenantId,
+              full_name: session.user.user_metadata?.full_name || 'Propietario',
               phone: session.user.phone || null
-            })
-            .select('role, tenant_id')
-            .maybeSingle();
-          
-          if (!insertError) {
+            }).select().single();
+            userData = newUser;
+          } else {
+            const { data: newUser } = await supabase.from('users').upsert({
+              id: session.user.id,
+              role: 'client',
+              tenant_id: null,
+              full_name: session.user.user_metadata?.full_name || 'Cliente',
+              phone: session.user.phone || null
+            }).select().single();
             userData = newUser;
           }
         }
 
         if (userData) {
-          const savedView = localStorage.getItem('myturn_last_view');
-          
           if (userData.role === 'superadmin' || userData.role === 'admin') {
             if (savedView === 'barber' && userData.tenant_id) {
               if (!path) handleSetView('barber');
             } else {
               handleSetView('superadmin');
             }
+          } else if (userData.role === 'owner' || userData.role === 'barber' || savedView === 'barber') {
+            if (!path) handleSetView('barber');
           } else if (userData.role === 'client') {
             const savedSlug = localStorage.getItem('myturn_active_business_slug');
             if (!path && savedView === 'client' && savedSlug) {
@@ -202,17 +261,26 @@ function App() {
               handleSetView('landing');
             }
           } else {
-            if (!path) {
-              handleSetView('barber');
-            }
+            if (!path) handleSetView('barber');
           }
 
           if (userData.tenant_id && !path) {
             setTenant({ id: userData.tenant_id, name: '' });
           }
+        } else {
+          if (savedView === 'barber') {
+            handleSetView('barber');
+          } else {
+            handleSetView('landing');
+          }
         }
       } catch (err) {
         console.error('Routing processing error:', err);
+        if (savedView === 'barber') {
+          handleSetView('barber');
+        } else {
+          handleSetView('landing');
+        }
       } finally {
         setLoading(false);
       }

@@ -19,9 +19,11 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
     setLoading(true);
     if (mode === 'register') {
       localStorage.setItem('myturn_pending_barber_setup', 'true');
-    }
-    if (mode === 'admin' || isSuperAdmin) {
+      localStorage.setItem('myturn_last_view', 'barber');
+    } else if (mode === 'admin' || isSuperAdmin) {
       localStorage.setItem('myturn_last_view', 'superadmin');
+    } else {
+      localStorage.setItem('myturn_last_view', 'barber');
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -158,10 +160,10 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
 
           // 3. Link the User to the Tenant
           if (tenantId) {
-            const { error: userError } = await supabase.from('users').insert({
+            const { error: userError } = await supabase.from('users').upsert({
               id: authData.user.id,
               tenant_id: tenantId,
-              full_name: 'Propietario',
+              full_name: businessName || 'Propietario',
               role: 'owner'
             });
             if (userError) throw userError;
