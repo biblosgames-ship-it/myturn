@@ -388,7 +388,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             title: tenant.professional_title || tenant.industry || 'Servicios Profesionales',
             awards: [],
             services: serviceList,
-            logo: tenant.logo || '/logo-myturn.png',
+            logo: tenant.logo || tenant.logo_url || '/logo-myturn.png',
             professionalPhoto: profPhoto,
             rating: tenant.rating_value || 5.0,
             reviews: tenant.reviews_count || 1,
@@ -416,7 +416,7 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             el.setAttribute('content', content);
           };
 
-          const businessLogo = tenant.logo || '';
+          const businessLogo = tenant.logo || tenant.logo_url || '';
           const businessSlogan = tenant.slogan || `Reserva tu turno en ${tenant.name}`;
           
           document.title = `${tenant.name} | MyTurn`;

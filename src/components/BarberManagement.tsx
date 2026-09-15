@@ -159,7 +159,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           name: tenant.name || '',
           professionalName: tenant.professional_name || '',
           professionalTitle: tenant.professional_title || '',
-          logo: tenant.logo || '',
+          logo: tenant.logo || tenant.logo_url || '',
           color: tenant.color || '#f59e0b',
           slogan: tenant.slogan || '',
           showReviews: tenant.show_reviews ?? true,
@@ -282,11 +282,10 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
       }
 
       // 2. Update Tenant Branding & Settings
-      const { error: tenantError } = await supabase.from('tenants').update({ 
+      const basePayload: any = { 
         name: brand.name,
         professional_name: brand.professionalName,
         professional_title: brand.professionalTitle,
-        logo: finalLogoUrl,
         slogan: brand.slogan,
         color: brand.color,
         show_reviews: brand.showReviews,
@@ -302,7 +301,27 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         custom_form_config: brand.customFormConfig,
         schedule: weeksSchedule,
         lunch_break: lunchBreak
+      };
+
+      // Try logo_url first (official Supabase schema default)
+      let tenantError: any = null;
+      const resLogoUrl = await supabase.from('tenants').update({ 
+        ...basePayload,
+        logo_url: finalLogoUrl 
       }).eq('id', tenantId);
+
+      if (resLogoUrl.error) {
+        // Fallback: try 'logo' column if logo_url does not exist
+        if (resLogoUrl.error.message.includes('logo_url')) {
+          const resLogo = await supabase.from('tenants').update({ 
+            ...basePayload,
+            logo: finalLogoUrl 
+          }).eq('id', tenantId);
+          tenantError = resLogo.error;
+        } else {
+          tenantError = resLogoUrl.error;
+        }
+      }
 
       if (tenantError) {
         console.error("Error updating tenant:", tenantError);

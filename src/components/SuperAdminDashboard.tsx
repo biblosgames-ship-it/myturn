@@ -145,7 +145,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           plan: (t.plan_id as any) || 'Free',
           appointmentsToday: 0,
           revenue: 0,
-          logo: t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
+          logo: t.logo || t.logo_url || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
           expiryDate: t.expiry_date || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         })));
       }
@@ -242,12 +242,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
 
   const handleUpdateTenant = async (updatedTenant: Tenant) => {
     try {
-      const { error } = await supabase.from('tenants').update({
+      const basePayload = {
         name: updatedTenant.name,
         owner: updatedTenant.owner,
-        industry: updatedTenant.industry,
-        logo: updatedTenant.logo
+        industry: updatedTenant.industry
+      };
+
+      let { error } = await supabase.from('tenants').update({
+        ...basePayload,
+        logo_url: updatedTenant.logo
       }).eq('id', updatedTenant.id);
+
+      if (error && error.message.includes('logo_url')) {
+        const res = await supabase.from('tenants').update({
+          ...basePayload,
+          logo: updatedTenant.logo
+        }).eq('id', updatedTenant.id);
+        error = res.error;
+      }
 
       if (error) throw error;
 

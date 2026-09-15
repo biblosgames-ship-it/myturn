@@ -654,7 +654,7 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
           if (tenant.schedule) setWeeksSchedule(tenant.schedule);
           setLastAutoCloseDate(tenant.last_auto_close_date || null);
           setBusinessName(tenant.name);
-          setLogoUrl(tenant.logo || '');
+          setLogoUrl(tenant.logo || tenant.logo_url || '');
           if (tenant.color) {
             document.documentElement.style.setProperty('--primary', tenant.color);
           }
@@ -699,7 +699,7 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
             if (updated.schedule) setWeeksSchedule(updated.schedule);
             if (updated.last_auto_close_date !== undefined) setLastAutoCloseDate(updated.last_auto_close_date);
             if (updated.name) setBusinessName(updated.name);
-            if (updated.logo !== undefined) setLogoUrl(updated.logo || '');
+            if (updated.logo !== undefined || updated.logo_url !== undefined) setLogoUrl(updated.logo || updated.logo_url || '');
             if (updated.color) document.documentElement.style.setProperty('--primary', updated.color);
             if (updated.plan_id || updated.status || updated.expiry_date) {
               setSubscription(prev => prev ? ({
