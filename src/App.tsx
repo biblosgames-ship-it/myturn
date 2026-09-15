@@ -63,6 +63,15 @@ function App() {
     }
   };
 
+  const handleSetView = (newView: AppView) => {
+    setView(newView);
+    if (newView === 'barber' || newView === 'superadmin' || newView === 'client') {
+      localStorage.setItem('myturn_last_view', newView);
+    }
+  };
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   // 1. Initial State from LocalStorage (Immediate UI fallback)
   useEffect(() => {
     const savedView = localStorage.getItem('myturn_last_view');
@@ -73,179 +82,171 @@ function App() {
 
   // 2. Real Auth Check & Routing
   useEffect(() => {
-    const initApp = async () => {
-      const timeoutId = setTimeout(() => {
+    const path = window.location.pathname.replace(/^\/|\/$/g, '');
+    if (path === 'reset-password') {
+      setView('reset_password');
+      setLoading(false);
+      return;
+    }
+
+    if (path && path !== '') {
+      setTenant({ id: path, name: '' });
+      setView('client');
+    }
+
+    const routeSession = async (session: any) => {
+      if (!session?.user) {
+        const params = new URLSearchParams(window.location.search);
+        const barberId = params.get('barber');
+        if (barberId) {
+          setTenant({ id: barberId, name: '' });
+          setView('client');
+        } else if (!path && localStorage.getItem('myturn_last_view') === 'landing') {
+          setView('landing');
+        }
         setLoading(false);
-        console.warn('App initialization timed out, forcing load.');
-      }, 8000); // 8 second safety timeout
+        return;
+      }
+
+      setUser(session.user);
+      setEditData({
+        full_name: session.user.user_metadata?.full_name || '',
+        phone: session.user.phone || ''
+      });
+
+      const userEmail = session.user.email?.toLowerCase().trim() || '';
+      const isGlobalAdmin = ['admin@myturn.app', 'miturno.me@gmail.com'].includes(userEmail);
+
+      // Instant SuperAdmin bypass - never block on database or role tables
+      if (isGlobalAdmin) {
+        handleSetView('superadmin');
+        setLoading(false);
+        try {
+          supabase.from('users').upsert({
+            id: session.user.id,
+            role: 'superadmin',
+            full_name: session.user.user_metadata?.full_name || 'Super Admin',
+            phone: session.user.phone || null
+          }).then();
+        } catch (e) {
+          console.error("Async upsert error:", e);
+        }
+        return;
+      }
 
       try {
-        setLoading(true);
-        
-        // 1. Check for tenant slug in URL (Priority 1 - Immediate Routing)
-        const path = window.location.pathname.replace(/^\/|\/$/g, '');
-        if (path === 'reset-password') {
-          setView('reset_password');
-          setLoading(false);
-          clearTimeout(timeoutId);
-          return;
-        }
+        let { data: userData, error: fetchError } = await supabase
+          .from('users')
+          .select('role, tenant_id')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-        if (path && path !== '') {
-          setTenant({ id: path, name: '' });
-          setView('client');
-          // We don't return here because we still want to check auth in background
-        }
+        if (fetchError) console.error('Error fetching user data:', fetchError);
 
-        // 2. Real Auth Check
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        if (!userData && !fetchError) {
+          const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
+          let roleToSet = 'client';
+          let tenantToAssign = null;
 
-        if (session?.user) {
-          // Query user role and tenant
-          let { data: userData, error: fetchError } = await supabase
+          if (isBarberRegistration) {
+            roleToSet = 'owner';
+            const rawName = `Barbería de ${session.user.user_metadata.full_name?.split(' ')[0] || 'Nuevo Propietario'}`;
+            const baseSlug = rawName.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+            
+            const { data: tData } = await supabase.from('tenants').insert({
+              name: rawName,
+              slug: `${baseSlug}-${Math.random().toString(36).substring(7)}`,
+              industry: 'Barbería',
+              plan_id: 'Professional',
+              expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              owner: session.user.email
+            }).select().single();
+
+            if (tData) tenantToAssign = tData.id;
+            localStorage.removeItem('myturn_pending_barber_setup');
+            localStorage.setItem('myturn_last_view', 'barber');
+          }
+
+          const { data: newUser, error: insertError } = await supabase
             .from('users')
+            .insert({
+              id: session.user.id,
+              role: roleToSet,
+              tenant_id: tenantToAssign,
+              full_name: session.user.user_metadata.full_name || 'Nuevo Usuario',
+              phone: session.user.phone || null
+            })
             .select('role, tenant_id')
-            .eq('id', session.user.id)
             .maybeSingle();
-
-          if (fetchError) console.error('Error fetching user data:', fetchError);
-
-          const userEmail = session.user.email?.toLowerCase().trim() || '';
-          const isGlobalAdmin = ['admin@myturn.app', 'miturno.me@gmail.com'].includes(userEmail);
-
-          // If user document is missing (e.g. first Google Login), create it
-          if (!userData && !fetchError) {
-            const isBarberRegistration = localStorage.getItem('myturn_pending_barber_setup') === 'true';
-            let roleToSet = isGlobalAdmin ? 'superadmin' : 'client';
-            let tenantToAssign = null;
-
-            if (isBarberRegistration && !isGlobalAdmin) {
-              roleToSet = 'owner';
-              // Create a default tenant for the new barber
-              const rawName = `Barbería de ${session.user.user_metadata.full_name?.split(' ')[0] || 'Nuevo Propietario'}`;
-              const baseSlug = rawName.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
-              
-              const { data: tData } = await supabase.from('tenants').insert({
-                name: rawName,
-                slug: `${baseSlug}-${Math.random().toString(36).substring(7)}`,
-                industry: 'Barbería',
-                plan_id: 'Professional',
-                expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                owner: session.user.email
-              }).select().single();
-
-              if (tData) tenantToAssign = tData.id;
-              localStorage.removeItem('myturn_pending_barber_setup');
-              localStorage.setItem('myturn_last_view', 'barber'); // Auto-switch to barber view
-            }
-
-            const { data: newUser, error: insertError } = await supabase
-              .from('users')
-              .insert({
-                id: session.user.id,
-                role: roleToSet,
-                tenant_id: tenantToAssign,
-                full_name: session.user.user_metadata.full_name || 'Nuevo Usuario',
-                phone: session.user.phone || null
-              })
-              .select('role, tenant_id')
-              .maybeSingle();
-            
-            if (!insertError) {
-              userData = newUser;
-            }
-          }
-
-          if (userData) {
-            if (isGlobalAdmin && userData.role !== 'superadmin') {
-              userData.role = 'superadmin';
-              supabase.from('users').update({ role: 'superadmin' }).eq('id', session.user.id).then();
-            }
-
-            setUser(session.user);
-            setEditData({
-              full_name: session.user.user_metadata.full_name || '',
-              phone: session.user.phone || ''
-            });
-            const savedView = localStorage.getItem('myturn_last_view');
-            
-            if (userData.role === 'superadmin' || userData.role === 'admin' || isGlobalAdmin) {
-              if (savedView === 'barber' && userData.tenant_id) {
-                if (!path) handleSetView('barber');
-              } else {
-                handleSetView('superadmin');
-              }
-            } else if (userData.role === 'client') {
-              const savedSlug = localStorage.getItem('myturn_active_business_slug');
-              // If we already have a path-based tenant, keep it. 
-              // Otherwise fallback to saved slug if they were in client view.
-              if (!path && savedView === 'client' && savedSlug) {
-                setTenant({ id: savedSlug, name: '' });
-                handleSetView('client');
-              } else if (!path) {
-                handleSetView('landing');
-              }
-            } else {
-              // Priority: If they are a professional but came via a client link, 
-              // we should probably still show them the client view or their dashboard?
-              // Standard behavior: professionals go to barber dashboard.
-              if (!path) {
-                handleSetView('barber');
-              }
-            }
-
-            if (userData.tenant_id && !path) {
-              setTenant({ id: userData.tenant_id, name: '' });
-            }
-          }
-        } else {
-          // No session, check query params
-          const params = new URLSearchParams(window.location.search);
-          const barberId = params.get('barber');
-          if (barberId) {
-            setTenant({ id: barberId, name: '' });
-            setView('client');
-          } else if (!path && localStorage.getItem('myturn_last_view') === 'landing') {
-             setView('landing');
+          
+          if (!insertError) {
+            userData = newUser;
           }
         }
-      } catch (error) {
-        console.error('Failed to initialize app:', error);
+
+        if (userData) {
+          const savedView = localStorage.getItem('myturn_last_view');
+          
+          if (userData.role === 'superadmin' || userData.role === 'admin') {
+            if (savedView === 'barber' && userData.tenant_id) {
+              if (!path) handleSetView('barber');
+            } else {
+              handleSetView('superadmin');
+            }
+          } else if (userData.role === 'client') {
+            const savedSlug = localStorage.getItem('myturn_active_business_slug');
+            if (!path && savedView === 'client' && savedSlug) {
+              setTenant({ id: savedSlug, name: '' });
+              handleSetView('client');
+            } else if (!path) {
+              handleSetView('landing');
+            }
+          } else {
+            if (!path) {
+              handleSetView('barber');
+            }
+          }
+
+          if (userData.tenant_id && !path) {
+            setTenant({ id: userData.tenant_id, name: '' });
+          }
+        }
+      } catch (err) {
+        console.error('Routing processing error:', err);
       } finally {
         setLoading(false);
-        clearTimeout(timeoutId);
       }
     };
 
-    initApp();
+    // 1. Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      routeSession(session);
+    }).catch((err) => {
+      console.error('Session get error:', err);
+      setLoading(false);
+    });
 
-    // Listen for auth changes
+    // 2. Auth listener for real-time changes and OAuth redirects
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
-      setUser(session?.user || null);
       if (session?.user) {
-        setEditData({
-          full_name: session.user.user_metadata.full_name || '',
-          phone: session.user.phone || ''
-        });
-      }
-      if (!session) {
+        routeSession(session);
+      } else {
+        setUser(null);
         setView('landing');
         localStorage.removeItem('myturn_last_view');
+        setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const handleSetView = (newView: AppView) => {
-    setView(newView);
-    if (newView === 'barber' || newView === 'superadmin' || newView === 'client') {
-      localStorage.setItem('myturn_last_view', newView);
-    }
-  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;

@@ -20,6 +20,9 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
     if (mode === 'register') {
       localStorage.setItem('myturn_pending_barber_setup', 'true');
     }
+    if (mode === 'admin' || isSuperAdmin) {
+      localStorage.setItem('myturn_last_view', 'superadmin');
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
