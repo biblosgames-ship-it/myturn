@@ -503,14 +503,41 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
       if (appts) {
         const now = new Date();
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
         const cutoff = new Date();
         cutoff.setDate(now.getDate() + 7);
         cutoff.setHours(23, 59, 59, 999);
 
-        // "La Cola" only shows up to 1 week
-        const currentQueue = appts.filter(a => new Date(a.date_time) <= cutoff);
+        // "La Cola" only shows up to 1 week and strictly from today onwards (excludes stale appointments from previous days)
+        const currentQueue = appts.filter(a => {
+          const aptDate = new Date(a.date_time);
+          return aptDate >= startOfToday && aptDate <= cutoff;
+        });
 
         const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
+
+        // Check if user's saved appointment has finished or been cancelled
+        if (myId) {
+          const isStillInQueue = currentQueue.some(q => q.id === myId);
+          if (!isStillInQueue) {
+            const { data: myAptData } = await supabase
+              .from('appointments')
+              .select('id, status')
+              .eq('id', myId)
+              .maybeSingle();
+
+            if (!myAptData || myAptData.status === 'finished' || myAptData.status === 'cancelled') {
+              localStorage.removeItem(`myturn_active_appointment_id_${dbBusiness.id}`);
+              setHasAppointment(false);
+              if (myAptData?.status === 'finished') {
+                setShowReviewModal(true);
+              }
+            }
+          }
+        }
+
         setQueueItems(currentQueue.map((d, index) => {
           const isAttending = d.status === 'attending';
           const isArrived = d.arrived;
@@ -605,9 +632,11 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
 
   const queueInfo = getMyQueueInfo();
   
-  // Logic for stalling: If the first item in queue is overdue and NOT being attended
-  const firstItem = queueItems[0];
-  const isQueueStalled = !!(firstItem && !firstItem.active && new Date().getTime() > new Date(firstItem.date_time).getTime());
+  // Logic for stalling: If the user's appointment (or first item in queue if user is first) is overdue and NOT being attended
+  const myId = typeof window !== 'undefined' && dbBusiness?.id ? localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`) : null;
+  const myActiveItem = queueItems.find(q => q.id === myId);
+  const targetItemForStall = myActiveItem || queueItems[0];
+  const isQueueStalled = !!(targetItemForStall && !targetItemForStall.active && new Date().getTime() > new Date(targetItemForStall.date_time).getTime());
 
   const handleSaveToHub = async () => {
     if (!dbBusiness || !linkData.name) return;
@@ -1097,6 +1126,9 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
                 const apt = queueItems.find(q => q.id === myId);
                 const localToday = getLocalDateStr();
                 const isToday = apt?.date_time ? getLocalDateStr(new Date(apt.date_time)) === localToday : false;
+                if (apt?.active) {
+                  return '✂️ ¡Tu turno está en proceso de atención en este momento!';
+                }
                 if (isToday) {
                   return `¡Tienes un turno activo para hoy a las ${apt?.time || '...'}!`;
                 } else if (apt?.date_time) {
@@ -1109,27 +1141,53 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           </div>
           <div style={{ textAlign: 'center', padding: '0 1rem', marginTop: '0.5rem', marginBottom: '-0.5rem' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: '1.4', margin: 0 }}>
-              <span style={{ color: 'var(--primary)' }}>⚠️ Nota:</span> El tiempo estimado está sujeto a cambio, activa las alertas y llega antes a tu cita.
+              <span style={{ color: 'var(--primary)' }}>⚠️ Nota:</span> El reloj se sincroniza en tiempo real con tu turno agendado. Llega unos minutos antes a tu cita.
             </p>
           </div>
           <SmartTimer 
+            targetDateTime={(() => {
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
+              const apt = queueItems.find(q => q.id === myId);
+              return apt?.date_time || null;
+            })()}
+            startedAt={(() => {
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
+              const apt = queueItems.find(q => q.id === myId);
+              return apt?.started_at || null;
+            })()}
+            serviceDuration={(() => {
+              const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
+              const apt = queueItems.find(q => q.id === myId);
+              return apt?.duration || 30;
+            })()}
             remainingMinutes={(() => {
               const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const apt = queueItems.find(q => q.id === myId);
               const myIdx = queueItems.findIndex(q => q.id === myId);
               
               if (apt && myIdx !== -1) {
-                // 1. Wait based on people ahead
+                if (apt.active) {
+                  const elapsedMinutes = apt.started_at 
+                    ? Math.floor((new Date().getTime() - new Date(apt.started_at).getTime()) / 60000) 
+                    : 0;
+                  return Math.max(0, (apt.duration || 30) - elapsedMinutes);
+                }
+
+                // 1. Wait based on people ahead on the same day
+                const myDateStr = getLocalDateStr(new Date(apt.date_time));
                 const queueWait = queueItems.slice(0, myIdx).reduce((acc, item) => {
+                    const itemDateStr = item.date_time ? getLocalDateStr(new Date(item.date_time)) : getLocalDateStr();
+                    if (itemDateStr !== myDateStr) return acc;
+
                     const baseDuration = item.duration || 30;
                     if (item.active && item.started_at) {
                       const elapsedMinutes = Math.floor((new Date().getTime() - new Date(item.started_at).getTime()) / 60000);
                       const remaining = baseDuration - elapsedMinutes;
-                      return acc + remaining; 
+                      return acc + Math.max(0, remaining); 
                     }
                     return acc + baseDuration;
                   }, 0);
-                  const adjustedQueueWait = Math.max(0, queueWait);
+                const adjustedQueueWait = Math.max(0, queueWait);
                 
                 const scheduledDate = new Date(apt.date_time);
                 const now = new Date();
@@ -1142,7 +1200,14 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             remainingClients={(() => {
               const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const myIdx = queueItems.findIndex(q => q.id === myId);
-              return myIdx !== -1 ? myIdx : queueInfo.clients;
+              if (myIdx === -1) return queueInfo.clients;
+              const myApt = queueItems[myIdx];
+              if (myApt?.active) return 0;
+              const myDateStr = myApt?.date_time ? getLocalDateStr(new Date(myApt.date_time)) : getLocalDateStr();
+              return queueItems.slice(0, myIdx).filter(item => {
+                const itemDateStr = item.date_time ? getLocalDateStr(new Date(item.date_time)) : getLocalDateStr();
+                return itemDateStr === myDateStr && !item.active;
+              }).length;
             })()} 
             turnNumber={(() => {
               const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);

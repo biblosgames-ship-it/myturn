@@ -51,7 +51,7 @@ const triggerTurnVibration = () => {
 };
 
 interface SmartTimerProps {
-  remainingMinutes: number;
+  remainingMinutes?: number;
   remainingClients: number;
   turnNumber: number;
   status: 'waiting' | 'next' | 'in_progress' | 'completed';
@@ -59,26 +59,56 @@ interface SmartTimerProps {
   isStalled?: boolean;
   isOpen?: boolean;
   isToday?: boolean;
+  targetDateTime?: string | Date | null;
+  startedAt?: string | null;
+  serviceDuration?: number;
 }
 
 export const SmartTimer: React.FC<SmartTimerProps> = ({ 
-  remainingMinutes: initialMinutes, 
+  remainingMinutes: initialMinutes = 30, 
   remainingClients, 
   turnNumber,
   status,
   isPaused = false,
   isStalled = false,
   isOpen = true,
-  isToday = true
+  isToday = true,
+  targetDateTime = null,
+  startedAt = null,
+  serviceDuration = 30
 }) => {
-  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
   const prevStatusRef = useRef(status);
   const [hasTestedAudio, setHasTestedAudio] = useState(false);
 
-  // Sync state with prop if it changes (e.g. on load after fetch)
+  // Precise calculation of remaining seconds
+  const calculateRemainingSeconds = () => {
+    if (status === 'completed') return 0;
+
+    // In-service attention chair
+    if (status === 'in_progress') {
+      const durSec = (serviceDuration || 30) * 60;
+      if (startedAt) {
+        const elapsedSec = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+        return Math.max(0, durSec - elapsedSec);
+      }
+      return durSec;
+    }
+
+    // Exact appointment / queue target timestamp
+    if (targetDateTime) {
+      const diffSec = Math.floor((new Date(targetDateTime).getTime() - Date.now()) / 1000);
+      return Math.max(0, diffSec);
+    }
+
+    return Math.max(0, Math.round(initialMinutes * 60));
+  };
+
+  const [timeLeft, setTimeLeft] = useState<number>(calculateRemainingSeconds);
+
+  // Sync immediately when targetDateTime, status or startedAt changes
   useEffect(() => {
-    setTimeLeft(initialMinutes * 60);
-  }, [initialMinutes]);
+    setTimeLeft(calculateRemainingSeconds());
+  }, [targetDateTime, status, startedAt, serviceDuration, initialMinutes]);
 
   // Alert with Sound + Vibration + Notification when status becomes 'next' or 'in_progress'
   useEffect(() => {
@@ -101,30 +131,27 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
     }
   }, [status]);
 
+  // Real-time second-by-second ticker
   useEffect(() => {
-    // If it's not today, the timer should not run
-    if (!isToday || status === 'completed' || isPaused || isStalled) return;
-    
-    // Note: We ignore !isOpen here because we want it to run during "receso" if it's today
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (status === 'completed' || isPaused) return;
 
+    const tick = () => {
+      setTimeLeft(calculateRemainingSeconds());
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [status, isToday, isPaused, isStalled]);
+  }, [targetDateTime, status, isPaused, startedAt, serviceDuration]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    if (hours > 0) return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getStatusColor = () => {
@@ -181,54 +208,76 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
       </p>
       
       <div 
-        className={isStalled ? 'blinking-timer' : ''}
+        className={isStalled || (timeLeft === 0 && status !== 'completed') ? 'blinking-timer' : ''}
         style={{ 
           fontSize: '4rem', 
           fontWeight: 800, 
           margin: '1rem 0', 
-          color: (isPaused || (!isToday)) ? 'var(--text-muted)' : getStatusColor() 
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '1px',
+          color: isPaused ? 'var(--text-muted)' : getStatusColor() 
         }}
       >
-        {(isPaused || !isToday) ? '--:--' : formatTime(timeLeft)}
+        {isPaused ? '--:--' : formatTime(timeLeft)}
       </div>
       
-      {isStalled && (
-        <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 900, fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '1px' }}>
+      {status === 'in_progress' && (
+        <div className="animate-pulse" style={{ color: 'var(--success)', fontWeight: 900, fontSize: '1.15rem', marginBottom: '1.25rem', letterSpacing: '0.5px' }}>
+          ✂️ ¡TU TURNO ESTÁ EN ATENCIÓN!
+        </div>
+      )}
+
+      {status !== 'in_progress' && timeLeft === 0 && (
+        <div className="animate-pulse" style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '1.15rem', marginBottom: '1.25rem', letterSpacing: '0.5px' }}>
+          🔔 ¡ES TU HORA! EL PROFESIONAL TE LLAMARÁ EN BREVE
+        </div>
+      )}
+
+      {isStalled && status !== 'in_progress' && timeLeft > 0 && (
+        <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 900, fontSize: '1rem', marginBottom: '1.25rem', letterSpacing: '0.5px' }}>
           ⚠️ ESPERANDO SER ATENDIDO
         </div>
       )}
 
-      {isPaused && !isStalled && (
+      {isPaused && (
         <div className="animate-pulse" style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
           ⏸️ EL PROFESIONAL HIZO UNA PAUSA Y REINICIA EN BREVE
         </div>
       )}
 
-      {!isToday && (
-        <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
-          📅 TU CITA ESTÁ PROGRAMADA PARA OTRO DÍA
+      {!isOpen && !isPaused && status !== 'in_progress' && (
+        <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', marginBottom: '1rem', background: 'rgba(245,158,11,0.08)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block' }}>
+          ☕ El negocio está en receso o antes de apertura. Tu cita está confirmada y el reloj avanza hacia tu turno.
         </div>
       )}
 
-      {isToday && !isOpen && !isPaused && (
-        <div className="animate-pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', marginBottom: '1rem' }}>
-          ☕ EL NEGOCIO ESTÁ EN RECESO, PERO TU ESPERA SIGUE ACTIVA
+      {!isToday && status !== 'in_progress' && (
+        <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', marginBottom: '1rem' }}>
+          📅 TU CITA ESTÁ PROGRAMADA PARA OTRO DÍA
         </div>
       )}
       
       <div className="smart-timer-stats" style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Clock size={16} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{!isToday ? getLongFormatTimeText(initialMinutes) : `${Math.ceil(timeLeft / 60)} min restantes`}</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            {status === 'in_progress' 
+              ? `${Math.ceil(timeLeft / 60)} min para finalizar servicio` 
+              : timeLeft > 0 
+                ? `${Math.ceil(timeLeft / 60)} min restantes` 
+                : 'Llegó la hora de tu cita'}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Users size={16} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{remainingClients} clientes antes</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            {status === 'in_progress' ? 'En la estación' : `${remainingClients} clientes antes`}
+          </span>
         </div>
       </div>
 
       <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <span className="badge badge-warning" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
+        <span className={`badge ${status === 'in_progress' ? 'badge-success' : status === 'next' ? 'badge-warning' : 'badge-outline'}`} style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
           Estado: {status === 'in_progress' ? 'En proceso' : status === 'next' ? 'Próximo' : 'En espera'}
         </span>
         <button

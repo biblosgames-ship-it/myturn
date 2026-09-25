@@ -2783,46 +2783,87 @@ const getPlanCapabilities = (planName: string) => {
 
                   {missedAppointments.length > 0 && selectedDate === getTodayStr() && (
                     <div className="card animate-fade-in" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)', fontWeight: 800, fontSize: '0.9rem' }}>
-                      <AlertCircle size={20} />
-                      <span>Tienes {missedAppointments.length} cita(s) perdida(s) de días anteriores</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      {missedAppointments.map(miss => (
-                        <div key={miss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)' }}>
-                          <div>
-                            <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{miss.clientName}</span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>{miss.date} - {miss.service}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button 
-                              className="btn btn-outline" 
-                              style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                              onClick={() => setActiveTab('messages')}
-                            >
-                              <MessageCircle size={14} /> Mensaje
-                            </button>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'black' }}
-                              onClick={async () => {
-                                 // Re-schedule for today with priority
-                                 const today = getTodayStr();
-                                 const [year, month, day] = today.split('-').map(Number);
-                                 const aptDate = new Date(year, month - 1, day);
-                                 // Set to just a few minutes before now to give it top priority so it sorts top in 'date_time' order
-                                 aptDate.setHours(new Date().getHours(), new Date().getMinutes() - 10, 0, 0);
-                                 await supabase.from('appointments').update({ date_time: aptDate.toISOString() }).eq('id', miss.id);
-                                 alert("Cita reagendada para hoy con prioridad.");
-                              }}
-                            >
-                              Dar Prioridad Hoy
-                            </button>
-                          </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)', fontWeight: 800, fontSize: '0.9rem' }}>
+                          <AlertCircle size={20} />
+                          <span>Tienes {missedAppointments.length} cita(s) perdida(s) de días anteriores</span>
                         </div>
-                      ))}
+                        <button 
+                          className="btn btn-outline" 
+                          style={{ padding: '0.3rem 0.65rem', fontSize: '0.7rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                          onClick={async () => {
+                            if (confirm(`¿Descartar todas las ${missedAppointments.length} citas perdidas de días anteriores?`)) {
+                              const ids = missedAppointments.map(m => m.id);
+                              await supabase.from('appointments').update({ status: 'cancelled' }).in('id', ids);
+                              setAppointments(prev => prev.map(a => ids.includes(a.id) ? { ...a, status: 'cancelled' } : a));
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} /> Descartar Todas
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        {missedAppointments.map(miss => (
+                          <div key={miss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div>
+                              <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{miss.clientName}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>{miss.date} - {miss.service}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={() => setActiveTab('messages')}
+                              >
+                                <MessageCircle size={14} /> Mensaje
+                              </button>
+                              <button 
+                                className="btn btn-primary" 
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'black', fontWeight: 800 }}
+                                onClick={async () => {
+                                   // Re-schedule for today with priority
+                                   const today = getTodayStr();
+                                   const [year, month, day] = today.split('-').map(Number);
+                                   const aptDate = new Date(year, month - 1, day);
+                                   // Set to just a few minutes before now to give it top priority so it sorts top in 'date_time' order
+                                   aptDate.setHours(new Date().getHours(), new Date().getMinutes() - 10, 0, 0);
+                                   await supabase.from('appointments').update({ date_time: aptDate.toISOString(), status: 'waiting' }).eq('id', miss.id);
+                                   setAppointments(prev => prev.map(a => a.id === miss.id ? { ...a, date: today, status: 'waiting' } : a));
+                                   alert("Cita reagendada para hoy con prioridad.");
+                                }}
+                              >
+                                Dar Prioridad Hoy
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: 'var(--accent)', borderColor: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={async () => {
+                                  if (confirm(`¿Marcar la cita de ${miss.clientName} como no asistió / cancelada?`)) {
+                                    await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', miss.id);
+                                    setAppointments(prev => prev.map(a => a.id === miss.id ? { ...a, status: 'cancelled' } : a));
+                                  }
+                                }}
+                                title="Marcar como cancelada"
+                              >
+                                <X size={14} /> Cancelar
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={async () => {
+                                  if (confirm(`¿Eliminar permanentemente la cita de ${miss.clientName}?`)) {
+                                    await removeApt(miss.id);
+                                  }
+                                }}
+                                title="Borrar cita permanentemente"
+                              >
+                                <Trash2 size={14} /> Borrar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
                   )}
                   {futureAppointments.length > 0 && (
                     <div className="card animate-fade-in" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
