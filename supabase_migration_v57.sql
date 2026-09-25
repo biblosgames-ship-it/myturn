@@ -4,6 +4,15 @@
 -- puedan guardar, editar y eliminar servicios y equipo sin bloqueos de RLS.
 -- ==============================================================================
 
+-- 0. Asegurar que las columnas necesarias existan en 'tenants' y 'users'
+ALTER TABLE public.tenants 
+ADD COLUMN IF NOT EXISTS owner TEXT,
+ADD COLUMN IF NOT EXISTS owner_email TEXT;
+
+ALTER TABLE public.users 
+ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'client',
+ADD COLUMN IF NOT EXISTS tenant_id UUID;
+
 -- 1. Helper function para validar si el usuario autenticado es SuperAdmin
 CREATE OR REPLACE FUNCTION public.is_superadmin() 
 RETURNS BOOLEAN AS $$
