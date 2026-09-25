@@ -58,7 +58,7 @@ const MOTIVATIONAL_QUOTES = [
 
 // All appointments are now strictly database-driven.
 
-const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void, onEdit: (apt: Appointment) => void, initialTargetDate?: string | null }> = ({ appointments, staff, onRemove, onEdit, initialTargetDate }) => {
+const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void, onEdit: (apt: Appointment) => void, onWhatsAppAlert?: (apt: Appointment) => void, initialTargetDate?: string | null }> = ({ appointments, staff, onRemove, onEdit, onWhatsAppAlert, initialTargetDate }) => {
   const [currentMonth, setCurrentMonth] = useState(initialTargetDate ? new Date(initialTargetDate + 'T00:00:00') : new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(initialTargetDate || getTodayStr());
 
@@ -179,6 +179,16 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
                         {apt.time}
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {onWhatsAppAlert && (
+                          <button 
+                            onClick={() => onWhatsAppAlert(apt)}
+                            className="btn btn-outline" 
+                            style={{ color: '#25D366', borderColor: 'rgba(37,211,102,0.3)', background: 'rgba(37,211,102,0.06)', padding: '0.4rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Avisar por WhatsApp"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+                        )}
                         <button 
                           onClick={() => onEdit(apt)}
                           className="btn btn-outline" 
@@ -650,6 +660,7 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
         const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).single();
         if (tenant) {
           setIsOpen(tenant.is_open ?? true);
+          setIsPaused(tenant.is_paused ?? false);
           setClosingTime(tenant.closing_time || '20:00');
           if (tenant.schedule) setWeeksSchedule(tenant.schedule);
           setLastAutoCloseDate(tenant.last_auto_close_date || null);
@@ -695,6 +706,7 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
           if (payload.new) {
             const updated = payload.new as any;
             if (updated.is_open !== undefined) setIsOpen(updated.is_open);
+            if (updated.is_paused !== undefined) setIsPaused(updated.is_paused);
             if (updated.closing_time) setClosingTime(updated.closing_time);
             if (updated.schedule) setWeeksSchedule(updated.schedule);
             if (updated.last_auto_close_date !== undefined) setLastAutoCloseDate(updated.last_auto_close_date);
@@ -867,7 +879,7 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
           amount: t.amount,
           method: t.payment_method,
           category: t.category,
-          description: t.description,
+          description: t.description || t.notes || 'Servicio',
           subtotal: t.subtotal || t.amount,
           discountPercent: t.discount_percent || 0,
           date: new Date(t.created_at).toISOString().split('T')[0],
@@ -1132,6 +1144,53 @@ const getPlanCapabilities = (planName: string) => {
     } else {
       console.error("Error removing:", error);
     }
+  };
+
+  const sendWhatsAppAlert = (apt: Appointment) => {
+    // 1. Try to find phone in customFormResponses
+    let phone = '';
+    if (apt.customFormResponses && typeof apt.customFormResponses === 'object') {
+      const phoneEntry = Object.entries(apt.customFormResponses).find(([k, v]) => {
+        const key = k.toLowerCase();
+        return (
+          key.includes('tel') || 
+          key.includes('cel') || 
+          key.includes('movil') || 
+          key.includes('phone') || 
+          key.includes('whatsapp')
+        ) && Boolean(v);
+      });
+      if (phoneEntry && phoneEntry[1]) {
+        phone = String(phoneEntry[1]).replace(/[^\d+]/g, '');
+      }
+    }
+
+    // 2. Check if clientName contains a phone number
+    if (!phone) {
+      const digits = apt.clientName.replace(/[^\d]/g, '');
+      if (digits.length >= 8) {
+        phone = digits;
+      }
+    }
+
+    // Clean client name
+    const cleanName = apt.clientName.split(' (')[0].trim();
+    const bizName = businessName && businessName !== 'Cargando...' ? businessName : 'nuestro negocio';
+    const message = `¡Hola ${cleanName}! 👋 Te recordamos que tu turno para ${apt.service} está a punto de comenzar en ${bizName}. Por favor acércate a la estación para atenderte. ¡Te esperamos!`;
+
+    // 3. If still no phone, prompt the barber directly
+    if (!phone) {
+      const manualPhone = prompt(
+        `Ingresa el número de WhatsApp para avisar a ${cleanName} (incluye código de país, ej: +1809... o +52...):`,
+        ''
+      );
+      if (!manualPhone) return;
+      phone = manualPhone.replace(/[^\d+]/g, '');
+    }
+
+    const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
   };
 
   const handleCopy = () => {
@@ -1401,8 +1460,10 @@ const getPlanCapabilities = (planName: string) => {
 
       const allServiceNames = [selectedAptForComplete.service, ...extraServices.map(s => s.name)].join(', ');
       
-      // 2. Insert Transaction
-      const { data: tx, error: txError } = await supabase.from('transactions').insert({
+      // 2. Insert Transaction with graceful fallback for schema mismatches
+      const descText = `Cliente: ${selectedAptForComplete.clientName}${discountPercent > 0 ? ` (Dcto ${discountPercent}%)` : ''}`;
+      let tx: any = null;
+      let { data: insertedTx, error: txError } = await supabase.from('transactions').insert({
         tenant_id: tenantId,
         appointment_id: selectedAptForComplete.id,
         amount: finalAmount,
@@ -1412,10 +1473,45 @@ const getPlanCapabilities = (planName: string) => {
         payment_method: paymentMethod,
         staff_id: selectedAptForComplete.staffId || null,
         category: allServiceNames,
-        description: `Cliente: ${selectedAptForComplete.clientName}${discountPercent > 0 ? ` (Dcto ${discountPercent}%)` : ''}`
+        description: descText
       }).select().single();
 
+      // Fallback: If DB schema is missing 'description' or other extended columns
+      if (txError && txError.message && (txError.message.toLowerCase().includes('column') || txError.message.includes('schema cache'))) {
+        console.warn("Retrying transaction insert with fallback schema due to DB column mismatch:", txError.message);
+        const fallbackWithNotes: any = {
+          tenant_id: tenantId,
+          appointment_id: selectedAptForComplete.id,
+          amount: finalAmount,
+          type: 'ingreso',
+          payment_method: paymentMethod,
+          staff_id: selectedAptForComplete.staffId || null,
+          category: allServiceNames,
+          notes: descText
+        };
+        const retryNotes = await supabase.from('transactions').insert(fallbackWithNotes).select().single();
+        if (!retryNotes.error) {
+          insertedTx = retryNotes.data;
+          txError = null;
+        } else {
+          // Absolute minimal insert guaranteed to match base table
+          const minimalPayload: any = {
+            tenant_id: tenantId,
+            appointment_id: selectedAptForComplete.id,
+            amount: finalAmount,
+            type: 'ingreso',
+            payment_method: paymentMethod
+          };
+          const retryMinimal = await supabase.from('transactions').insert(minimalPayload).select().single();
+          if (!retryMinimal.error) {
+            insertedTx = retryMinimal.data;
+            txError = null;
+          }
+        }
+      }
+
       if (txError) throw txError;
+      tx = insertedTx || { id: 'tx-' + Date.now() };
 
       // 3. Automatic Inventory Deduction
       try {
@@ -1950,7 +2046,13 @@ const getPlanCapabilities = (planName: string) => {
               onClick={async () => {
                 const newPaused = !isPaused;
                 setIsPaused(newPaused);
-                if (tenantId) await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
+                if (tenantId) {
+                  try {
+                    await supabase.from('tenants').update({ is_paused: newPaused }).eq('id', tenantId);
+                  } catch (e) {
+                    console.warn("Could not sync is_paused to tenants table:", e);
+                  }
+                }
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -2567,6 +2669,26 @@ const getPlanCapabilities = (planName: string) => {
                               </button>
                             ) : null;
                           })()}
+                        <button
+                          type="button"
+                          title="Avisar turno por WhatsApp"
+                          className="btn btn-outline"
+                          onClick={() => sendWhatsAppAlert(apt)}
+                          style={{
+                            color: '#25D366',
+                            borderColor: 'rgba(37,211,102,0.3)',
+                            background: 'rgba(37,211,102,0.06)',
+                            padding: '0',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <MessageCircle size={15} />
+                        </button>
                         {apt.sessionId && (
                           <button
                             title="Chatear con este cliente"
@@ -2755,6 +2877,7 @@ const getPlanCapabilities = (planName: string) => {
             appointments={appointments} 
             staff={staff} 
             onRemove={removeApt} 
+            onWhatsAppAlert={sendWhatsAppAlert}
             initialTargetDate={targetAgendaDate}
             onEdit={(apt) => {
               setEditingApt(apt);

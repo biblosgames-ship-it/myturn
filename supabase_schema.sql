@@ -74,6 +74,11 @@ CREATE TABLE public.transactions (
   amount NUMERIC NOT NULL,
   type TEXT NOT NULL, -- 'ingreso' or 'egreso'
   payment_method TEXT DEFAULT 'Efectivo',
+  category TEXT DEFAULT 'General',
+  subtotal NUMERIC DEFAULT 0,
+  discount_percent NUMERIC DEFAULT 0,
+  description TEXT,
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;

@@ -1,4 +1,4 @@
-import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2, Facebook, Car, Briefcase, Book, Home, Dumbbell, Ticket } from 'lucide-react';
+import { LayoutGrid, Clock, Star, ArrowRight, Search, Plus, QrCode, X, CheckCircle2, Loader2, User, LogOut, Edit3, Phone, Mail, Settings, Scissors, Heart, Sparkles, Footprints, Camera, Share2, Facebook, Car, Briefcase, Book, Home, Dumbbell, Ticket, Megaphone, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { ClientAuth } from './ClientAuth';
@@ -16,7 +16,21 @@ interface SavedBusiness {
   isAlreadySaved?: boolean;
   isSaved?: boolean;
   isFavorite?: boolean;
+  isFeatured?: boolean;
+  featuredBadge?: string;
   category?: string;
+}
+
+interface PlatformAd {
+  id: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  image_url?: string;
+  target_url?: string;
+  type: string;
+  is_active: boolean;
+  priority: number;
 }
 
 interface ClientUserHubProps {
@@ -37,6 +51,7 @@ export const ClientUserHub: React.FC<ClientUserHubProps> = ({ onSelectBusiness }
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   const [showCategories, setShowCategories] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [platformAds, setPlatformAds] = useState<PlatformAd[]>([]);
 
   const handleShare = () => {
     setShowShareModal(true);
@@ -148,6 +163,8 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
             rating: 5.0,
             lastVisit: 'Guardado',
             category: t.category,
+            isFeatured: Boolean(t.is_featured),
+            featuredBadge: t.featured_badge || 'DESTACADO',
             isFavorite: savedIds.find(s => s.tenant_id === t.id)?.is_favorite || false
           })).sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0)));
         }
@@ -228,6 +245,21 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       }
     });
 
+    const fetchPlatformAds = async () => {
+      try {
+        const { data } = await supabase
+          .from('platform_ads')
+          .select('*')
+          .eq('is_active', true)
+          .order('priority', { ascending: false });
+        if (data) setPlatformAds(data);
+      } catch (e) {
+        console.warn('Could not fetch platform ads:', e);
+      }
+    };
+
+    fetchPlatformAds();
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -236,6 +268,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
       let query = supabase
         .from('tenants')
         .select('*')
+        .order('is_featured', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(20);
       
@@ -256,7 +289,9 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
           logo: t.logo_url || t.logo || '/logo-myturn.png',
           rating: 5.0,
           lastVisit: 'Sugerido',
-          category: t.category
+          category: t.category,
+          isFeatured: Boolean(t.is_featured),
+          featuredBadge: t.featured_badge || 'DESTACADO'
         })));
       }
     } catch (err) {
@@ -286,8 +321,12 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
   }).sort((a, b) => {
     if (a.isFavorite && !b.isFavorite) return -1;
     if (!a.isFavorite && b.isFavorite) return 1;
+    if (a.isFeatured && !b.isFeatured) return -1;
+    if (!a.isFeatured && b.isFeatured) return 1;
     return 0;
   });
+
+  const featuredBusinesses = allBusinesses.filter(b => b.isFeatured);
 
   const linkBusiness = async (biz: SavedBusiness & { realId?: string }) => {
     try {
@@ -375,6 +414,50 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
           <ClientAuth onSuccess={() => setShowAuth(false)} onClose={() => setShowAuth(false)} />
         </div>
       )}
+
+      {/* Top Platform Announcement / Cintillo */}
+      {platformAds.length > 0 && (() => {
+        const topAd = platformAds[0];
+        return (
+          <div 
+            onClick={() => topAd.target_url && window.open(topAd.target_url, '_blank')}
+            style={{
+              padding: '0.6rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(90deg, rgba(245,158,11,0.2) 0%, rgba(24,24,27,0.7) 100%)',
+              border: '1px solid rgba(245,158,11,0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: topAd.target_url ? 'pointer' : 'default',
+              transition: 'transform 0.2s',
+              gap: '0.75rem',
+              boxShadow: '0 4px 12px rgba(245,158,11,0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+              <span style={{ 
+                fontSize: '0.625rem', 
+                fontWeight: 900, 
+                background: 'var(--primary)', 
+                color: '#000', 
+                padding: '0.15rem 0.45rem', 
+                borderRadius: '4px',
+                flexShrink: 0
+              }}>
+                {topAd.badge || 'PROMO'}
+              </span>
+              <p style={{ margin: 0, fontSize: '0.775rem', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {topAd.title}
+                {topAd.subtitle && <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.4rem' }}>{topAd.subtitle}</span>}
+              </p>
+            </div>
+            {topAd.target_url && (
+              <ExternalLink size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Marketplace Header (Hero) */}
       <div style={{ 
@@ -516,6 +599,75 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
         ))}
       </div>
 
+      {/* Featured / Sponsored Businesses Section */}
+      {featuredBusinesses.length > 0 && !searchTerm && (
+        <section style={{ marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', padding: '0 0.5rem' }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'white', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Star size={16} fill="#f59e0b" color="#f59e0b" /> Negocios Patrocinados
+            </h3>
+            <span style={{ fontSize: '0.65rem', color: '#f59e0b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              DESTACADOS VIP
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem', scrollbarWidth: 'none' }}>
+            {featuredBusinesses.map(biz => (
+              <div
+                key={'featured-' + biz.realId}
+                onClick={() => onSelectBusiness(biz.id)}
+                className="card"
+                style={{
+                  minWidth: '160px',
+                  maxWidth: '180px',
+                  padding: '1rem 0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(245,158,11,0.4)',
+                  background: 'linear-gradient(180deg, rgba(245,158,11,0.12) 0%, var(--surface) 100%)',
+                  borderRadius: '20px',
+                  flexShrink: 0,
+                  position: 'relative'
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  left: '8px',
+                  background: 'rgba(245,158,11,0.25)',
+                  color: '#f59e0b',
+                  fontSize: '0.55rem',
+                  fontWeight: 900,
+                  padding: '0.1rem 0.35rem',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.2rem'
+                }}>
+                  <Star size={8} fill="#f59e0b" /> {biz.featuredBadge || 'TOP'}
+                </div>
+
+                <div style={{ width: '50px', height: '50px', borderRadius: '50%', padding: '2px', border: '2px solid #f59e0b', marginTop: '0.4rem' }}>
+                  <img src={biz.logo} alt={biz.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                </div>
+                <div style={{ width: '100%' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 900, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {biz.name}
+                  </h4>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0.15rem 0 0', fontWeight: 600 }}>
+                    {biz.professional}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Main Business Feed */}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', padding: '0 0.5rem' }}>
@@ -548,7 +700,19 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                 onClick={() => onSelectBusiness(biz.id)}
                 className="card"
                 style={{ 
-                  position: 'relative', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', border: 'none', background: 'var(--surface)', boxShadow: 'var(--shadow-flat)', borderRadius: '24px'
+                  position: 'relative', 
+                  padding: '1rem', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  textAlign: 'center', 
+                  gap: '0.75rem', 
+                  cursor: 'pointer', 
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                  border: biz.isFeatured ? '1px solid rgba(245,158,11,0.45)' : 'none', 
+                  background: biz.isFeatured ? 'linear-gradient(180deg, rgba(245,158,11,0.05) 0%, var(--surface) 100%)' : 'var(--surface)', 
+                  boxShadow: 'var(--shadow-flat)', 
+                  borderRadius: '24px'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-6px)';
@@ -559,6 +723,25 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                   e.currentTarget.style.boxShadow = 'var(--shadow-flat)';
                 }}
               >
+                {biz.isFeatured && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '0.75rem',
+                    left: '0.75rem',
+                    background: 'rgba(245,158,11,0.2)',
+                    color: '#f59e0b',
+                    fontSize: '0.575rem',
+                    fontWeight: 900,
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: '999px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    zIndex: 5
+                  }}>
+                    <Star size={9} fill="#f59e0b" /> {biz.featuredBadge || 'TOP'}
+                  </div>
+                )}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -571,7 +754,7 @@ Listo, ya tienes una página web profesional de tu negocio que a la vez es;
                   <Star size={20} fill={biz.isFavorite ? 'var(--primary)' : 'none'} style={{ transition: 'all 0.2s' }} />
                 </button>
 
-                <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '50%', padding: '3px', border: '2px solid var(--primary)', background: 'var(--background)' }}>
+                <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '50%', padding: '3px', border: `2px solid ${biz.isFeatured ? '#f59e0b' : 'var(--primary)'}`, background: 'var(--background)' }}>
                   <img src={biz.logo} alt={biz.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                   {!biz.isSaved && (
                     <div 

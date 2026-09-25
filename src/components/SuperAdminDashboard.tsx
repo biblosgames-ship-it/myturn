@@ -6,7 +6,7 @@ import {
   Filter, MoreVertical, ExternalLink, AlertCircle, TrendingUp, 
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
   CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
-  Download, Printer
+  Download, Printer, Star, Megaphone, Trash2, Edit
 } from 'lucide-react';
 
 interface SupportTicket {
@@ -20,6 +20,18 @@ interface SupportTicket {
   created_at: string;
 }
 
+interface PlatformAd {
+  id: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  image_url?: string;
+  target_url?: string;
+  type: 'cintillo' | 'banner' | 'popup';
+  is_active: boolean;
+  priority: number;
+}
+
 interface Tenant {
   id: string;
   name: string;
@@ -31,6 +43,8 @@ interface Tenant {
   revenue: number;
   logo: string;
   expiryDate: string;
+  isFeatured?: boolean;
+  featuredBadge?: string;
 }
 
 export interface SaasPlan {
@@ -71,7 +85,7 @@ interface SuperAdminDashboardProps {
 }
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwitchToBarber }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'tickets' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'tickets' | 'ads' | 'settings'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +93,86 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   const [lastInviteCode, setLastInviteCode] = useState<string | null>(null);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [userTenantId, setUserTenantId] = useState<string | null>(null);
+
+  // Platform Ads & Sponsorships state
+  const [platformAds, setPlatformAds] = useState<PlatformAd[]>([]);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [showNewAdModal, setShowNewAdModal] = useState(false);
+  const [newAd, setNewAd] = useState({
+    title: '',
+    subtitle: '',
+    badge: 'PROMO',
+    target_url: '',
+    image_url: '',
+    type: 'cintillo' as 'cintillo' | 'banner' | 'popup',
+    priority: 10
+  });
+
+  const fetchPlatformAds = async () => {
+    setAdsLoading(true);
+    try {
+      const { data, error } = await supabase.from('platform_ads').select('*').order('priority', { ascending: false });
+      if (data && !error) setPlatformAds(data);
+    } catch (e) {
+      console.warn("Could not fetch platform ads:", e);
+    } finally {
+      setAdsLoading(false);
+    }
+  };
+
+  const handleToggleAdStatus = async (id: string, currentActive: boolean) => {
+    const { error } = await supabase.from('platform_ads').update({ is_active: !currentActive }).eq('id', id);
+    if (!error) {
+      setPlatformAds(prev => prev.map(ad => ad.id === id ? { ...ad, is_active: !currentActive } : ad));
+    }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (!confirm("¿Seguro que deseas eliminar este anuncio?")) return;
+    const { error } = await supabase.from('platform_ads').delete().eq('id', id);
+    if (!error) {
+      setPlatformAds(prev => prev.filter(ad => ad.id !== id));
+    }
+  };
+
+  const handleCreateAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAd.title) return;
+    try {
+      const { data, error } = await supabase.from('platform_ads').insert({
+        title: newAd.title,
+        subtitle: newAd.subtitle || null,
+        badge: newAd.badge || 'PROMO',
+        target_url: newAd.target_url || '/',
+        image_url: newAd.image_url || null,
+        type: newAd.type,
+        priority: Number(newAd.priority) || 10,
+        is_active: true
+      }).select().single();
+
+      if (data && !error) {
+        setPlatformAds([data, ...platformAds]);
+        setShowNewAdModal(false);
+        setNewAd({ title: '', subtitle: '', badge: 'PROMO', target_url: '', image_url: '', type: 'cintillo', priority: 10 });
+      } else {
+        alert("Error al crear anuncio: " + (error?.message || 'Verifica la tabla platform_ads'));
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  const handleToggleFeatured = async (tenantId: string, currentFeatured: boolean) => {
+    try {
+      const newFeatured = !currentFeatured;
+      const { error } = await supabase.from('tenants').update({ is_featured: newFeatured }).eq('id', tenantId);
+      if (error) throw error;
+      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, isFeatured: newFeatured } : t));
+    } catch (err: any) {
+      console.error('Error toggling featured:', err);
+      alert('Error al actualizar estado destacado: ' + (err.message || ''));
+    }
+  };
 
   const fetchSupportTickets = async () => {
     try {
@@ -146,7 +240,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           appointmentsToday: 0,
           revenue: 0,
           logo: t.logo || t.logo_url || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
-          expiryDate: t.expiry_date || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          expiryDate: t.expiry_date || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          isFeatured: Boolean(t.is_featured),
+          featuredBadge: t.featured_badge || 'DESTACADO'
         })));
       }
     } catch (err) {
@@ -159,6 +255,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   useEffect(() => {
     fetchTenants();
     fetchSupportTickets();
+    fetchPlatformAds();
   }, []);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [selectedTenantForPayment, setSelectedTenantForPayment] = useState<Tenant | null>(null);
@@ -347,6 +444,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
             { id: 'overview', label: 'Resumen Global', icon: LayoutDashboard },
             { id: 'businesses', label: 'Gestión Negocios', icon: Building2 },
             { id: 'plans', label: 'Planes SaaS', icon: CreditCard },
+            { id: 'ads', label: 'Publicidad & Promos', icon: Megaphone },
             { id: 'tickets', label: 'Soporte Técnico', icon: LifeBuoy },
             { id: 'settings', label: 'Configuración', icon: Settings },
           ].map(item => (
@@ -604,7 +702,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                             <img src={t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} style={{ width: '40px', height: '40px', borderRadius: '10px' }} alt="" />
                           )}
                           <div>
-                            <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Invitación' : (t.name || 'Sin Nombre')}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{isInvite ? 'Invitación' : (t.name || 'Sin Nombre')}</p>
+                              {t.isFeatured && (
+                                <span style={{ 
+                                  fontSize: '0.625rem', 
+                                  fontWeight: 900, 
+                                  background: 'rgba(245,158,11,0.2)', 
+                                  color: '#f59e0b', 
+                                  padding: '0.1rem 0.4rem', 
+                                  borderRadius: '999px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.2rem'
+                                }}>
+                                  <Star size={10} fill="#f59e0b" /> {t.featuredBadge || 'TOP'}
+                                </span>
+                              )}
+                            </div>
                             <p style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600, margin: 0 }}>{isInvite ? inviteCode : (t.owner || 'Negocio Registrado')}</p>
                           </div>
                         </div>
@@ -651,18 +766,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                               <Copy size={16} />
                             </button>
                           ) : (
-                            <button 
-                              className="btn btn-outline" 
-                              onClick={() => handleOpenPaymentModal(t)}
-                              style={{ 
-                                padding: '0.4rem', 
-                                border: t.id === '1' ? '1.5px solid var(--primary)' : '1px solid var(--border)',
-                                background: t.id === '1' ? 'rgba(245,158,11,0.1)' : 'transparent'
-                              }} 
-                              title="Registrar Pago Manual"
-                            >
-                              <CreditCard size={14} color={t.id === '1' ? 'var(--primary)' : 'currentColor'} />
-                            </button>
+                            <>
+                              <button 
+                                className="btn btn-outline" 
+                                onClick={() => handleOpenPaymentModal(t)}
+                                style={{ 
+                                  padding: '0.4rem', 
+                                  border: t.id === '1' ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                                  background: t.id === '1' ? 'rgba(245,158,11,0.1)' : 'transparent'
+                                }} 
+                                title="Registrar Pago Manual"
+                              >
+                                <CreditCard size={14} color={t.id === '1' ? 'var(--primary)' : 'currentColor'} />
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ 
+                                  padding: '0.4rem', 
+                                  color: t.isFeatured ? '#f59e0b' : 'var(--text-muted)',
+                                  borderColor: t.isFeatured ? 'rgba(245,158,11,0.5)' : 'var(--border)',
+                                  background: t.isFeatured ? 'rgba(245,158,11,0.1)' : 'transparent'
+                                }} 
+                                onClick={() => handleToggleFeatured(t.id, Boolean(t.isFeatured))}
+                                title={t.isFeatured ? "Quitar de destacados en la app" : "Destacar negocio en App (Patrocinado)"}
+                              >
+                                <Star size={14} fill={t.isFeatured ? '#f59e0b' : 'none'} />
+                              </button>
+                            </>
                           )}
                           {!isInvite && (
                             <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setEditingTenant(t)} title="Configuración Avanzada">
@@ -842,6 +972,199 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ads' && (
+          <div className="animate-fade-in">
+            <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Megaphone size={28} color="var(--primary)" /> Publicidad & Cintillos Patrocinados
+                </h1>
+                <p style={{ color: 'var(--text-muted)' }}>
+                  Monetiza MyTurn gestionando cintillos de anuncios globales y posicionando negocios patrocinados en el directorio.
+                </p>
+              </div>
+              <button 
+                className="btn btn-primary"
+                onClick={() => setShowNewAdModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <Plus size={18} />
+                Nuevo Anuncio / Cintillo
+              </button>
+            </header>
+
+            {/* Platform Ads Section */}
+            <div style={{ marginBottom: '3rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Cintillos y Banners de Plataforma</h2>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  {platformAds.length} anuncios registrados
+                </span>
+              </div>
+
+              {adsLoading ? (
+                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                  <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto', color: 'var(--primary)' }} />
+                </div>
+              ) : platformAds.length === 0 ? (
+                <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+                  <Megaphone size={40} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>No hay anuncios activos</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                    Crea un cintillo para promocionar eventos, ofertas de socios locales o funciones de MyTurn.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => setShowNewAdModal(true)}>
+                    <Plus size={16} /> Crear Primer Anuncio
+                  </button>
+                </div>
+              ) : (
+                <div className="card" style={{ overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ANUNCIO</th>
+                        <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>TIPO & BADGE</th>
+                        <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>PRIORIDAD</th>
+                        <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ENLACE / DESTINO</th>
+                        <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ESTADO</th>
+                        <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ACCIONES</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {platformAds.map(ad => (
+                        <tr key={ad.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '1rem 1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              {ad.image_url ? (
+                                <img src={ad.image_url} alt="" style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover' }} />
+                              ) : (
+                                <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Megaphone size={20} />
+                                </div>
+                              )}
+                              <div>
+                                <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{ad.title}</p>
+                                {ad.subtitle && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{ad.subtitle}</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>{ad.type}</span>
+                              {ad.badge && (
+                                <span style={{ fontSize: '0.625rem', fontWeight: 800, background: 'rgba(245,158,11,0.2)', color: '#f59e0b', padding: '0.1rem 0.4rem', borderRadius: '4px', width: 'fit-content' }}>
+                                  {ad.badge}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>{ad.priority}</span>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <a 
+                              href={ad.target_url || '#'} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              style={{ fontSize: '0.8125rem', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}
+                            >
+                              <ExternalLink size={12} /> {ad.target_url ? (ad.target_url.length > 25 ? ad.target_url.slice(0, 25) + '...' : ad.target_url) : 'Sin enlace'}
+                            </a>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <button
+                              onClick={() => handleToggleAdStatus(ad.id, ad.is_active)}
+                              style={{
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                border: 'none',
+                                cursor: 'pointer',
+                                background: ad.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                                color: ad.is_active ? '#10b981' : 'var(--text-muted)'
+                              }}
+                            >
+                              {ad.is_active ? '● ACTIVO' : 'PAUSADO'}
+                            </button>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => handleDeleteAd(ad.id)}
+                              style={{ padding: '0.4rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                              title="Eliminar Anuncio"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Sponsored Businesses Positioning Directory Section */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Star size={20} fill="#f59e0b" color="#f59e0b" /> Negocios con Posicionamiento Destacado (⭐ VIP)
+                  </h2>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Los negocios destacados aparecen en el carrusel principal y en el tope del directorio público para los clientes.
+                  </p>
+                </div>
+                <span className="badge badge-warning">
+                  {tenants.filter(t => t.isFeatured).length} Destacados
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {tenants.map(t => {
+                  const isFeatured = Boolean(t.isFeatured);
+                  return (
+                    <div 
+                      key={t.id} 
+                      className="card" 
+                      style={{ 
+                        padding: '1.25rem', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        border: isFeatured ? '1.5px solid #f59e0b' : '1px solid var(--border)',
+                        background: isFeatured ? 'rgba(245,158,11,0.03)' : 'var(--surface)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <img 
+                          src={t.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} 
+                          alt="" 
+                          style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }} 
+                        />
+                        <div>
+                          <p style={{ fontWeight: 800, fontSize: '0.875rem', margin: 0 }}>{t.name}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{t.industry} • {t.plan}</p>
+                        </div>
+                      </div>
+                      <button
+                        className={`btn ${isFeatured ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => handleToggleFeatured(t.id, isFeatured)}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <Star size={14} fill={isFeatured ? '#000' : 'none'} />
+                        {isFeatured ? 'Destacado' : 'Destacar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -1373,6 +1696,154 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 Guardar Cambios
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Platform Ad Modal */}
+      {showNewAdModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 4000,
+          backdropFilter: 'blur(8px)',
+          padding: '1rem'
+        }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '520px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <header style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '44px', height: '44px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Megaphone size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>Crear Anuncio o Cintillo</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Se mostrará a clientes en la app y salas de espera.</p>
+              </div>
+            </header>
+
+            <form onSubmit={handleCreateAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TIPO DE ANUNCIO</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  {[
+                    { id: 'cintillo', label: 'Cintillo Superior' },
+                    { id: 'banner', label: 'Banner Tarjeta' },
+                    { id: 'popup', label: 'Alerta / Modal' }
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setNewAd({ ...newAd, type: t.id as any })}
+                      style={{
+                        padding: '0.6rem 0.5rem',
+                        fontSize: '0.8125rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-sm)',
+                        border: newAd.type === t.id ? '2px solid var(--primary)' : '1px solid var(--border)',
+                        background: newAd.type === t.id ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
+                        color: newAd.type === t.id ? 'var(--primary)' : 'var(--text)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TÍTULO DEL ANUNCIO *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: 🔥 20% OFF en Café Central con tu turno MyTurn"
+                  value={newAd.title}
+                  onChange={(e) => setNewAd({ ...newAd, title: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>SUBTÍTULO / DETALLE (OPCIONAL)</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Muestra tu ticket activo al pagar para canjear la promo"
+                  value={newAd.subtitle}
+                  onChange={(e) => setNewAd({ ...newAd, subtitle: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>BADGE / ETIQUETA</label>
+                  <input
+                    type="text"
+                    placeholder="PROMO, SPONSOR, NUEVO..."
+                    value={newAd.badge}
+                    onChange={(e) => setNewAd({ ...newAd, badge: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>PRIORIDAD (1-100)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={newAd.priority}
+                    onChange={(e) => setNewAd({ ...newAd, priority: Number(e.target.value) || 10 })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>ENLACE DE DESTINO / WHATSAPP</label>
+                <input
+                  type="url"
+                  placeholder="https://... o https://wa.me/..."
+                  value={newAd.target_url}
+                  onChange={(e) => setNewAd({ ...newAd, target_url: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>URL IMAGEN / BANNER (OPCIONAL)</label>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
+                  value={newAd.image_url}
+                  onChange={(e) => setNewAd({ ...newAd, image_url: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowNewAdModal(false)}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                >
+                  Publicar Anuncio
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

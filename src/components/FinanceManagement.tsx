@@ -226,7 +226,7 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
     setIsSaving(true);
 
     try {
-      const dbPayload = {
+      const dbPayload: any = {
         amount: Number(newTx.amount),
         type: newTx.type,
         payment_method: newTx.method,
@@ -235,7 +235,24 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
         staff_id: newTx.staffId || null
       };
 
-      const { data, error } = await supabase.from('transactions').insert(dbPayload).select().single();
+      let { data, error } = await supabase.from('transactions').insert(dbPayload).select().single();
+
+      if (error && error.message && (error.message.toLowerCase().includes('column') || error.message.includes('schema cache'))) {
+        console.warn("Retrying transaction insert with notes fallback due to:", error.message);
+        const fallbackPayload: any = {
+          amount: Number(newTx.amount),
+          type: newTx.type,
+          payment_method: newTx.method,
+          category: newTx.category || 'Varios',
+          notes: newTx.description,
+          staff_id: newTx.staffId || null
+        };
+        const retry = await supabase.from('transactions').insert(fallbackPayload).select().single();
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
 
       if (data && !error) {
         const tx: Transaction = {
@@ -243,8 +260,8 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
           type: data.type as any,
           amount: data.amount,
           method: data.payment_method as any,
-          category: data.category,
-          description: data.description,
+          category: data.category || 'Varios',
+          description: data.description || data.notes || newTx.description || 'Transacción',
           date: data.created_at, // Keep full ISO for charts
           staffId: data.staff_id || undefined
         };

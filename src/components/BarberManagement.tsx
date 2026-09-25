@@ -4,11 +4,21 @@ import {
   Stethoscope, Palette, Brush, User, Users, Heart, Activity, Car, Smartphone, Zap, Star, 
   Smile, Wind, Droplets, Briefcase, ShoppingBag, Bold, Italic, Underline, Type, 
   Image as ImageIcon, Eye, X, Minus, Sparkles, Cross, Wrench, Shield, Calculator, Building, 
-  Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer, Camera
+  Book, GraduationCap, PenTool, Home, Hammer, Key, Music, Mic, Ticket, MonitorPlay, Dumbbell, Flame, Timer, Camera,
+  Megaphone, Lock, ExternalLink
 } from 'lucide-react';
 
-
 import { supabase } from '../lib/supabase';
+
+export interface CustomPromotion {
+  id: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  link?: string;
+  image_url?: string;
+  is_active: boolean;
+}
 
 const availableIcons = [
   // Belleza
@@ -58,8 +68,11 @@ interface DaySchedule {
 
 
 export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) => {
-  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews' | 'form'>('brand');
+  const [activeTab, setActiveTab] = useState<'services' | 'schedule' | 'brand' | 'reviews' | 'form' | 'promotions'>('brand');
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(tenantId);
+  const [tenantPlan, setTenantPlan] = useState<string>('Free');
+  const [customPromotions, setCustomPromotions] = useState<CustomPromotion[]>([]);
+  const [showGlobalAds, setShowGlobalAds] = useState(true);
 
 
 
@@ -174,6 +187,13 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           enableCustomForm: tenant.enable_custom_form ?? false,
           customFormConfig: tenant.custom_form_config || []
         });
+        setTenantPlan(tenant.plan_id || 'Free');
+        if (tenant.custom_promotions && Array.isArray(tenant.custom_promotions)) {
+          setCustomPromotions(tenant.custom_promotions);
+        }
+        if (tenant.show_global_ads !== undefined) {
+          setShowGlobalAds(tenant.show_global_ads);
+        }
         if (tenant.schedule) setWeeksSchedule(tenant.schedule);
         if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
         
@@ -300,7 +320,9 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
         enable_custom_form: brand.enableCustomForm,
         custom_form_config: brand.customFormConfig,
         schedule: weeksSchedule,
-        lunch_break: lunchBreak
+        lunch_break: lunchBreak,
+        custom_promotions: customPromotions,
+        show_global_ads: showGlobalAds
       };
 
       // Try logo_url first (official Supabase schema default)
@@ -494,6 +516,24 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           }}
         >
           Formulario de Registro
+        </button>
+        <button 
+          onClick={() => setActiveTab('promotions')}
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'promotions' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            cursor: 'pointer',
+            padding: '0.5rem 1rem',
+            borderBottom: activeTab === 'promotions' ? '2px solid var(--primary)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem'
+          }}
+        >
+          <Megaphone size={16} />
+          Promociones & Sponsors
         </button>
 
 
@@ -1509,6 +1549,278 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
                   : 'Descanso de almuerzo desactivado.'}
               </p>
             </div>
+          </div>
+        ) : activeTab === 'promotions' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 850, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Megaphone size={22} color="var(--primary)" /> Publicidad & Patrocinadores en Sala de Espera
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                Configura promociones de tu propio negocio o vende espacios publicitarios a comercios aliados para que aparezcan bajo el cronómetro de tus clientes.
+              </p>
+            </div>
+
+            {tenantPlan === 'Free' ? (
+              <div style={{ 
+                padding: '2.5rem 1.5rem', 
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(24,24,27,0.6) 100%)', 
+                borderRadius: 'var(--radius-lg)', 
+                border: '1px solid rgba(245,158,11,0.3)',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '1rem'
+              }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(245,158,11,0.15)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Lock size={28} />
+                </div>
+                <div style={{ maxWidth: '480px' }}>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem' }}>
+                    Módulo de Anuncios y Patrocinadores Locales (Marca Blanca)
+                  </h4>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Monetiza el tiempo de espera de tus clientes. Coloca tarjetas promocionales con enlaces a WhatsApp o tiendas de negocios aliados (cafés, gimnasios, locales vecinos) directamente en la pantalla del turno en vivo.
+                  </p>
+                </div>
+                <div style={{ padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  🔒 Exclusivo para suscriptores de planes <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Professional</span> y <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Multi-Negocios</span>.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {/* White-Label: Platform Ads Toggle */}
+                <div style={{ 
+                  padding: '1.25rem', 
+                  background: 'var(--background)', 
+                  borderRadius: 'var(--radius-md)', 
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Anuncios Generales de MyTurn en Sala de Espera</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
+                      {showGlobalAds 
+                        ? 'Actualmente tus clientes pueden ver anuncios o promociones globales si no tienes promociones propias activas.'
+                        : 'Marca blanca activada: no se mostrarán anuncios globales de MyTurn en tu sala de espera.'}
+                    </p>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox"
+                      checked={showGlobalAds}
+                      onChange={(e) => setShowGlobalAds(e.target.checked)}
+                      style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
+                    />
+                  </label>
+                </div>
+
+                {/* Custom Promotions List */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Mis Tarjetas Promocionales (Máximo 3)</h4>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                        {customPromotions.length}/3 promociones añadidas
+                      </p>
+                    </div>
+                    {customPromotions.length < 3 && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                          const newPromo: CustomPromotion = {
+                            id: crypto.randomUUID(),
+                            title: '',
+                            subtitle: '',
+                            badge: 'PROMO LOCAL',
+                            link: '',
+                            image_url: '',
+                            is_active: true
+                          };
+                          setCustomPromotions([...customPromotions, newPromo]);
+                        }}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <Plus size={16} /> Añadir Tarjeta
+                      </button>
+                    )}
+                  </div>
+
+                  {customPromotions.length === 0 ? (
+                    <div style={{ 
+                      padding: '2.5rem 1rem', 
+                      textAlign: 'center', 
+                      background: 'var(--background)', 
+                      borderRadius: 'var(--radius-md)', 
+                      border: '1px dashed var(--border)', 
+                      color: 'var(--text-muted)' 
+                    }}>
+                      <Megaphone size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
+                      <p style={{ fontWeight: 700, margin: 0 }}>No tienes promociones configuradas</p>
+                      <p style={{ fontSize: '0.8rem', margin: '0.25rem 0 1rem' }}>
+                        Añade hasta 3 promociones de aliados comerciales o descuentos de tu local para mostrar a tus clientes en cola.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => {
+                          const newPromo: CustomPromotion = {
+                            id: crypto.randomUUID(),
+                            title: '',
+                            subtitle: '',
+                            badge: 'PROMO LOCAL',
+                            link: '',
+                            image_url: '',
+                            is_active: true
+                          };
+                          setCustomPromotions([newPromo]);
+                        }}
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        <Plus size={14} /> Crear mi primera promoción
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {customPromotions.map((promo, idx) => (
+                        <div 
+                          key={promo.id}
+                          style={{
+                            padding: '1.25rem',
+                            background: 'var(--background)',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)' }}>
+                                Promo #{idx + 1}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...customPromotions];
+                                  updated[idx].is_active = !updated[idx].is_active;
+                                  setCustomPromotions(updated);
+                                }}
+                                style={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 800,
+                                  padding: '0.15rem 0.5rem',
+                                  borderRadius: '999px',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  background: promo.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                                  color: promo.is_active ? '#10b981' : 'var(--text-muted)'
+                                }}
+                              >
+                                {promo.is_active ? '● ACTIVA' : 'PAUSADA'}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomPromotions(customPromotions.filter((_, i) => i !== idx));
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                              title="Eliminar Promoción"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '0.75rem' }}>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>TÍTULO DE LA PROMOCIÓN</label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 15% OFF en Café Barista con tu turno"
+                                value={promo.title}
+                                onChange={(e) => {
+                                  const updated = [...customPromotions];
+                                  updated[idx].title = e.target.value;
+                                  setCustomPromotions(updated);
+                                }}
+                                style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.85rem' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>BADGE / ETIQUETA</label>
+                              <input
+                                type="text"
+                                placeholder="PROMO, 2x1, SOCIO..."
+                                value={promo.badge}
+                                onChange={(e) => {
+                                  const updated = [...customPromotions];
+                                  updated[idx].badge = e.target.value;
+                                  setCustomPromotions(updated);
+                                }}
+                                style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.85rem' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>SUBTÍTULO / INSTRUCCIONES (OPCIONAL)</label>
+                            <input
+                              type="text"
+                              placeholder="Ej: Muestra tu ticket MyTurn al ordenar en caja"
+                              value={promo.subtitle || ''}
+                              onChange={(e) => {
+                                const updated = [...customPromotions];
+                                updated[idx].subtitle = e.target.value;
+                                setCustomPromotions(updated);
+                              }}
+                              style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.85rem' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>ENLACE WEB O WHATSAPP</label>
+                              <input
+                                type="url"
+                                placeholder="https://wa.me/... o https://..."
+                                value={promo.link || ''}
+                                onChange={(e) => {
+                                  const updated = [...customPromotions];
+                                  updated[idx].link = e.target.value;
+                                  setCustomPromotions(updated);
+                                }}
+                                style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.85rem' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>URL IMAGEN O LOGO DEL PATROCINADOR</label>
+                              <input
+                                type="url"
+                                placeholder="https://..."
+                                value={promo.image_url || ''}
+                                onChange={(e) => {
+                                  const updated = [...customPromotions];
+                                  updated[idx].image_url = e.target.value;
+                                  setCustomPromotions(updated);
+                                }}
+                                style={{ width: '100%', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.85rem' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
       </div>

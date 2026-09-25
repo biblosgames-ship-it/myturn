@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { User, LayoutDashboard, Menu, X, ArrowRight, Play, Check, Clock, TrendingUp, ShieldCheck, Phone, LogOut } from 'lucide-react';
-import { BarberDashboard } from './components/BarberDashboard';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { User, LayoutDashboard, Menu, X, Phone, LogOut, Loader2 } from 'lucide-react';
 import { ClientView } from './components/ClientView';
-import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { BarberAuth } from './components/BarberAuth';
-import { PasswordReset } from './components/PasswordReset';
 import { supabase } from './lib/supabase';
+
+// Code-splitting: Lazy load heavy admin & recovery dashboards
+const BarberDashboard = lazy(() => import('./components/BarberDashboard').then(m => ({ default: m.BarberDashboard })));
+const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
+const PasswordReset = lazy(() => import('./components/PasswordReset').then(m => ({ default: m.PasswordReset })));
 
 type AppView = 'landing' | 'barber' | 'client' | 'superadmin' | 'barber_login' | 'superadmin_login' | 'reset_password';
 
@@ -460,13 +462,13 @@ function App() {
             zIndex: 9999, 
             display: 'flex', 
             flexDirection: 'column', 
-            padding: '5rem 2rem 2rem',
+            padding: 'calc(4.5rem + env(safe-area-inset-top, 0px)) 2rem calc(2rem + env(safe-area-inset-bottom, 0px))',
             gap: '1rem'
           }}
         >
           {/* Close button inside menu for redundancy */}
           <button 
-            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text)' }}
+            style={{ position: 'absolute', top: 'max(1rem, env(safe-area-inset-top, 0px))', right: '1rem', background: 'none', border: 'none', color: 'var(--text)' }}
             onClick={() => setIsMenuOpen(false)}
           >
             <X size={32} />
@@ -505,10 +507,17 @@ function App() {
         </div>
       )}
 
-      {renderView()}
+      <Suspense fallback={
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '1rem' }}>
+          <Loader2 className="animate-spin" size={36} color="var(--primary)" />
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cargando panel...</span>
+        </div>
+      }>
+        {renderView()}
+      </Suspense>
 
       <footer className="no-print" style={{ 
-        padding: '2rem', 
+        padding: '2rem 1.5rem calc(2rem + env(safe-area-inset-bottom, 0px))', 
         borderTop: '1px solid var(--border)', 
         textAlign: 'center',
         color: 'var(--text-muted)',

@@ -1,5 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Users } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, Users, Bell, Volume2 } from 'lucide-react';
+
+// Chime synthesizer using Web Audio API (native, zero external files)
+const playTurnChime = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    const now = ctx.currentTime;
+    
+    // Note 1: E5 (659.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Note 2: B5 (987.77 Hz) - brighter energetic bell tone
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(987.77, now + 0.15);
+    gain2.gain.setValueAtTime(0.3, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.7);
+  } catch (e) {
+    console.warn("Audio chime could not play:", e);
+  }
+};
+
+const triggerTurnVibration = () => {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 300]);
+    }
+  } catch (e) {
+    console.warn("Vibration failed:", e);
+  }
+};
 
 interface SmartTimerProps {
   remainingMinutes: number;
@@ -23,11 +72,34 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
   isToday = true
 }) => {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
+  const prevStatusRef = useRef(status);
+  const [hasTestedAudio, setHasTestedAudio] = useState(false);
 
   // Sync state with prop if it changes (e.g. on load after fetch)
   useEffect(() => {
     setTimeLeft(initialMinutes * 60);
   }, [initialMinutes]);
+
+  // Alert with Sound + Vibration + Notification when status becomes 'next' or 'in_progress'
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    if (prev !== status) {
+      if ((status === 'next' || status === 'in_progress') && prev !== 'completed') {
+        playTurnChime();
+        triggerTurnVibration();
+
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(status === 'in_progress' ? '¡Tu Turno ha Comenzado!' : '¡Eres el Siguiente en la Fila!', {
+            body: status === 'in_progress' 
+              ? 'Por favor dirígete a la estación de atención.' 
+              : 'Prepárate, tu turno está a punto de comenzar.',
+            icon: '/logo-myturn.png'
+          });
+        }
+      }
+      prevStatusRef.current = status;
+    }
+  }, [status]);
 
   useEffect(() => {
     // If it's not today, the timer should not run
@@ -155,10 +227,25 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
         </div>
       </div>
 
-      <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)' }}>
+      <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', gap: '0.5rem', flexWrap: 'wrap' }}>
         <span className="badge badge-warning" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
           Estado: {status === 'in_progress' ? 'En proceso' : status === 'next' ? 'Próximo' : 'En espera'}
         </span>
+        <button
+          type="button"
+          onClick={() => {
+            playTurnChime();
+            triggerTurnVibration();
+            setHasTestedAudio(true);
+            setTimeout(() => setHasTestedAudio(false), 2000);
+          }}
+          className="btn btn-outline"
+          style={{ padding: '0.3rem 0.65rem', fontSize: '0.7rem', gap: '0.35rem', borderRadius: 'var(--radius-full)', borderColor: hasTestedAudio ? 'var(--primary)' : 'var(--border)', color: hasTestedAudio ? 'var(--primary)' : 'var(--text-muted)' }}
+          title="Probar sonido y vibración de aviso"
+        >
+          <Volume2 size={13} color={hasTestedAudio ? 'var(--primary)' : 'var(--text-muted)'} />
+          <span>{hasTestedAudio ? '¡Alerta lista!' : 'Probar Alerta'}</span>
+        </button>
       </div>
     </div>
   );

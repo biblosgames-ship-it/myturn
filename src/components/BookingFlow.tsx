@@ -49,6 +49,7 @@ export const BookingFlow: React.FC<{
   const [enableCustomForm, setEnableCustomForm] = useState(false);
   const [customFormConfig, setCustomFormConfig] = useState<any[]>([]);
   const [formResponses, setFormResponses] = useState<Record<string, string>>({});
+  const [businessInfo, setBusinessInfo] = useState<{ name: string; address: string }>({ name: 'MyTurn', address: '' });
 
   // Compute slot interval dynamically from average service duration.
   // Falls back to 30 min if no services loaded yet.
@@ -163,9 +164,10 @@ export const BookingFlow: React.FC<{
       }
 
       // 1b. Fetch Schedule & Lunch Break
-      const { data: tData } = await supabase.from('tenants').select('schedule, lunch_break, require_confirmation, enable_custom_form, custom_form_config').eq('id', tenantId).single();
+      const { data: tData } = await supabase.from('tenants').select('name, address, schedule, lunch_break, require_confirmation, enable_custom_form, custom_form_config').eq('id', tenantId).single();
       if (tData) {
         const tenant = tData as any;
+        if (tenant.name) setBusinessInfo({ name: tenant.name, address: tenant.address || '' });
         if (tenant.schedule) setBusinessSchedule(tenant.schedule);
         if (tenant.lunch_break) setLunchBreak(tenant.lunch_break);
         if (tenant.require_confirmation) setRequireConfirmation(tenant.require_confirmation);
@@ -326,7 +328,6 @@ export const BookingFlow: React.FC<{
         if (data?.id) {
           console.log("CITA CREADA EXITOSAMENTE - ID:", data.id);
           localStorage.setItem(`myturn_active_appointment_id_${tenantId}`, data.id);
-          onSuccess(); // Mark as success in parent
           setStep(5);
         } else {
           throw new Error("No se pudo generar el turno.");
@@ -340,6 +341,76 @@ export const BookingFlow: React.FC<{
       alert("Hubo un error al guardar tu cita.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const createGoogleCalendarUrl = () => {
+    if (!selectedTime || !selectedService) return '#';
+    try {
+      const [startH, startM] = selectedTime.split(':').map(Number);
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const start = new Date(year, month - 1, day, startH, startM, 0);
+      const durationMin = selectedService.duration || 30;
+      const end = new Date(start.getTime() + durationMin * 60000);
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const formatGCal = (d: Date) => 
+        `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+
+      const title = encodeURIComponent(`Cita: ${selectedService.name} - ${businessInfo.name}`);
+      const details = encodeURIComponent(`Servicio: ${selectedService.name}\nProfesional: ${selectedPro?.name || 'Asignado'}\nCliente: ${clientName || 'Cliente'}\nPrecio: $${selectedService.price}\n\nGestionado a través de MyTurn.`);
+      const location = encodeURIComponent(businessInfo.address || '');
+      const dates = `${formatGCal(start)}/${formatGCal(end)}`;
+
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
+    } catch {
+      return '#';
+    }
+  };
+
+  const downloadIcsFile = () => {
+    if (!selectedTime || !selectedService) return;
+    try {
+      const [startH, startM] = selectedTime.split(':').map(Number);
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const start = new Date(year, month - 1, day, startH, startM, 0);
+      const durationMin = selectedService.duration || 30;
+      const end = new Date(start.getTime() + durationMin * 60000);
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const formatIcs = (d: Date) => 
+        `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//MyTurn//Cita//ES',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:myturn-${Date.now()}@myturn.app`,
+        `DTSTAMP:${formatIcs(new Date())}`,
+        `DTSTART:${formatIcs(start)}`,
+        `DTEND:${formatIcs(end)}`,
+        `SUMMARY:Cita: ${selectedService.name} - ${businessInfo.name}`,
+        `DESCRIPTION:Cita confirmada para ${selectedService.name}. Profesional: ${selectedPro?.name || 'Asignado'}. Precio: $${selectedService.price}`,
+        `LOCATION:${businessInfo.address || ''}`,
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `cita-${selectedService.name.toLowerCase().replace(/[^\w-]/g, '-')}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error generating .ics file:', e);
     }
   };
 
@@ -369,15 +440,18 @@ export const BookingFlow: React.FC<{
         {/* Header */}
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Paso {step === 5 ? 4 : step} de 4</p>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+              {step === 5 ? 'Confirmación' : `Paso ${step} de 4`}
+            </p>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
               {step === 1 && 'Selecciona un Servicio'}
               {step === 2 && 'Elige tu Profesional'}
               {step === 3 && 'Elige Fecha y Horario'}
               {step === 4 && 'Confirmar Reserva'}
+              {step === 5 && '¡Cita Confirmada!'}
             </h3>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <button onClick={step === 5 ? onSuccess : onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <X size={24} />
           </button>
         </div>
@@ -756,6 +830,32 @@ export const BookingFlow: React.FC<{
                   </>
                 )}
               </div>
+
+              {/* Add to Calendar Options */}
+              <div style={{ marginTop: '1rem', padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', textAlign: 'left' }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>
+                  📅 Guardar en tu Calendario
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <a 
+                    href={createGoogleCalendarUrl()} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-outline"
+                    style={{ padding: '0.6rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', borderColor: 'var(--border)' }}
+                  >
+                    <span>🗓️</span> Google Calendar
+                  </a>
+                  <button 
+                    type="button"
+                    onClick={downloadIcsFile}
+                    className="btn btn-outline"
+                    style={{ padding: '0.6rem 0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', borderColor: 'var(--border)' }}
+                  >
+                    <span>🍏</span> Apple / Outlook
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -790,7 +890,7 @@ export const BookingFlow: React.FC<{
             <button 
               className="btn btn-success" 
               style={{ width: '100%', padding: '1rem', fontWeight: 800 }}
-              onClick={onClose}
+              onClick={onSuccess}
             >
               {selectedDate === getTodayStr() ? 'Ver mi Turno en Vivo' : 'Ir a mis Reservas'}
             </button>
