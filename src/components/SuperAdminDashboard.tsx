@@ -2599,88 +2599,123 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 </div>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>
-                  LOGO DEL NEGOCIO (SUBIR IMAGEN O URL)
-                </label>
-                
-                <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                  <img
-                    src={newProposalTenant.logoUrl || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
-                    alt="Logo Preview"
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '12px',
-                      objectFit: 'cover',
-                      border: '2px solid var(--primary)',
-                      background: '#0f172a',
-                      flexShrink: 0
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
-                    }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <label 
-                        className={`btn ${isUploadingLogo ? 'btn-outline' : 'btn-primary'}`} 
-                        style={{ 
-                          fontSize: '0.75rem', 
-                          padding: '0.45rem 0.85rem', 
-                          cursor: isUploadingLogo ? 'wait' : 'pointer', 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: '0.4rem' 
-                        }}
-                      >
-                        {isUploadingLogo ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            Comprimiendo y Subiendo...
-                          </>
-                        ) : (
-                          <>
-                            <Upload size={14} />
-                            Subir Foto / Logo
-                          </>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={isUploadingLogo}
-                          onChange={handleLogoUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        Se optimiza auto a WebP ultraligero
-                      </span>
-                    </div>
+              {/* LOGO UPLOAD AREA */}
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.03)',
+                border: '1.5px dashed var(--primary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                    <Upload size={16} /> LOGO DEL NEGOCIO (SUBIDA DIRECTA)
+                  </label>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    Compresión auto WebP (Máx 400x400)
+                  </span>
+                </div>
 
-                    {uploadCompressionStats && (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
-                        <CheckCircle2 size={13} />
-                        Optimizado: {uploadCompressionStats.originalSize} ➔ {uploadCompressionStats.compressedSize} ({uploadCompressionStats.savingsPercent}% menos peso)
-                      </div>
-                    )}
-
-                    <input
-                      type="url"
-                      placeholder="o escribe URL: https://..."
-                      value={newProposalTenant.logoUrl}
-                      onChange={(e) => setNewProposalTenant({ ...newProposalTenant, logoUrl: e.target.value })}
-                      style={{ 
-                        fontSize: '0.75rem', 
-                        padding: '0.4rem 0.6rem', 
-                        background: 'transparent', 
-                        border: '1px dashed var(--border)', 
-                        borderRadius: 'var(--radius-sm)', 
-                        color: 'var(--text)',
-                        width: '100%'
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={newProposalTenant.logoUrl || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
+                      alt="Logo Preview"
+                      style={{
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: '14px',
+                        objectFit: 'cover',
+                        border: '2px solid var(--primary)',
+                        background: '#0f172a',
+                        flexShrink: 0
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
                       }}
                     />
                   </div>
+
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label 
+                      className={`btn ${isUploadingLogo ? 'btn-outline' : 'btn-primary'}`} 
+                      style={{ 
+                        fontSize: '0.85rem', 
+                        fontWeight: 800,
+                        padding: '0.65rem 1.25rem', 
+                        cursor: isUploadingLogo ? 'wait' : 'pointer', 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)'
+                      }}
+                    >
+                      {isUploadingLogo ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Comprimiendo y subiendo imagen...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={16} />
+                          Seleccionar Archivo de Logo
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingLogo}
+                        onChange={handleLogoUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                      ⚡ No carga la base de datos: se comprime en el navegador y se aloja en almacenamiento CDN.
+                    </p>
+                  </div>
+                </div>
+
+                {uploadCompressionStats && (
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: 'var(--success)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.4rem', 
+                    fontWeight: 800,
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)'
+                  }}>
+                    <CheckCircle2 size={15} />
+                    ¡Comprimido con éxito! De {uploadCompressionStats.originalSize} a solo {uploadCompressionStats.compressedSize} (-{uploadCompressionStats.savingsPercent}% de peso).
+                  </div>
+                )}
+
+                <div style={{ marginTop: '0.25rem' }}>
+                  <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                    O si prefieres, pega un enlace directo de internet:
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/..."
+                    value={newProposalTenant.logoUrl}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, logoUrl: e.target.value })}
+                    style={{ 
+                      fontSize: '0.75rem', 
+                      padding: '0.5rem 0.75rem', 
+                      background: 'var(--background)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: 'var(--radius-sm)', 
+                      color: 'var(--text)',
+                      width: '100%'
+                    }}
+                  />
                 </div>
               </div>
 
