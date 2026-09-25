@@ -8,12 +8,17 @@ import { supabase } from './lib/supabase';
 const BarberDashboard = lazy(() => import('./components/BarberDashboard').then(m => ({ default: m.BarberDashboard })));
 const SuperAdminDashboard = lazy(() => import('./components/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 const PasswordReset = lazy(() => import('./components/PasswordReset').then(m => ({ default: m.PasswordReset })));
+const BusinessClaimModal = lazy(() => import('./components/BusinessClaimModal').then(m => ({ default: m.BusinessClaimModal })));
 
 type AppView = 'landing' | 'barber' | 'client' | 'superadmin' | 'barber_login' | 'superadmin_login' | 'reset_password';
 
 function App() {
   const [view, setView] = useState<AppView>('landing');
   const [tenant, setTenant] = useState<{ id: string, name: string } | null>(null);
+  const [activeClaimToken, setActiveClaimToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('claim');
+  });
 
   const [loading, setLoading] = useState(true);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -515,6 +520,29 @@ function App() {
       }>
         {renderView()}
       </Suspense>
+
+      {/* Business Claim / Direct Proposal Link Modal */}
+      {activeClaimToken && (
+        <Suspense fallback={null}>
+          <BusinessClaimModal
+            claimToken={activeClaimToken}
+            onSuccess={(tenantId) => {
+              setActiveClaimToken(null);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('claim');
+              window.history.replaceState({}, '', url.toString());
+              setTenant({ id: tenantId, name: '' });
+              handleSetView('barber');
+            }}
+            onClose={() => {
+              setActiveClaimToken(null);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('claim');
+              window.history.replaceState({}, '', url.toString());
+            }}
+          />
+        </Suspense>
+      )}
 
       <footer className="no-print" style={{ 
         padding: '2rem 1.5rem calc(2rem + env(safe-area-inset-bottom, 0px))', 

@@ -6,7 +6,8 @@ import {
   Filter, MoreVertical, ExternalLink, AlertCircle, TrendingUp, 
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
   CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
-  Download, Printer, Star, Megaphone, Trash2, Edit
+  Download, Printer, Star, Megaphone, Trash2, Edit,
+  Link2, UserPlus, Sparkles, MessageCircle
 } from 'lucide-react';
 
 interface SupportTicket {
@@ -45,6 +46,10 @@ interface Tenant {
   expiryDate: string;
   isFeatured?: boolean;
   featuredBadge?: string;
+  claimToken?: string;
+  ownerPhone?: string;
+  slug?: string;
+  professionalName?: string;
 }
 
 export interface SaasPlan {
@@ -107,6 +112,120 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
     type: 'cintillo' as 'cintillo' | 'banner' | 'popup',
     priority: 10
   });
+
+  // Proposal & Claim state
+  const [showCreateTenantModal, setShowCreateTenantModal] = useState(false);
+  const [claimModalTenant, setClaimModalTenant] = useState<Tenant | null>(null);
+  const [copiedClaimLink, setCopiedClaimLink] = useState(false);
+  const [creatingTenant, setCreatingTenant] = useState(false);
+  const [newProposalTenant, setNewProposalTenant] = useState({
+    name: '',
+    slug: '',
+    industry: 'Barbería' as any,
+    plan_id: 'Professional' as any,
+    professionalName: '',
+    ownerPhone: '',
+    logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
+    slogan: 'Tu mejor experiencia en cada turno'
+  });
+
+  const handleCreateProposalTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProposalTenant.name) return;
+    setCreatingTenant(true);
+    try {
+      const baseSlug = (newProposalTenant.slug || newProposalTenant.name)
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
+      const token = `claim_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+
+      const { data: createdTenant, error: insertErr } = await supabase.from('tenants').insert({
+        name: newProposalTenant.name,
+        slug: uniqueSlug,
+        industry: newProposalTenant.industry,
+        plan_id: newProposalTenant.plan_id,
+        owner: 'Pendiente de vinculación',
+        logo_url: newProposalTenant.logoUrl,
+        logo: newProposalTenant.logoUrl,
+        professional_name: newProposalTenant.professionalName || 'Personal Principal',
+        slogan: newProposalTenant.slogan,
+        owner_phone: newProposalTenant.ownerPhone || null,
+        claim_token: token,
+        status: 'active',
+        expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }).select().single();
+
+      if (insertErr) throw insertErr;
+
+      if (createdTenant) {
+        // Create starter service and staff member so the proposal is ready
+        await supabase.from('services').insert({
+          tenant_id: createdTenant.id,
+          name: 'Servicio Principal',
+          price: 15,
+          duration_minutes: 30,
+          duration: 30,
+          icon: 'Star'
+        });
+
+        await supabase.from('staff_members').insert({
+          tenant_id: createdTenant.id,
+          name: newProposalTenant.professionalName || 'Profesional Principal',
+          role: 'Titular'
+        });
+
+        setShowCreateTenantModal(false);
+        setNewProposalTenant({
+          name: '',
+          slug: '',
+          industry: 'Barbería',
+          plan_id: 'Professional',
+          professionalName: '',
+          ownerPhone: '',
+          logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
+          slogan: 'Tu mejor experiencia en cada turno'
+        });
+
+        await fetchTenants();
+
+        // Immediately open claim modal with the newly generated link
+        setClaimModalTenant({
+          id: createdTenant.id,
+          name: createdTenant.name,
+          owner: createdTenant.owner,
+          industry: createdTenant.industry,
+          status: 'active',
+          plan: createdTenant.plan_id,
+          appointmentsToday: 0,
+          revenue: 0,
+          logo: createdTenant.logo_url || createdTenant.logo,
+          expiryDate: createdTenant.expiry_date,
+          claimToken: token,
+          slug: createdTenant.slug,
+          ownerPhone: newProposalTenant.ownerPhone,
+          professionalName: newProposalTenant.professionalName
+        });
+      }
+    } catch (err: any) {
+      console.error('Error creating proposal tenant:', err);
+      alert('Error creando negocio: ' + (err.message || ''));
+    } finally {
+      setCreatingTenant(false);
+    }
+  };
+
+  const handleRegenerateClaimToken = async (tenantId: string) => {
+    const newToken = `claim_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+    const { error } = await supabase.from('tenants').update({ claim_token: newToken }).eq('id', tenantId);
+    if (!error) {
+      setClaimModalTenant(prev => prev ? { ...prev, claimToken: newToken } : null);
+      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, claimToken: newToken } : t));
+    }
+  };
 
   const fetchPlatformAds = async () => {
     setAdsLoading(true);
@@ -242,7 +361,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           logo: t.logo || t.logo_url || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop',
           expiryDate: t.expiry_date || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           isFeatured: Boolean(t.is_featured),
-          featuredBadge: t.featured_badge || 'DESTACADO'
+          featuredBadge: t.featured_badge || 'DESTACADO',
+          claimToken: t.claim_token,
+          ownerPhone: t.owner_phone,
+          slug: t.slug,
+          professionalName: t.professional_name
         })));
       }
     } catch (err) {
@@ -607,6 +730,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
 
                 <button 
                   className="btn btn-primary"
+                  onClick={() => setShowCreateTenantModal(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Building2 size={18} /> + Crear Negocio / Propuesta
+                </button>
+
+                <button 
+                  className="btn btn-outline"
                   disabled={loading}
                   onClick={async () => {
                     try {
@@ -647,7 +778,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                     }
                   }}
                 >
-                  {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />} Invitación Directa
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />} Invitación Rápida
                 </button>
               </div>
             </header>
@@ -791,6 +922,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                                 title={t.isFeatured ? "Quitar de destacados en la app" : "Destacar negocio en App (Patrocinado)"}
                               >
                                 <Star size={14} fill={t.isFeatured ? '#f59e0b' : 'none'} />
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ 
+                                  padding: '0.4rem', 
+                                  color: '#3b82f6', 
+                                  borderColor: 'rgba(59,130,246,0.4)',
+                                  background: 'rgba(59,130,246,0.08)'
+                                }} 
+                                onClick={() => setClaimModalTenant(t)}
+                                title="Generar Enlace de Vinculación / Traspaso al Dueño"
+                              >
+                                <Link2 size={14} />
                               </button>
                             </>
                           )}
@@ -1847,6 +1991,359 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           </div>
         </div>
       )}
+
+      {/* Create Proposal / New Business Modal */}
+      {showCreateTenantModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 4000,
+          backdropFilter: 'blur(8px)',
+          padding: '1rem'
+        }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '540px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <header style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '48px', height: '48px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Building2 size={26} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>Crear Negocio / Propuesta</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Configura la marca del cliente para enviarle el enlace de traspaso.</p>
+              </div>
+            </header>
+
+            <form onSubmit={handleCreateProposalTenant} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>NOMBRE DEL NEGOCIO *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Barbería Don Pedro"
+                    value={newProposalTenant.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      const autoSlug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+                      setNewProposalTenant({ ...newProposalTenant, name, slug: autoSlug });
+                    }}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>URL / SLUG AMIGABLE</label>
+                  <input
+                    type="text"
+                    placeholder="ej: barberia-don-pedro"
+                    value={newProposalTenant.slug}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, slug: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>RUBRO / INDUSTRIA</label>
+                  <select
+                    value={newProposalTenant.industry}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, industry: e.target.value as any })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  >
+                    <option value="Barbería">Barbería</option>
+                    <option value="Salón">Salón de Belleza / Spa</option>
+                    <option value="Salud">Salud / Bienestar</option>
+                    <option value="Taller">Taller / Mecánica</option>
+                    <option value="Otro">Otro / Servicios</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>PLAN SAAS INICIAL</label>
+                  <select
+                    value={newProposalTenant.plan_id}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, plan_id: e.target.value as any })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  >
+                    <option value="Free">Free ($0)</option>
+                    <option value="Professional">Professional ($29/m)</option>
+                    <option value="Multi-Professional">Multi-Professional ($79/m)</option>
+                    <option value="Multi-Negocios">Multi-Negocios ($149/m)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>PROFESIONAL PRINCIPAL</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Pedro Martínez"
+                    value={newProposalTenant.professionalName}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, professionalName: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>WHATSAPP DEL DUEÑO (OPCIONAL)</label>
+                  <input
+                    type="tel"
+                    placeholder="Ej: +34 600 000 000"
+                    value={newProposalTenant.ownerPhone}
+                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, ownerPhone: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>URL DEL LOGO (OPCIONAL)</label>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
+                  value={newProposalTenant.logoUrl}
+                  onChange={(e) => setNewProposalTenant({ ...newProposalTenant, logoUrl: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>ESLOGAN / DESCRIPCIÓN CORTA</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Tu mejor estilo en cada turno"
+                  value={newProposalTenant.slogan}
+                  onChange={(e) => setNewProposalTenant({ ...newProposalTenant, slogan: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateTenantModal(false)}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingTenant}
+                  className="btn btn-primary"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  {creatingTenant ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} /> Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} /> Crear y Generar Enlace
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Claim / Owner Onboarding Modal */}
+      {claimModalTenant && (() => {
+        const claimUrl = `${window.location.origin}/?claim=${claimModalTenant.claimToken || claimModalTenant.id}`;
+        const previewUrl = `${window.location.origin}/${claimModalTenant.slug || claimModalTenant.id}`;
+        const isAlreadyClaimed = Boolean(
+          claimModalTenant.owner && 
+          claimModalTenant.owner !== 'Pendiente de vinculación' && 
+          claimModalTenant.owner !== 'Pendiente' && 
+          !claimModalTenant.owner.startsWith('Invitación')
+        );
+
+        const cleanPhone = (claimModalTenant.ownerPhone || '').replace(/[^\d+]/g, '');
+        const whatsappMsg = `¡Hola! 👋 Te he preparado una propuesta personalizada para *${claimModalTenant.name}* en MyTurn.
+
+Puedes ver cómo luce la página de tu negocio aquí:
+${previewUrl}
+
+Para tomar el control como dueño y empezar a gestionar tus turnos y agenda en vivo, ingresa a este enlace para vincular tu correo:
+${claimUrl}`;
+
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 4000,
+            backdropFilter: 'blur(8px)',
+            padding: '1rem'
+          }}>
+            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '520px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <header style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <img 
+                  src={claimModalTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} 
+                  alt="" 
+                  style={{ width: '52px', height: '52px', borderRadius: '12px', objectFit: 'cover', border: '1.5px solid var(--primary)' }} 
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {claimModalTenant.name}
+                    </h3>
+                    <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
+                      {claimModalTenant.plan}
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                    {isAlreadyClaimed ? `Vinculado con: ${claimModalTenant.owner}` : 'Propuesta lista para vincular al propietario'}
+                  </p>
+                </div>
+              </header>
+
+              {/* Status Banner */}
+              <div style={{
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                background: isAlreadyClaimed ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                border: `1px solid ${isAlreadyClaimed ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem'
+              }}>
+                {isAlreadyClaimed ? (
+                  <>
+                    <CheckCircle2 size={18} color="#10b981" />
+                    <div>
+                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>Propietario Activo</p>
+                      <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-muted)' }}>{claimModalTenant.owner}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} color="var(--primary)" />
+                    <div>
+                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>Esperando Vinculación</p>
+                      <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-muted)' }}>El cliente aún no se ha vinculado con su correo.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Claim Link Input */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                  ENLACE DIRECTO DE VINCULACIÓN
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={claimUrl}
+                    style={{ flex: 1, padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.825rem' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(claimUrl);
+                        setCopiedClaimLink(true);
+                        setTimeout(() => setCopiedClaimLink(false), 2500);
+                      } catch (e) {
+                        alert('Copia el texto del campo directamente.');
+                      }
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0 1rem' }}
+                  >
+                    {copiedClaimLink ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                    {copiedClaimLink ? 'Copiado' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons: WhatsApp & Preview */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <a
+                  href={`https://wa.me/${cleanPhone.replace('+', '')}?text=${encodeURIComponent(whatsappMsg)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn"
+                  style={{
+                    background: '#25D366',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    fontWeight: 800,
+                    textDecoration: 'none',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                >
+                  <MessageCircle size={18} /> Enviar Propuesta por WhatsApp
+                </a>
+
+                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-outline"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      padding: '0.6rem',
+                      fontSize: '0.8rem',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <ExternalLink size={14} /> Ver Propuesta Pública
+                  </a>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => handleRegenerateClaimToken(claimModalTenant.id)}
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '0.6rem 0.8rem'
+                    }}
+                    title="Generar un nuevo token si el anterior fue compartido por error"
+                  >
+                    Regenerar Token
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setClaimModalTenant(null)}
+                  className="btn btn-outline"
+                  style={{ minWidth: '100px' }}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
