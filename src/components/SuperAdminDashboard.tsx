@@ -831,22 +831,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
 
 
   return (
-    <div className="animate-fade-in" style={{ 
-      display: 'grid', 
-      gridTemplateColumns: '270px 1fr', 
-      minHeight: 'calc(100vh - 72px)', 
-      background: 'var(--background)',
-      margin: 0
-    }}>
+    <div className="superadmin-layout animate-fade-in">
       {/* Sidebar Navigation */}
-      <aside className="no-print" style={{ 
-        background: 'var(--surface)', 
-        borderRight: '1px solid var(--border)', 
-        padding: '2.5rem 1.25rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2rem'
-      }}>
+      <aside className="superadmin-sidebar no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 1rem' }}>
           <div style={{ 
             width: '40px', 
@@ -941,7 +928,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ padding: '2rem 3rem', height: '100vh', overflowY: 'auto', position: 'relative' }}>
+      <main className="superadmin-main">
         {loading && (
           <div style={{ 
             position: 'absolute', 
@@ -1014,12 +1001,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
 
         {activeTab === 'businesses' && (
           <div className="animate-fade-in">
-            <header className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <header className="no-print" style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '1rem', 
+              marginBottom: '1.5rem' 
+            }}>
               <div>
                 <h1 style={{ fontSize: '2rem', fontWeight: 900 }}>Gestión de Negocios</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Supervisa y modera las cuentas profesionales.</p>
               </div>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative' }}>
                   <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                   <input 
@@ -1114,7 +1108,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
               <p style={{ color: '#666', fontSize: '0.875rem' }}>Fecha del reporte: {new Date().toLocaleDateString()}</p>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
+            <div className="saas-table-card">
               {inviteError && (
                 <div className="animate-fade-in no-print" style={{ margin: '1rem', padding: '1rem', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <ShieldAlert size={18} /> Error de Sistema: {inviteError}
@@ -1126,18 +1120,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 </div>
               )}
 
-
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'transparent' }}>
-                <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
-                  <tr>
-                    <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NEGOCIO</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>INDUSTRIA</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>PLAN / VIGENCIA</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ESTADO</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>RECAUDO</th>
-                    <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }} className="no-print">ACCIONES</th>
-                  </tr>
-                </thead>
+              <div className="saas-table-scroll">
+                <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', textAlign: 'left', background: 'transparent' }}>
+                  <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
+                    <tr>
+                      <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', minWidth: '220px', whiteSpace: 'nowrap' }}>NEGOCIO</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', minWidth: '130px', whiteSpace: 'nowrap' }}>INDUSTRIA</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', minWidth: '150px', whiteSpace: 'nowrap' }}>PLAN / VIGENCIA</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', minWidth: '110px', whiteSpace: 'nowrap' }}>ESTADO</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', minWidth: '100px', whiteSpace: 'nowrap' }}>RECAUDO</th>
+                      <th style={{ 
+                        padding: '1rem 1.25rem', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 800, 
+                        color: 'var(--text-muted)', 
+                        minWidth: '280px', 
+                        whiteSpace: 'nowrap', 
+                        textAlign: 'right', 
+                        position: 'sticky', 
+                        right: 0, 
+                        background: 'var(--surface-hover)', 
+                        zIndex: 3, 
+                        boxShadow: '-6px 0 12px rgba(0,0,0,0.2)' 
+                      }} className="no-print">ACCIONES</th>
+                    </tr>
+                  </thead>
                 <tbody>
                   {filteredTenants.map(t => {
                     const isInvite = t.name && t.name.startsWith('Invitación:');
@@ -1212,8 +1219,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                       <td style={{ padding: '1rem' }}>
                         <span style={{ fontWeight: 800, fontSize: '0.875rem' }}>${isInvite ? '0' : t.revenue.toLocaleString()}</span>
                       </td>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <td style={{ 
+                        padding: '1rem 1.25rem', 
+                        position: 'sticky', 
+                        right: 0, 
+                        background: 'var(--surface)', 
+                        zIndex: 2, 
+                        boxShadow: '-6px 0 12px rgba(0,0,0,0.2)' 
+                      }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                           {isInvite ? (
                             <button className="btn btn-outline" style={{ padding: '0.4rem', color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }} onClick={() => { navigator.clipboard.writeText(inviteCode); alert('Copiado'); }} title="Copiar Código">
                               <Copy size={16} />
@@ -1313,6 +1327,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   )})}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}
@@ -1385,8 +1400,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
               ))}
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div className="saas-table-card">
+              <div className="saas-table-scroll">
+                <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
                     <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NEGOCIO / PLAN</th>
@@ -1477,6 +1493,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}
@@ -1527,8 +1544,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   </button>
                 </div>
               ) : (
-                <div className="card" style={{ overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div className="saas-table-card">
+                  <div className="saas-table-scroll">
+                    <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>ANUNCIO</th>
@@ -1621,6 +1639,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>
