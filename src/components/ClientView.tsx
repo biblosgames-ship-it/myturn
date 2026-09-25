@@ -1148,6 +1148,10 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
             targetDateTime={(() => {
               const myId = localStorage.getItem(`myturn_active_appointment_id_${dbBusiness.id}`);
               const apt = queueItems.find(q => q.id === myId);
+              if (apt?.active) {
+                const startTime = apt.started_at ? new Date(apt.started_at).getTime() : Date.now();
+                return new Date(startTime + (apt.duration || 30) * 60000);
+              }
               return apt?.date_time || null;
             })()}
             startedAt={(() => {

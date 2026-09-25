@@ -2640,8 +2640,14 @@ const getPlanCapabilities = (planName: string) => {
                           
                           {apt.status === 'waiting' ? (
                             <button className="btn btn-primary" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', flex: 1, fontWeight: 900 }} onClick={async () => {
+                              const nowIso = new Date().toISOString();
+                              setAppointments((prev: Appointment[]) => prev.map(a => {
+                                if (a.id === apt.id) return { ...a, status: 'attending', arrived: true };
+                                if (a.status === 'attending') return { ...a, status: 'waiting' };
+                                return a;
+                              }));
                               await supabase.from('appointments').update({ status: 'waiting' }).eq('status', 'attending').eq('tenant_id', tenantId);
-                              await supabase.from('appointments').update({ status: 'attending', started_at: new Date().toISOString() }).eq('id', apt.id);
+                              await supabase.from('appointments').update({ status: 'attending', started_at: nowIso }).eq('id', apt.id);
                             }}>
                               <Play size={12} fill="currentColor" style={{ marginRight: '4px' }} /> ATENDER
                             </button>

@@ -88,8 +88,11 @@ export const SmartTimer: React.FC<SmartTimerProps> = ({
     if (status === 'in_progress') {
       const durSec = (serviceDuration || 30) * 60;
       if (startedAt) {
-        const elapsedSec = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-        return Math.max(0, durSec - elapsedSec);
+        const startedMs = new Date(startedAt).getTime();
+        if (!isNaN(startedMs)) {
+          const elapsedSec = Math.floor((Date.now() - startedMs) / 1000);
+          return Math.max(0, durSec - elapsedSec);
+        }
       }
       return durSec;
     }
