@@ -7,7 +7,7 @@ import {
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
   CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
   Download, Printer, Star, Megaphone, Trash2, Edit,
-  Link2, UserPlus, Sparkles, MessageCircle, Upload, QrCode
+  Link2, UserPlus, Sparkles, MessageCircle, Upload, QrCode, X
 } from 'lucide-react';
 import { compressImage, formatBytes } from '../lib/imageCompression';
 import { BusinessQrPosterModal } from './BusinessQrPosterModal';
@@ -1803,20 +1803,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(0,0,0,0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 4000,
-          backdropFilter: 'blur(8px)'
+          backdropFilter: 'blur(8px)',
+          padding: '1rem',
+          overflowY: 'auto'
         }}>
-          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '450px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <header style={{ textAlign: 'center' }}>
-              <div style={{ width: '64px', height: '64px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                <CreditCard size={32} />
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
+            <header style={{ textAlign: 'center', position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedTenantForPayment(null)}
+                className="btn btn-outline"
+                style={{ position: 'absolute', top: 0, right: 0, padding: '0.45rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
+              <div style={{ width: '60px', height: '60px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                <CreditCard size={30} />
               </div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Gestión de Cuenta SaaS</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Configuración para: <span style={{ fontWeight: 800, color: 'var(--text)' }}>{selectedTenantForPayment.name}</span></p>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0 }}>Gestión de Cuenta SaaS</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.35rem' }}>Configuración para: <span style={{ fontWeight: 800, color: 'var(--text)' }}>{selectedTenantForPayment.name}</span></p>
             </header>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -1921,159 +1932,235 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(0,0,0,0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 4000,
-          backdropFilter: 'blur(8px)'
+          backdropFilter: 'blur(8px)',
+          padding: '1rem',
+          overflowY: 'auto'
         }}>
-          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '500px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 900 }}>Configuración de Negocio (Maestra)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>NOMBRE DEL ESTABLECIMIENTO</label>
-                  <input 
-                    type="text" 
-                    value={editingTenant.name}
-                    onChange={(e) => setEditingTenant({...editingTenant, name: e.target.value})}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>PROPIETARIO RESPONSABLE</label>
-                  <input 
-                    type="text" 
-                    value={editingTenant.owner}
-                    onChange={(e) => setEditingTenant({...editingTenant, owner: e.target.value})}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>
-                    LOGO DEL NEGOCIO (SUBIDA DIRECTA CON COMPRESIÓN)
-                  </label>
-                  
-                  <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                    <img
-                      src={editingTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
-                      alt="Logo Preview"
-                      style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '12px',
-                        objectFit: 'cover',
-                        border: '2px solid var(--primary)',
-                        background: '#0f172a',
-                        flexShrink: 0
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <label 
-                          className={`btn ${isUploadingEditLogo ? 'btn-outline' : 'btn-primary'}`} 
-                          style={{ 
-                            fontSize: '0.75rem', 
-                            padding: '0.4rem 0.8rem', 
-                            cursor: isUploadingEditLogo ? 'wait' : 'pointer', 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            gap: '0.4rem' 
-                          }}
-                        >
-                          {isUploadingEditLogo ? (
-                            <>
-                              <Loader2 size={14} className="animate-spin" />
-                              Comprimiendo y Subiendo...
-                            </>
-                          ) : (
-                            <>
-                              <Upload size={14} />
-                              Subir Archivo de Logo
-                            </>
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={isUploadingEditLogo}
-                            onChange={handleEditLogoUpload}
-                            style={{ display: 'none' }}
-                          />
-                        </label>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                          Auto WebP (Máx 400x400)
-                        </span>
-                      </div>
-
-                      {editLogoCompressionStats && (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
-                          <CheckCircle2 size={13} />
-                          Optimizado: {editLogoCompressionStats.originalSize} ➔ {editLogoCompressionStats.compressedSize} ({editLogoCompressionStats.savingsPercent}% menos peso)
-                        </div>
-                      )}
-
-                      <input 
-                        type="url" 
-                        placeholder="o pega URL de imagen..."
-                        value={editingTenant.logo}
-                        onChange={(e) => setEditingTenant({...editingTenant, logo: e.target.value})}
-                        style={{ padding: '0.4rem 0.6rem', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.75rem', width: '100%' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>SECTOR INDUSTRIAL</label>
-                  <select 
-                    value={editingTenant.industry}
-                    onChange={(e) => setEditingTenant({...editingTenant, industry: e.target.value as any})}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                  >
-                    <option value="Barbería">Barbería</option>
-                    <option value="Salón">Salón de Belleza</option>
-                    <option value="Salud">Consultorio Médico</option>
-                    <option value="Taller">Taller Mecánico</option>
-                    <option value="Otro">Otro Negocio</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)' }}>
-                    <ShieldAlert size={20} />
-                    <h4 style={{ fontSize: '0.875rem', fontWeight: 800 }}>Seguridad y Acceso</h4>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                    Por seguridad, las contraseñas están encriptadas por Supabase. No se pueden cambiar directamente desde aquí, pero puedes enviar un enlace de recuperación al dueño.
-                  </p>
-                  <button 
-                    onClick={async () => {
-                      if (!editingTenant.owner) return alert('No hay un correo de usuario vinculado.');
-                      setLoading(true);
-                      const { error } = await supabase.auth.resetPasswordForEmail(editingTenant.owner, {
-                        redirectTo: `${window.location.origin}/reset-password`
-                      });
-                      setLoading(false);
-                      if (error) alert('Error: ' + error.message);
-                      else alert('¡Enlace de recuperación enviado con éxito a: ' + editingTenant.owner);
-                    }}
-                    className="btn btn-outline"
-                    style={{ fontSize: '0.8rem', padding: '0.6rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
-                  >
-                    📩 Enviar Enlace de Recuperación
-                  </button>
-                </div>
+          <div className="card animate-scale-in" style={{
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+            overflow: 'hidden',
+            padding: 0
+          }}>
+            {/* Header: Always visible with Title and Close X */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--surface)',
+              flexShrink: 0
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Settings size={20} color="var(--primary)" /> Configuración de Negocio (Maestra)
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', margin: '0.2rem 0 0 0' }}>
+                  Ajustes principales, identidad de marca y accesos de seguridad
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTenant(null);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="btn btn-outline"
+                style={{ padding: '0.45rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button onClick={() => {
-                setEditingTenant(null);
-                setNewPassword('');
-                setConfirmPassword('');
-              }} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
-              <button onClick={() => {
-                handleUpdateTenant(editingTenant);
-              }} className="btn btn-primary" style={{ flex: 1 }}>Guardar Datos Básicos</button>
+
+            {/* Scrollable Body */}
+            <div style={{
+              padding: '1.5rem',
+              overflowY: 'auto',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.1rem'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>NOMBRE DEL ESTABLECIMIENTO</label>
+                <input 
+                  type="text" 
+                  value={editingTenant.name}
+                  onChange={(e) => setEditingTenant({...editingTenant, name: e.target.value})}
+                  style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>PROPIETARIO RESPONSABLE</label>
+                <input 
+                  type="text" 
+                  value={editingTenant.owner}
+                  onChange={(e) => setEditingTenant({...editingTenant, owner: e.target.value})}
+                  style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                  LOGO DEL NEGOCIO (SUBIDA DIRECTA CON COMPRESIÓN)
+                </label>
+                
+                <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <img
+                    src={editingTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
+                    alt="Logo Preview"
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '12px',
+                      objectFit: 'cover',
+                      border: '2px solid var(--primary)',
+                      background: '#0f172a',
+                      flexShrink: 0
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label 
+                        className={`btn ${isUploadingEditLogo ? 'btn-outline' : 'btn-primary'}`} 
+                        style={{ 
+                          fontSize: '0.75rem', 
+                          padding: '0.4rem 0.8rem', 
+                          cursor: isUploadingEditLogo ? 'wait' : 'pointer', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem' 
+                        }}
+                      >
+                        {isUploadingEditLogo ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Comprimiendo y Subiendo...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} />
+                            Subir Archivo de Logo
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingEditLogo}
+                          onChange={handleEditLogoUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        Auto WebP (Máx 400x400)
+                      </span>
+                    </div>
+
+                    {editLogoCompressionStats && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+                        <CheckCircle2 size={13} />
+                        Optimizado: {editLogoCompressionStats.originalSize} ➔ {editLogoCompressionStats.compressedSize} ({editLogoCompressionStats.savingsPercent}% menos peso)
+                      </div>
+                    )}
+
+                    <input 
+                      type="url" 
+                      placeholder="o pega URL de imagen..."
+                      value={editingTenant.logo}
+                      onChange={(e) => setEditingTenant({...editingTenant, logo: e.target.value})}
+                      style={{ padding: '0.4rem 0.6rem', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.75rem', width: '100%' }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>SECTOR INDUSTRIAL</label>
+                <select 
+                  value={editingTenant.industry}
+                  onChange={(e) => setEditingTenant({...editingTenant, industry: e.target.value as any})}
+                  style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                >
+                  <option value="Barbería">Barbería</option>
+                  <option value="Salón">Salón de Belleza</option>
+                  <option value="Salud">Consultorio Médico</option>
+                  <option value="Taller">Taller Mecánico</option>
+                  <option value="Otro">Otro Negocio</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--primary)' }}>
+                  <ShieldAlert size={20} />
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 800, margin: 0 }}>Seguridad y Acceso</h4>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: 0 }}>
+                  Por seguridad, las contraseñas están encriptadas por Supabase. No se pueden cambiar directamente desde aquí, pero puedes enviar un enlace de recuperación al dueño.
+                </p>
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    if (!editingTenant.owner) return alert('No hay un correo de usuario vinculado.');
+                    setLoading(true);
+                    const { error } = await supabase.auth.resetPasswordForEmail(editingTenant.owner, {
+                      redirectTo: `${window.location.origin}/reset-password`
+                    });
+                    setLoading(false);
+                    if (error) alert('Error: ' + error.message);
+                    else alert('¡Enlace de recuperación enviado con éxito a: ' + editingTenant.owner);
+                  }}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.8rem', padding: '0.6rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                >
+                  📩 Enviar Enlace de Recuperación
+                </button>
+              </div>
+            </div>
+
+            {/* Footer: Always visible with Cancel and Save buttons */}
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid var(--border)',
+              background: 'var(--surface)',
+              display: 'flex',
+              gap: '0.75rem',
+              justifyContent: 'flex-end',
+              flexShrink: 0
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTenant(null);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="btn btn-outline"
+                style={{ minWidth: '100px' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleUpdateTenant(editingTenant);
+                }}
+                className="btn btn-primary"
+                style={{ minWidth: '160px', fontWeight: 800 }}
+              >
+                Guardar Datos Básicos
+              </button>
             </div>
           </div>
         </div>
@@ -2318,18 +2405,32 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           padding: '1rem'
         }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <header style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ width: '44px', height: '44px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {editingAd ? <Edit size={24} /> : <Megaphone size={24} />}
+            <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                <div style={{ width: '44px', height: '44px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {editingAd ? <Edit size={24} /> : <Megaphone size={24} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>
+                    {editingAd ? 'Editar Anuncio o Cintillo' : 'Crear Anuncio o Cintillo'}
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                    {editingAd ? 'Modifica los textos, enlaces, imágenes o prioridad del anuncio.' : 'Se mostrará a clientes en la app y salas de espera.'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>
-                  {editingAd ? 'Editar Anuncio o Cintillo' : 'Crear Anuncio o Cintillo'}
-                </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
-                  {editingAd ? 'Modifica los textos, enlaces, imágenes o prioridad del anuncio.' : 'Se mostrará a clientes en la app y salas de espera.'}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewAdModal(false);
+                  setEditingAd(null);
+                }}
+                className="btn btn-outline"
+                style={{ padding: '0.45rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                title="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
             </header>
 
             <form onSubmit={handleSubmitAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -2626,14 +2727,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           padding: '1rem'
         }}>
           <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '540px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '90vh', overflowY: 'auto' }}>
-            <header style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ width: '48px', height: '48px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Building2 size={26} />
+            <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                <div style={{ width: '48px', height: '48px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Building2 size={26} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>Crear Negocio / Propuesta</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Configura la marca del cliente para enviarle el enlace de traspaso.</p>
+                </div>
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>Crear Negocio / Propuesta</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Configura la marca del cliente para enviarle el enlace de traspaso.</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateTenantModal(false)}
+                className="btn btn-outline"
+                style={{ padding: '0.45rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                title="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
             </header>
 
             <form onSubmit={handleCreateProposalTenant} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -3083,28 +3195,40 @@ ${claimUrl}`;
             justifyContent: 'center',
             zIndex: 4000,
             backdropFilter: 'blur(8px)',
-            padding: '1rem'
+            padding: '1rem',
+            overflowY: 'auto'
           }}>
-            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '520px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <header style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                <img 
-                  src={claimModalTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} 
-                  alt="" 
-                  style={{ width: '52px', height: '52px', borderRadius: '12px', objectFit: 'cover', border: '1.5px solid var(--primary)' }} 
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {claimModalTenant.name}
-                    </h3>
-                    <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
-                      {claimModalTenant.plan}
-                    </span>
+            <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.85rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: 0 }}>
+                  <img 
+                    src={claimModalTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'} 
+                    alt="" 
+                    style={{ width: '52px', height: '52px', borderRadius: '12px', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }} 
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {claimModalTenant.name}
+                      </h3>
+                      <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
+                        {claimModalTenant.plan}
+                      </span>
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                      {isAlreadyClaimed ? `Vinculado con: ${claimModalTenant.owner}` : 'Propuesta lista para vincular al propietario'}
+                    </p>
                   </div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
-                    {isAlreadyClaimed ? `Vinculado con: ${claimModalTenant.owner}` : 'Propuesta lista para vincular al propietario'}
-                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setClaimModalTenant(null)}
+                  className="btn btn-outline"
+                  style={{ padding: '0.45rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  title="Cerrar modal"
+                >
+                  <X size={18} />
+                </button>
               </header>
 
               {/* Status Banner */}
