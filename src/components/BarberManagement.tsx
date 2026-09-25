@@ -397,7 +397,6 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           name: s.name,
           price: Number(s.price) || 0,
           duration_minutes: Number(s.duration) || 30,
-          duration: Number(s.duration) || 30,
           icon: s.icon || 'Scissors',
           capacity: Number(s.capacity) || 1,
           station_id: s.station_id || null

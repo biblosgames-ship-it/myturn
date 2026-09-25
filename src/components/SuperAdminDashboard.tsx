@@ -386,7 +386,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
               name: s.name.trim(),
               price: Number(s.price) || 0,
               duration_minutes: Number(s.duration_minutes) || 30,
-              duration: Number(s.duration_minutes) || 30,
               icon: 'Scissors'
             }))
           : [
@@ -395,7 +394,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 name: 'Servicio Principal',
                 price: 15,
                 duration_minutes: 30,
-                duration: 30,
                 icon: 'Star'
               }
             ];
