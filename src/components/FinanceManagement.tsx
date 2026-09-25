@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Wallet, TrendingUp, TrendingDown, CreditCard, DollarSign, Landmark, FileText, Image as ImageIcon, Printer, Share2, Calendar, Plus, X, ArrowDownRight, ArrowUpRight, HelpCircle } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, CreditCard, DollarSign, Landmark, FileText, Image as ImageIcon, Printer, Share2, Calendar, Plus, X, ArrowDownRight, ArrowUpRight, HelpCircle, BookOpen } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
+import { DebtsManagement } from './DebtsManagement';
 
 export interface Transaction {
   id: string;
@@ -34,6 +35,7 @@ interface FinanceProps {
   filteredApts: any[];
   filterType: 'day' | 'week' | 'month' | 'year' | 'range';
   filterValue: string;
+  tenantId?: string;
 }
 
 export const FinanceManagement: React.FC<FinanceProps> = ({ 
@@ -44,8 +46,10 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
   logoUrl,
   filteredApts,
   filterType,
-  filterValue
+  filterValue,
+  tenantId
 }) => {
+  const [subTab, setSubTab] = useState<'overview' | 'debts'>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReport, setShowReport] = useState<'none' | 'pdf' | 'img' | 'cierre'>('none');
   const [newTx, setNewTx] = useState<Partial<Transaction>>({ type: 'ingreso', method: 'efectivo', amount: 0, category: 'Varios', description: '', staffId: '' });
@@ -282,19 +286,74 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Wallet size={24} color="var(--primary)" /> Gestión Financiera
-        </h3>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-outline" onClick={() => { setNewTx({ ...newTx, type: 'ingreso' }); setShowAddModal(true); }} style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}>
-            <Plus size={18} /> Nuevo Movimiento
+      {/* Subtab Navigation */}
+      <div style={{ display: 'flex', gap: '0.75rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--background)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setSubTab('overview')}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: subTab === 'overview' ? 'var(--primary)' : 'transparent',
+              color: subTab === 'overview' ? 'black' : 'var(--text-muted)',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              textTransform: 'uppercase'
+            }}
+          >
+            <Wallet size={16} /> Flujo de Caja & Métricas
           </button>
-          <button className="btn btn-primary" onClick={() => setShowReport('cierre')} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.875rem' }}>
-            <FileText size={18} /> Cierre de Caja
+          <button
+            onClick={() => setSubTab('debts')}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: subTab === 'debts' ? '#f59e0b' : 'transparent',
+              color: subTab === 'debts' ? 'black' : 'var(--text-muted)',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              textTransform: 'uppercase'
+            }}
+          >
+            <BookOpen size={16} /> Libreta de Fiados (Cuentas por Cobrar)
           </button>
         </div>
+
+        {subTab === 'overview' && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-outline" onClick={() => { setNewTx({ ...newTx, type: 'ingreso' }); setShowAddModal(true); }} style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--primary)', color: 'var(--primary)', fontSize: '0.85rem' }}>
+              <Plus size={18} /> Nuevo Movimiento
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowReport('cierre')} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <FileText size={18} /> Cierre de Caja
+            </button>
+          </div>
+        )}
       </div>
+
+      {subTab === 'debts' ? (
+        <DebtsManagement 
+          tenantId={tenantId || ''} 
+          businessName={businessName} 
+          onDebtSettled={(newTx) => setTransactions(prev => [newTx, ...prev])} 
+        />
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Wallet size={24} color="var(--primary)" /> Resumen Financiero
+            </h3>
+          </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
         <div className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--success)', background: 'rgba(16,185,129,0.02)' }}>
@@ -435,6 +494,8 @@ export const FinanceManagement: React.FC<FinanceProps> = ({
           ))}
         </div>
       </div>
+      </>
+      )}
 
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>

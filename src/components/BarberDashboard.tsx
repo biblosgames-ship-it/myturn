@@ -6,11 +6,12 @@ import { FinanceManagement, Transaction, StaffMember } from './FinanceManagement
 import { StaffManagement } from './StaffManagement';
 import { WorkStations } from './WorkStations';
 import { MessagingCenter } from './MessagingCenter';
+import { CustomerRetentionCRM } from './CustomerRetentionCRM';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
 import { PricingPlans } from './PricingPlans';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap, Sparkles } from 'lucide-react';
 
 
 interface Appointment {
@@ -862,6 +863,9 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAptForComplete, setSelectedAptForComplete] = useState<Appointment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'credito'>('efectivo');
+  const [creditPhone, setCreditPhone] = useState('');
+  const [creditNotes, setCreditNotes] = useState('');
+  const [customersSubTab, setCustomersSubTab] = useState<'retention' | 'activity'>('retention');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Load Transactions
@@ -1193,6 +1197,36 @@ const getPlanCapabilities = (planName: string) => {
     window.open(url, '_blank');
   };
 
+  const openCompleteModal = (apt: Appointment) => {
+    setSelectedAptForComplete(apt);
+    let phone = '';
+    if (apt.customFormResponses && typeof apt.customFormResponses === 'object') {
+      const phoneEntry = Object.entries(apt.customFormResponses).find(([k, v]) => {
+        const key = k.toLowerCase();
+        return (
+          key.includes('tel') || 
+          key.includes('cel') || 
+          key.includes('movil') || 
+          key.includes('phone') || 
+          key.includes('whatsapp')
+        ) && Boolean(v);
+      });
+      if (phoneEntry && phoneEntry[1]) {
+        phone = String(phoneEntry[1]).replace(/[^\d+]/g, '');
+      }
+    }
+    if (!phone) {
+      const digits = apt.clientName.replace(/[^\d]/g, '');
+      if (digits.length >= 8) {
+        phone = digits;
+      }
+    }
+    setCreditPhone(phone);
+    setCreditNotes('');
+    setPaymentMethod('efectivo');
+    setShowCompleteModal(true);
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
@@ -1513,6 +1547,26 @@ const getPlanCapabilities = (planName: string) => {
       if (txError) throw txError;
       tx = insertedTx || { id: 'tx-' + Date.now() };
 
+      // 2b. Insert into customer_debts if payment is on credit (fiado)
+      if (paymentMethod === 'credito') {
+        try {
+          await supabase.from('customer_debts').insert({
+            tenant_id: tenantId,
+            appointment_id: selectedAptForComplete.id,
+            client_name: selectedAptForComplete.clientName,
+            client_phone: creditPhone.trim() || null,
+            service_name: allServiceNames,
+            staff_id: selectedAptForComplete.staffId || null,
+            amount: finalAmount,
+            paid_amount: 0,
+            status: 'pending',
+            notes: creditNotes.trim() || null
+          });
+        } catch (debtErr) {
+          console.warn("Could not insert into customer_debts:", debtErr);
+        }
+      }
+
       // 3. Automatic Inventory Deduction
       try {
         // Update inventory if applicable
@@ -1566,6 +1620,8 @@ const getPlanCapabilities = (planName: string) => {
       setLastProcessedTx({
         ...newTxForState,
         clientName: selectedAptForComplete.clientName,
+        clientPhone: creditPhone.trim() || null,
+        creditNotes: creditNotes.trim() || null,
         mainService: selectedAptForComplete.service,
         mainPrice: mainServiceObj ? Number(mainServiceObj.price) : 25,
         extras: extraServices,
@@ -2227,8 +2283,8 @@ const getPlanCapabilities = (planName: string) => {
               transition: 'all 0.2s'
             }}
           >
-            <BarChart2 size={18} />
-            <span>Reporte</span>
+            <Users size={18} />
+            <span>Clientes</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'stations' ? 'active' : ''}`}
@@ -2652,7 +2708,7 @@ const getPlanCapabilities = (planName: string) => {
                               <Play size={12} fill="currentColor" style={{ marginRight: '4px' }} /> ATENDER
                             </button>
                           ) : (
-                            <button className="btn btn-success" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', flex: 1, fontWeight: 900 }} onClick={() => { setSelectedAptForComplete(apt); setShowCompleteModal(true); }}>
+                            <button className="btn btn-success" style={{ fontSize: '0.65rem', height: '32px', padding: '0 1rem', flex: 1, fontWeight: 900 }} onClick={() => openCompleteModal(apt)}>
                               <CheckCircle2 size={12} style={{ marginRight: '4px' }} /> LISTO
                             </button>
                           )}
@@ -3035,6 +3091,7 @@ const getPlanCapabilities = (planName: string) => {
               filteredApts={getFilteredApts()}
               filterType={regFilterType}
               filterValue={regFilterValue}
+              tenantId={tenantId || undefined}
             />
           </div>
         ) : activeTab === 'staff' ? (
@@ -3043,7 +3100,57 @@ const getPlanCapabilities = (planName: string) => {
           <WorkStations tenantId={tenantId || ''} />
         ) : activeTab === 'customers' ? (
           <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+            {/* Sub-tab selection: Retention Algorithm vs Reports */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.75rem', background: 'var(--background)', padding: '0.3rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', width: 'fit-content' }}>
+              <button
+                onClick={() => setCustomersSubTab('retention')}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  background: customersSubTab === 'retention' ? 'var(--primary)' : 'transparent',
+                  color: customersSubTab === 'retention' ? 'black' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  textTransform: 'uppercase'
+                }}
+              >
+                <Sparkles size={16} /> Reenganche & Frecuencia Inteligente
+              </button>
+              <button
+                onClick={() => setCustomersSubTab('activity')}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  background: customersSubTab === 'activity' ? 'var(--primary)' : 'transparent',
+                  color: customersSubTab === 'activity' ? 'black' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  textTransform: 'uppercase'
+                }}
+              >
+                <BarChart2 size={16} /> Reporte de Actividad & Citas
+              </button>
+            </div>
+
+            {customersSubTab === 'retention' ? (
+              <CustomerRetentionCRM 
+                tenantId={tenantId || ''} 
+                businessName={businessName} 
+                shareUrl={shareUrl} 
+              />
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
               <div>
                 <h2 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.5px', margin: 0 }}>Reporte de Actividad</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Análisis de clientes y finanzas por periodo.</p>
@@ -3356,8 +3463,10 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             </div>
           </div>
-        </div>
-        ) : activeTab === 'profile' ? (
+        </>
+      )}
+    </div>
+  ) : activeTab === 'profile' ? (
           <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
              <header style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '1rem' }}>
@@ -3872,6 +3981,40 @@ const getPlanCapabilities = (planName: string) => {
                 ))}
               </div>
             </div>
+
+            {paymentMethod === 'credito' && (
+              <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid #f59e0b', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f59e0b', fontWeight: 800, fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                  <CreditCard size={16} /> Libreta de Fiados (Cuenta por Cobrar)
+                </div>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                    WHATSAPP DEL CLIENTE (PARA COBRAR LUEGO)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ej: +1 809 555 1234"
+                    value={creditPhone}
+                    onChange={(e) => setCreditPhone(e.target.value)}
+                    className="input"
+                    style={{ width: '100%', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                    COMPROMISO / NOTA DE PAGO
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Paga el viernes / Quincena"
+                    value={creditNotes}
+                    onChange={(e) => setCreditNotes(e.target.value)}
+                    className="input"
+                    style={{ width: '100%', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -4391,12 +4534,23 @@ const getPlanCapabilities = (planName: string) => {
                 }}
                 onClick={() => {
                   if (!lastProcessedTx) return;
-                  const phone = lastProcessedTx.clientPhone?.replace(/\D/g, '');
-                  const message = encodeURIComponent(`📄 *RECIBO DE PAGO - ${businessName}*\n\n` + 
-                    `*Cliente:* ${lastProcessedTx.clientName}\n` +
-                    `*Servicio:* ${lastProcessedTx.description}\n` +
-                    `*Total:* $${lastProcessedTx.amount.toFixed(2)}\n\n` +
-                    `¡Gracias por su preferencia! ✨`);
+                  const phone = lastProcessedTx.clientPhone?.replace(/\D/g, '') || '';
+                  const biz = businessName && businessName !== 'Cargando...' ? businessName : 'nuestro negocio';
+                  let message = '';
+                  if (lastProcessedTx.method === 'credito') {
+                    message = encodeURIComponent(`📄 *COMPROBANTE DE SERVICIO A CRÉDITO (FIADO) - ${biz}*\n\n` + 
+                      `*Cliente:* ${lastProcessedTx.clientName}\n` +
+                      `*Servicio:* ${lastProcessedTx.description}\n` +
+                      `*Monto a Pagar:* $${lastProcessedTx.amount.toFixed(2)}\n` +
+                      (lastProcessedTx.creditNotes ? `*Compromiso:* ${lastProcessedTx.creditNotes}\n` : '') +
+                      `\nRegistrado en tu libreta de cuenta. ¡Muchas gracias por tu preferencia y confianza! 💈`);
+                  } else {
+                    message = encodeURIComponent(`📄 *RECIBO DE PAGO - ${biz}*\n\n` + 
+                      `*Cliente:* ${lastProcessedTx.clientName}\n` +
+                      `*Servicio:* ${lastProcessedTx.description}\n` +
+                      `*Total Pagado:* $${lastProcessedTx.amount.toFixed(2)}\n\n` +
+                      `¡Gracias por su preferencia! ✨`);
+                  }
                   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
                 }}
               >
