@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
 import { PricingPlans } from './PricingPlans';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap, Sparkles } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap, Sparkles, ShoppingBag } from 'lucide-react';
 
 
 interface Appointment {
@@ -268,6 +268,8 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
   const [editingApt, setEditingApt] = useState<Appointment | null>(null);
   const [verifiedPin, setVerifiedPin] = useState('');
   const [extraServices, setExtraServices] = useState<any[]>([]);
+  const [extraProducts, setExtraProducts] = useState<{ id: string; name: string; price: number; quantity: number; currentStock: number }[]>([]);
+  const [storeProducts, setStoreProducts] = useState<{ id: string; name: string; price: number; currentStock: number }[]>([]);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [lastProcessedTx, setLastProcessedTx] = useState<any>(null);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -675,6 +677,28 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
           if (servicesData.length > 0 && !newClient.service) {
             setNewClient(prev => ({ ...prev, service: servicesData[0].name }));
           }
+        }
+
+        // 2b. Fetch Store Products for checkout upsell
+        try {
+          const { data: productsData } = await supabase
+            .from('inventory')
+            .select('id, name, price, current_stock, is_for_sale')
+            .eq('tenant_id', tenantId)
+            .eq('is_for_sale', true)
+            .gt('current_stock', 0)
+            .order('name', { ascending: true });
+
+          if (productsData) {
+            setStoreProducts(productsData.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: Number(p.price || 0),
+              currentStock: Number(p.current_stock || 0)
+            })));
+          }
+        } catch (prodErr) {
+          console.warn("Could not fetch store products:", prodErr);
         }
 
         // 3. Fetch Tenant Info
@@ -1244,6 +1268,31 @@ const getPlanCapabilities = (planName: string) => {
     setCreditPhone(phone);
     setCreditNotes('');
     setPaymentMethod('efectivo');
+    setExtraServices([]);
+    setExtraProducts([]);
+    setDiscountPercent(0);
+
+    // Fetch fresh store products with stock
+    if (tenantId) {
+      supabase
+        .from('inventory')
+        .select('id, name, price, current_stock, is_for_sale')
+        .eq('tenant_id', tenantId)
+        .eq('is_for_sale', true)
+        .gt('current_stock', 0)
+        .order('name', { ascending: true })
+        .then(({ data }) => {
+          if (data) {
+            setStoreProducts(data.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: Number(p.price || 0),
+              currentStock: Number(p.current_stock || 0)
+            })));
+          }
+        });
+    }
+
     setShowCompleteModal(true);
   };
 
@@ -1496,11 +1545,45 @@ const getPlanCapabilities = (planName: string) => {
     setExtraServices(extraServices.filter((_, i) => i !== index));
   };
 
+  const addExtraProduct = (product: { id: string; name: string; price: number; currentStock: number }) => {
+    setExtraProducts(prev => {
+      const existing = prev.find(p => p.id === product.id);
+      if (existing) {
+        if (existing.quantity >= product.currentStock) {
+          alert(`Solo hay ${product.currentStock} unidades disponibles en inventario.`);
+          return prev;
+        }
+        return prev.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  const updateExtraProductQty = (productId: string, delta: number) => {
+    setExtraProducts(prev => {
+      return prev.map(p => {
+        if (p.id === productId) {
+          const nextQty = p.quantity + delta;
+          if (nextQty > p.currentStock) {
+            alert(`Solo hay ${p.currentStock} unidades disponibles.`);
+            return p;
+          }
+          return { ...p, quantity: nextQty };
+        }
+        return p;
+      }).filter(p => p.quantity > 0);
+    });
+  };
+
+  const removeExtraProduct = (index: number) => {
+    setExtraProducts(prev => prev.filter((_, i) => i !== index));
+  };
+
   const finalizeService = async () => {
     if (!selectedAptForComplete) return;
     
     try {
-      // 1. Dynamic Pricing from All Services
+      // 1. Dynamic Pricing from All Services & Products
       const mainServiceObj = dbServices.find(s => s.name === selectedAptForComplete.service);
       let totalAmount = mainServiceObj ? Number(mainServiceObj.price) : 25;
       
@@ -1509,13 +1592,28 @@ const getPlanCapabilities = (planName: string) => {
         totalAmount += Number(s.price);
       });
 
+      // Add extra store products
+      extraProducts.forEach(p => {
+        totalAmount += (Number(p.price) * p.quantity);
+      });
+
       const discountAmount = totalAmount * (discountPercent / 100);
       const finalAmount = totalAmount - discountAmount;
 
       const allServiceNames = [selectedAptForComplete.service, ...extraServices.map(s => s.name)].join(', ');
+      const productsSummary = extraProducts.length > 0 
+        ? extraProducts.map(p => `${p.name} (x${p.quantity})`).join(', ')
+        : '';
       
       // 2. Insert Transaction with graceful fallback for schema mismatches
-      const descText = `Cliente: ${selectedAptForComplete.clientName}${discountPercent > 0 ? ` (Dcto ${discountPercent}%)` : ''}`;
+      let descText = `Cliente: ${selectedAptForComplete.clientName}`;
+      if (productsSummary) {
+        descText += ` | Productos: ${productsSummary}`;
+      }
+      if (discountPercent > 0) {
+        descText += ` (Dcto ${discountPercent}%)`;
+      }
+
       let tx: any = null;
       let { data: insertedTx, error: txError } = await supabase.from('transactions').insert({
         tenant_id: tenantId,
@@ -1526,7 +1624,7 @@ const getPlanCapabilities = (planName: string) => {
         type: 'ingreso',
         payment_method: paymentMethod,
         staff_id: selectedAptForComplete.staffId || null,
-        category: allServiceNames,
+        category: productsSummary ? `${allServiceNames} + Productos` : allServiceNames,
         description: descText
       }).select().single();
 
@@ -1540,7 +1638,7 @@ const getPlanCapabilities = (planName: string) => {
           type: 'ingreso',
           payment_method: paymentMethod,
           staff_id: selectedAptForComplete.staffId || null,
-          category: allServiceNames,
+          category: productsSummary ? `${allServiceNames} + Productos` : allServiceNames,
           notes: descText
         };
         const retryNotes = await supabase.from('transactions').insert(fallbackWithNotes).select().single();
@@ -1575,7 +1673,7 @@ const getPlanCapabilities = (planName: string) => {
             appointment_id: selectedAptForComplete.id,
             client_name: selectedAptForComplete.clientName,
             client_phone: creditPhone.trim() || null,
-            service_name: allServiceNames,
+            service_name: productsSummary ? `${allServiceNames} + [${productsSummary}]` : allServiceNames,
             staff_id: selectedAptForComplete.staffId || null,
             amount: finalAmount,
             paid_amount: 0,
@@ -1587,7 +1685,22 @@ const getPlanCapabilities = (planName: string) => {
         }
       }
 
-      // 3. Automatic Inventory Deduction
+      // 3. Decrement Inventory for products sold
+      if (extraProducts.length > 0) {
+        try {
+          for (const item of extraProducts) {
+            const nextStock = Math.max(0, item.currentStock - item.quantity);
+            await supabase
+              .from('inventory')
+              .update({ current_stock: nextStock })
+              .eq('id', item.id);
+          }
+        } catch (prodInvErr) {
+          console.warn("Could not decrement purchased products stock:", prodInvErr);
+        }
+      }
+
+      // 3b. Automatic Supplies Consumption (Desechables)
       try {
         // Update inventory if applicable
         const { data: invItems } = await supabase
@@ -2239,8 +2352,8 @@ const getPlanCapabilities = (planName: string) => {
               transition: 'all 0.2s'
             }}
           >
-            <Package size={18} />
-            <span>Inventario</span>
+            <ShoppingBag size={18} />
+            <span>Tienda / Stock</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
@@ -3008,7 +3121,7 @@ const getPlanCapabilities = (planName: string) => {
             }} 
           />
         ) : activeTab === 'inventory' ? (
-          <InventoryManagement />
+          <InventoryManagement tenantId={tenantId || undefined} />
         ) : activeTab === 'finance' ? (
           <div className="animate-fade-in">
              <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
@@ -3615,7 +3728,7 @@ const getPlanCapabilities = (planName: string) => {
             className={`btn ${activeTab === 'inventory' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
           >
-            <TrendingUp size={20} /> Inventario
+            <ShoppingBag size={20} /> Tienda / Stock
           </button>
           <button 
             onClick={() => handleTabClick('finance')}
@@ -4065,11 +4178,78 @@ const getPlanCapabilities = (planName: string) => {
                   }}
                   style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.75rem' }}
                 >
-                  <option value="">-- Seleccionar --</option>
+                  <option value="">-- Seleccionar Servicio --</option>
                   {dbServices.filter(s => s.name !== selectedAptForComplete.service).map(s => (
                     <option key={s.id} value={s.id}>{s.name} (${s.price})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Extra Store Products Section */}
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.68rem', fontWeight: 900, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
+                    <ShoppingBag size={13} /> AÑADIR PRODUCTO DE TIENDA (VENTA ADICIONAL)
+                  </label>
+                  {storeProducts.length === 0 && (
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Sin productos con stock</span>
+                  )}
+                </div>
+
+                {storeProducts.length > 0 && (
+                  <select 
+                    onChange={(e) => {
+                      const p = storeProducts.find(prod => prod.id === e.target.value);
+                      if (p) addExtraProduct(p);
+                      e.target.value = "";
+                    }}
+                    style={{ width: '100%', padding: '0.45rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '0.75rem' }}
+                  >
+                    <option value="">-- Elegir producto para añadir a la cuenta --</option>
+                    {storeProducts.map(p => (
+                      <option key={p.id} value={p.id}>
+                        🛍️ {p.name} — ${p.price.toFixed(2)} (Stock: {p.currentStock})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {extraProducts.length > 0 && (
+                  <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {extraProducts.map((p, idx) => (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(245,158,11,0.06)', padding: '0.35rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.18)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <button 
+                            type="button"
+                            onClick={() => removeExtraProduct(idx)}
+                            style={{ color: '#ef4444', border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
+                            title="Eliminar producto"
+                          >×</button>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{p.name}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => updateExtraProductQty(p.id, -1)}
+                              style={{ padding: '0.15rem 0.35rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text)', fontSize: '0.7rem', cursor: 'pointer' }}
+                            >-</button>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, minWidth: '16px', textAlign: 'center' }}>{p.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => updateExtraProductQty(p.id, 1)}
+                              style={{ padding: '0.15rem 0.35rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '3px', color: 'var(--text)', fontSize: '0.7rem', cursor: 'pointer' }}
+                            >+</button>
+                          </div>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', minWidth: '55px', textAlign: 'right' }}>
+                            ${(p.price * p.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
@@ -4080,6 +4260,7 @@ const getPlanCapabilities = (planName: string) => {
                     const mainS = dbServices.find(sv => sv.name.toLowerCase() === selectedAptForComplete?.service.toLowerCase());
                     let base = mainS ? Number(mainS.price) : 25;
                     extraServices.forEach(ex => base += Number(ex.price));
+                    extraProducts.forEach(ep => base += (Number(ep.price) * ep.quantity));
                     const disc = base * (discountPercent / 100);
                     return (base - disc).toFixed(2);
                   })()}
@@ -4199,7 +4380,7 @@ const getPlanCapabilities = (planName: string) => {
             <PricingPlans 
               currentPlan={subscription?.plan || 'Free'} 
               isMobile={isMobile}
-              onUpgrade={(p) => alert(`¡Próximamente! Estamos habilitando el portal de pagos para el plan ${p}.`)} 
+              onUpgrade={(p: string) => alert(`¡Próximamente! Estamos habilitando el portal de pagos para el plan ${p}.`)} 
             />
           </div>
         </div>
