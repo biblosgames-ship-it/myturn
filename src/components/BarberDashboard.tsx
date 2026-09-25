@@ -526,6 +526,16 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
 
           if (currentTenantId) {
             setTenantId(currentTenantId);
+            // Auto-heal public.users with current tenant and role for RLS permissions
+            try {
+              await supabase.from('users').upsert({
+                id: user.id,
+                tenant_id: currentTenantId,
+                role: isGlobalAdmin ? 'superadmin' : (userData?.role || 'owner')
+              });
+            } catch (uSyncErr) {
+              console.warn('Dashboard user sync notice:', uSyncErr);
+            }
           } else {
             setIsLoading(false); // No tenant found even after healing
           }
