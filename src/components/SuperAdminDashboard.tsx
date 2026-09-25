@@ -547,6 +547,56 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const [isUploadingEditLogo, setIsUploadingEditLogo] = useState(false);
+  const [editLogoCompressionStats, setEditLogoCompressionStats] = useState<{
+    originalSize: string;
+    compressedSize: string;
+    savingsPercent: number;
+  } | null>(null);
+
+  const handleEditLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingTenant) return;
+
+    try {
+      setIsUploadingEditLogo(true);
+      setEditLogoCompressionStats(null);
+
+      // Client-side high performance compression to WebP (max 400x400)
+      const compressed = await compressImage(file, {
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.82,
+        mimeType: 'image/webp'
+      });
+
+      setEditLogoCompressionStats({
+        originalSize: formatBytes(compressed.originalSize),
+        compressedSize: formatBytes(compressed.compressedSize),
+        savingsPercent: compressed.savingsPercent
+      });
+
+      // Upload directly to Supabase storage
+      const fileName = `tenant_logo_${editingTenant.id || 'edit'}_${Date.now()}.webp`;
+      const { data, error: uploadErr } = await supabase.storage
+        .from('logos')
+        .upload(fileName, compressed.file, {
+          contentType: 'image/webp',
+          upsert: true
+        });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
+      setEditingTenant({ ...editingTenant, logo: publicUrl });
+    } catch (err: any) {
+      console.error('Error al subir logo de negocio:', err);
+      alert('Error al subir el logo: ' + (err.message || 'Verifica la conexión'));
+    } finally {
+      setIsUploadingEditLogo(false);
+    }
+  };
+
   const handleOpenPaymentModal = (tenant: Tenant) => {
     setSelectedTenantForPayment(tenant);
     const currentExpiry = new Date(tenant.expiryDate);
@@ -1765,13 +1815,80 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>URL DEL LOGO (DEMO IMAGE)</label>
-                  <input 
-                    type="text" 
-                    value={editingTenant.logo}
-                    onChange={(e) => setEditingTenant({...editingTenant, logo: e.target.value})}
-                    style={{ padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.75rem' }}
-                  />
+                  <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                    LOGO DEL NEGOCIO (SUBIDA DIRECTA CON COMPRESIÓN)
+                  </label>
+                  
+                  <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <img
+                      src={editingTenant.logo || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
+                      alt="Logo Preview"
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        objectFit: 'cover',
+                        border: '2px solid var(--primary)',
+                        background: '#0f172a',
+                        flexShrink: 0
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <label 
+                          className={`btn ${isUploadingEditLogo ? 'btn-outline' : 'btn-primary'}`} 
+                          style={{ 
+                            fontSize: '0.75rem', 
+                            padding: '0.4rem 0.8rem', 
+                            cursor: isUploadingEditLogo ? 'wait' : 'pointer', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '0.4rem' 
+                          }}
+                        >
+                          {isUploadingEditLogo ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              Comprimiendo y Subiendo...
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={14} />
+                              Subir Archivo de Logo
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={isUploadingEditLogo}
+                            onChange={handleEditLogoUpload}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Auto WebP (Máx 400x400)
+                        </span>
+                      </div>
+
+                      {editLogoCompressionStats && (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+                          <CheckCircle2 size={13} />
+                          Optimizado: {editLogoCompressionStats.originalSize} ➔ {editLogoCompressionStats.compressedSize} ({editLogoCompressionStats.savingsPercent}% menos peso)
+                        </div>
+                      )}
+
+                      <input 
+                        type="url" 
+                        placeholder="o pega URL de imagen..."
+                        value={editingTenant.logo}
+                        onChange={(e) => setEditingTenant({...editingTenant, logo: e.target.value})}
+                        style={{ padding: '0.4rem 0.6rem', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '0.75rem', width: '100%' }}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>SECTOR INDUSTRIAL</label>

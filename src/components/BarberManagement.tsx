@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
+import { compressImage, formatBytes } from '../lib/imageCompression';
 
 export interface CustomPromotion {
   id: string;
@@ -108,6 +109,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
     customFormConfig: [] as CustomField[]
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [brandCompressionNotice, setBrandCompressionNotice] = useState<string | null>(null);
   const [staffImageFile, setStaffImageFile] = useState<File | null>(null);
   const [mainStaffId, setMainStaffId] = useState<string | null>(null);
   const [staffImageUrl, setStaffImageUrl] = useState<string>('');
@@ -550,49 +552,93 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Personalización de Marca</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '1.5rem', alignItems: 'start' }}>
-              <div style={{ position: 'relative' }}>
-                <div style={{ 
-                  width: '120px', 
-                  height: '120px', 
-                  borderRadius: 'var(--radius-lg)', 
-                  background: `url(${brand.logo}) center/cover`,
-                  border: '2px solid var(--border)',
-                  overflow: 'hidden'
-                }} />
-                <label style={{ 
-                  position: 'absolute', 
-                  bottom: '-5px', 
-                  right: '-5px', 
-                  background: 'var(--primary)', 
-                  color: 'black',
-                  padding: '8px', 
-                  borderRadius: '50%', 
-                  border: '2px solid var(--surface)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ 
+                    width: '120px', 
+                    height: '120px', 
+                    borderRadius: 'var(--radius-lg)', 
+                    background: `url(${brand.logo}) center/cover`,
+                    border: '2px solid var(--border)',
+                    overflow: 'hidden'
+                  }} />
+                  <label style={{ 
+                    position: 'absolute', 
+                    bottom: '-5px', 
+                    right: '-5px', 
+                    background: 'var(--primary)', 
+                    color: 'black',
+                    padding: '8px', 
+                    borderRadius: '50%', 
+                    border: '2px solid var(--surface)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  title="Cambiar Logo"
+                  >
+                    <ImageIcon size={16} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: 'none' }} 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const compressed = await compressImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.82 });
+                            setLogoFile(compressed.file);
+                            setBrand({...brand, logo: compressed.previewUrl});
+                            setBrandCompressionNotice(`✓ ${formatBytes(compressed.originalSize)} ➔ ${formatBytes(compressed.compressedSize)} (-${compressed.savingsPercent}%)`);
+                          } catch (err) {
+                            setLogoFile(file);
+                            setBrand({...brand, logo: URL.createObjectURL(file)});
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <label 
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
                 >
-                  <ImageIcon size={16} />
+                  Subir Foto de Logo
                   <input 
                     type="file" 
                     accept="image/*" 
                     style={{ display: 'none' }} 
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        setLogoFile(file);
-                        const url = URL.createObjectURL(file);
-                        setBrand({...brand, logo: url});
+                        try {
+                          const compressed = await compressImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.82 });
+                          setLogoFile(compressed.file);
+                          setBrand({...brand, logo: compressed.previewUrl});
+                          setBrandCompressionNotice(`✓ ${formatBytes(compressed.originalSize)} ➔ ${formatBytes(compressed.compressedSize)} (-${compressed.savingsPercent}%)`);
+                        } catch (err) {
+                          setLogoFile(file);
+                          setBrand({...brand, logo: URL.createObjectURL(file)});
+                        }
                       }
                     }}
                   />
                 </label>
+                {brandCompressionNotice && (
+                  <span style={{ fontSize: '0.65rem', color: 'var(--success)', fontWeight: 700, textAlign: 'center' }}>
+                    {brandCompressionNotice}
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
