@@ -7,8 +7,9 @@ import {
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
   CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
   Download, Printer, Star, Megaphone, Trash2, Edit,
-  Link2, UserPlus, Sparkles, MessageCircle
+  Link2, UserPlus, Sparkles, MessageCircle, Upload
 } from 'lucide-react';
+import { compressImage, formatBytes } from '../lib/imageCompression';
 
 interface SupportTicket {
   id: string;
@@ -147,10 +148,65 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
     industry: 'Barbería' as any,
     plan_id: 'Professional' as any,
     professionalName: '',
+    ownerEmail: '',
     ownerPhone: '',
     logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
     slogan: 'Tu mejor experiencia en cada turno'
   });
+
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [uploadCompressionStats, setUploadCompressionStats] = useState<{
+    originalSize: string;
+    compressedSize: string;
+    savingsPercent: number;
+  } | null>(null);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingLogo(true);
+      setUploadCompressionStats(null);
+
+      // Client-side high performance compression to WebP (max 400x400)
+      const compressed = await compressImage(file, {
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.82,
+        mimeType: 'image/webp'
+      });
+
+      setUploadCompressionStats({
+        originalSize: formatBytes(compressed.originalSize),
+        compressedSize: formatBytes(compressed.compressedSize),
+        savingsPercent: compressed.savingsPercent
+      });
+
+      // Upload directly to Supabase storage
+      const fileName = `tenant_logo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
+      const { data, error: uploadErr } = await supabase.storage
+        .from('logos')
+        .upload(fileName, compressed.file, {
+          contentType: 'image/webp',
+          upsert: true
+        });
+
+      if (uploadErr) {
+        console.warn('Storage upload notice:', uploadErr);
+        // Fallback: use previewUrl or throw
+        throw uploadErr;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
+      setNewProposalTenant(prev => ({ ...prev, logoUrl: publicUrl }));
+    } catch (err: any) {
+      console.error('Error al subir logo:', err);
+      alert('Error al subir el logo: ' + (err.message || 'Verifica la conexión'));
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   const handleCreateProposalTenant = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,13 +221,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
         .replace(/^-+|-+$/g, '');
       const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
       const token = `claim_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+      const cleanEmail = newProposalTenant.ownerEmail?.toLowerCase().trim() || null;
 
-      const { data: createdTenant, error: insertErr } = await supabase.from('tenants').insert({
+      // Base tenant payload without relying on unmigrated columns
+      const basePayload: any = {
         name: newProposalTenant.name,
         slug: uniqueSlug,
         industry: newProposalTenant.industry,
         plan_id: newProposalTenant.plan_id,
-        owner: 'Pendiente de vinculación',
         logo_url: newProposalTenant.logoUrl,
         logo: newProposalTenant.logoUrl,
         professional_name: newProposalTenant.professionalName || 'Personal Principal',
@@ -180,11 +237,59 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
         claim_token: token,
         status: 'active',
         expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+
+      // Attempt 1: try including owner and owner_email (if migration v56 ran)
+      let createdTenant: any = null;
+      let insertErr: any = null;
+
+      const attempt1 = await supabase.from('tenants').insert({
+        ...basePayload,
+        owner: cleanEmail || 'Pendiente de vinculación',
+        owner_email: cleanEmail
       }).select().single();
+
+      if (attempt1.error) {
+        // If owner or owner_email doesn't exist in Supabase schema yet, fallback gracefully
+        if (
+          attempt1.error.message?.includes("'owner'") || 
+          attempt1.error.message?.includes("'owner_email'") ||
+          attempt1.error.code === 'PGRST204'
+        ) {
+          const attempt2 = await supabase.from('tenants').insert(basePayload).select().single();
+          createdTenant = attempt2.data;
+          insertErr = attempt2.error;
+        } else {
+          insertErr = attempt1.error;
+        }
+      } else {
+        createdTenant = attempt1.data;
+      }
 
       if (insertErr) throw insertErr;
 
       if (createdTenant) {
+        // If owner email was provided, check if a user with that email already exists to link immediately!
+        if (cleanEmail) {
+          try {
+            const { data: existingUser } = await supabase
+              .from('users')
+              .select('id, tenant_id')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+
+            if (existingUser?.id) {
+              await supabase.from('users').update({
+                tenant_id: createdTenant.id,
+                role: 'owner',
+                full_name: newProposalTenant.professionalName || createdTenant.name
+              }).eq('id', existingUser.id);
+            }
+          } catch (preLinkErr) {
+            console.warn('Pre-link attempt notice:', preLinkErr);
+          }
+        }
+
         // Create starter service and staff member so the proposal is ready
         await supabase.from('services').insert({
           tenant_id: createdTenant.id,
@@ -208,10 +313,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           industry: 'Barbería',
           plan_id: 'Professional',
           professionalName: '',
+          ownerEmail: '',
           ownerPhone: '',
           logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
           slogan: 'Tu mejor experiencia en cada turno'
         });
+        setUploadCompressionStats(null);
 
         await fetchTenants();
 
@@ -219,7 +326,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
         setClaimModalTenant({
           id: createdTenant.id,
           name: createdTenant.name,
-          owner: createdTenant.owner,
+          owner: cleanEmail || createdTenant.owner || createdTenant.professional_name || 'Pendiente de vinculación',
           industry: createdTenant.industry,
           status: 'active',
           plan: createdTenant.plan_id,
@@ -503,23 +610,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
 
   const handleUpdateTenant = async (updatedTenant: Tenant) => {
     try {
-      const basePayload = {
+      const basePayload: any = {
         name: updatedTenant.name,
-        owner: updatedTenant.owner,
-        industry: updatedTenant.industry
+        professional_name: updatedTenant.owner,
+        industry: updatedTenant.industry,
+        logo_url: updatedTenant.logo,
+        logo: updatedTenant.logo
       };
 
+      // Try with owner field, fallback without if column is missing
       let { error } = await supabase.from('tenants').update({
         ...basePayload,
-        logo_url: updatedTenant.logo
+        owner: updatedTenant.owner
       }).eq('id', updatedTenant.id);
 
-      if (error && error.message.includes('logo_url')) {
-        const res = await supabase.from('tenants').update({
-          ...basePayload,
-          logo: updatedTenant.logo
-        }).eq('id', updatedTenant.id);
-        error = res.error;
+      if (error && (error.message.includes("'owner'") || error.code === 'PGRST204')) {
+        const retry = await supabase.from('tenants').update(basePayload).eq('id', updatedTenant.id);
+        error = retry.error;
       }
 
       if (error) throw error;
@@ -798,14 +905,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                       const code = `MYTURN-${Math.random().toString(36).substring(7).toUpperCase()}-2026`;
                       const slug = `invite-${code.toLowerCase()}`;
                       
-                      const { data, error } = await supabase.from('tenants').insert({
+                      const invitePayload: any = {
                         name: `Invitación: ${code}`,
                         slug: slug,
                         industry: 'SaaS',
                         plan_id: 'Suspended',
-                        owner: 'Pendiente',
+                        professional_name: 'Pendiente',
                         logo: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=100&h=100&fit=crop'
+                      };
+                      let { data, error } = await supabase.from('tenants').insert({
+                        ...invitePayload,
+                        owner: 'Pendiente'
                       }).select().single();
+
+                      if (error && (error.message?.includes("'owner'") || error.code === 'PGRST204')) {
+                        const retry = await supabase.from('tenants').insert(invitePayload).select().single();
+                        data = retry.data;
+                        error = retry.error;
+                      }
                       
                       if (error) {
                         setInviteError(error.message);
@@ -2326,6 +2443,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 </div>
               </div>
 
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>
+                  CORREO DEL DUEÑO (VINCULACIÓN AUTOMÁTICA)
+                </label>
+                <input
+                  type="email"
+                  placeholder="ej: dueño@gmail.com"
+                  value={newProposalTenant.ownerEmail}
+                  onChange={(e) => setNewProposalTenant({ ...newProposalTenant, ownerEmail: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.25rem', display: 'block', fontWeight: 600 }}>
+                  ✨ Al iniciar sesión o registrarse con este correo, el negocio quedará vinculado automáticamente.
+                </span>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>PROFESIONAL PRINCIPAL</label>
@@ -2350,14 +2483,88 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
               </div>
 
               <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>URL DEL LOGO (OPCIONAL)</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
-                  value={newProposalTenant.logoUrl}
-                  onChange={(e) => setNewProposalTenant({ ...newProposalTenant, logoUrl: e.target.value })}
-                  style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
-                />
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>
+                  LOGO DEL NEGOCIO (SUBIR IMAGEN O URL)
+                </label>
+                
+                <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <img
+                    src={newProposalTenant.logoUrl || 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop'}
+                    alt="Logo Preview"
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '12px',
+                      objectFit: 'cover',
+                      border: '2px solid var(--primary)',
+                      background: '#0f172a',
+                      flexShrink: 0
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop';
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label 
+                        className={`btn ${isUploadingLogo ? 'btn-outline' : 'btn-primary'}`} 
+                        style={{ 
+                          fontSize: '0.75rem', 
+                          padding: '0.45rem 0.85rem', 
+                          cursor: isUploadingLogo ? 'wait' : 'pointer', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem' 
+                        }}
+                      >
+                        {isUploadingLogo ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Comprimiendo y Subiendo...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} />
+                            Subir Foto / Logo
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingLogo}
+                          onChange={handleLogoUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        Se optimiza auto a WebP ultraligero
+                      </span>
+                    </div>
+
+                    {uploadCompressionStats && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+                        <CheckCircle2 size={13} />
+                        Optimizado: {uploadCompressionStats.originalSize} ➔ {uploadCompressionStats.compressedSize} ({uploadCompressionStats.savingsPercent}% menos peso)
+                      </div>
+                    )}
+
+                    <input
+                      type="url"
+                      placeholder="o escribe URL: https://..."
+                      value={newProposalTenant.logoUrl}
+                      onChange={(e) => setNewProposalTenant({ ...newProposalTenant, logoUrl: e.target.value })}
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '0.4rem 0.6rem', 
+                        background: 'transparent', 
+                        border: '1px dashed var(--border)', 
+                        borderRadius: 'var(--radius-sm)', 
+                        color: 'var(--text)',
+                        width: '100%'
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>

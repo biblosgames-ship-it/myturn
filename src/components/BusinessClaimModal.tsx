@@ -28,7 +28,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({ claimTok
       try {
         const { data, error: fetchErr } = await supabase
           .from('tenants')
-          .select('id, name, slug, logo, logo_url, industry, plan_id, owner, professional_name, claim_token, status')
+          .select('id, name, slug, logo, logo_url, industry, plan_id, professional_name, claim_token, status')
           .or(`claim_token.eq.${claimToken},id.eq.${claimToken}`)
           .maybeSingle();
 
@@ -101,14 +101,26 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({ claimTok
       }
 
       // 1. Link Tenant to Owner email and clear claim_token
-      const { error: updateTenantErr } = await supabase
+      let { error: updateTenantErr } = await supabase
         .from('tenants')
         .update({
           owner: cleanEmail,
+          owner_email: cleanEmail,
           status: 'active',
           claim_token: null
         })
         .eq('id', tenant.id);
+
+      if (updateTenantErr && (updateTenantErr.message?.includes("'owner'") || updateTenantErr.code === 'PGRST204')) {
+        const retry = await supabase
+          .from('tenants')
+          .update({
+            status: 'active',
+            claim_token: null
+          })
+          .eq('id', tenant.id);
+        updateTenantErr = retry.error;
+      }
 
       if (updateTenantErr) {
         console.warn('Tenant update warning:', updateTenantErr);

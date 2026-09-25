@@ -213,6 +213,57 @@ function App() {
 
         if (fetchError) console.error('Error fetching user data:', fetchError);
 
+        // Check if there is an unlinked business assigned to this email!
+        const cleanUserEmail = (session.user.email || '').toLowerCase().trim();
+        if (cleanUserEmail && (!userData || !userData.tenant_id || userData.role === 'client')) {
+          try {
+            let matchedTenant = null;
+
+            // Attempt 1: check owner_email
+            const { data: tEmailData } = await supabase
+              .from('tenants')
+              .select('id, name, slug')
+              .ilike('owner_email', cleanUserEmail)
+              .limit(1);
+
+            if (tEmailData && tEmailData.length > 0) {
+              matchedTenant = tEmailData[0];
+            } else {
+              // Attempt 2: check owner
+              const { data: tOwnerData } = await supabase
+                .from('tenants')
+                .select('id, name, slug')
+                .ilike('owner', cleanUserEmail)
+                .limit(1);
+              if (tOwnerData && tOwnerData.length > 0) {
+                matchedTenant = tOwnerData[0];
+              }
+            }
+
+            if (matchedTenant) {
+              const { data: linkedUser } = await supabase.from('users').upsert({
+                id: session.user.id,
+                tenant_id: matchedTenant.id,
+                role: 'owner',
+                full_name: session.user.user_metadata?.full_name || 'Propietario',
+                phone: session.user.phone || null
+              }).select().single();
+
+              if (linkedUser) {
+                userData = linkedUser;
+                setTenant({ id: matchedTenant.id, name: matchedTenant.name });
+                if (matchedTenant.slug) localStorage.setItem('myturn_active_business_slug', matchedTenant.slug);
+                localStorage.setItem('myturn_last_view', 'barber');
+                handleSetView('barber');
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (autoLinkErr) {
+            console.warn('Auto-link check notice:', autoLinkErr);
+          }
+        }
+
         // If user document is missing and they entered from barber view, auto-provision business
         if (!userData) {
           if (savedView === 'barber') {
@@ -221,13 +272,24 @@ function App() {
             const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
             
             let newTenantId = null;
-            const { data: tData } = await supabase.from('tenants').insert({
+            const autoTenantPayload: any = {
               name: rawName,
               slug: uniqueSlug,
               industry: 'General',
               plan_id: 'Professional',
-              owner: session.user.email
+              professional_name: session.user.user_metadata?.full_name || 'Propietario'
+            };
+            let { data: tData, error: tErr } = await supabase.from('tenants').insert({
+              ...autoTenantPayload,
+              owner: session.user.email,
+              owner_email: session.user.email
             }).select().single();
+
+            if (tErr && (tErr.message?.includes("'owner'") || tErr.code === 'PGRST204')) {
+              const retry = await supabase.from('tenants').insert(autoTenantPayload).select().single();
+              tData = retry.data;
+            }
+
             if (tData) newTenantId = tData.id;
 
             const { data: newUser } = await supabase.from('users').upsert({
