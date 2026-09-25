@@ -497,20 +497,30 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
       if (user) {
         setUserEmail(user.email || '');
         try {
-          const { data: userData } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).single();
-          let currentTenantId = userData?.tenant_id;
-          if (userData?.role) setUserRole(userData.role);
+          const { data: userData } = await supabase.from('users').select('tenant_id, role').eq('id', user.id).maybeSingle();
+          const userEmail = (user.email || '').toLowerCase().trim();
+          const isGlobalAdmin = ['admin@myturn.app', 'miturno.me@gmail.com'].includes(userEmail) || userData?.role === 'superadmin';
+          if (isGlobalAdmin) {
+            setUserRole('superadmin');
+          } else if (userData?.role) {
+            setUserRole(userData.role);
+          }
+
+          const saTenantId = localStorage.getItem('myturn_superadmin_selected_tenant');
+          let currentTenantId = saTenantId || userData?.tenant_id;
 
           if (!currentTenantId) {
             const { data: allTenants } = await supabase.from('tenants').select('id').limit(1);
             if (allTenants && allTenants.length > 0) {
               currentTenantId = allTenants[0].id;
-              await supabase.from('users').upsert({
-                id: user.id,
-                tenant_id: currentTenantId,
-                role: 'owner',
-                full_name: 'Propietario'
-              });
+              if (!isGlobalAdmin) {
+                await supabase.from('users').upsert({
+                  id: user.id,
+                  tenant_id: currentTenantId,
+                  role: 'owner',
+                  full_name: 'Propietario'
+                });
+              }
             }
           }
 

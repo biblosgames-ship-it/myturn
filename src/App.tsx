@@ -393,7 +393,12 @@ function App() {
   const renderView = () => {
     switch (view) {
       case 'superadmin': 
-        return <SuperAdminDashboard onSwitchToBarber={() => handleSetView('barber')} />;
+        return <SuperAdminDashboard onSwitchToBarber={(tid) => {
+          if (tid) {
+            setTenant({ id: tid, name: '' });
+          }
+          handleSetView('barber');
+        }} />;
       case 'superadmin_login':
         return <BarberAuth isSuperAdmin onSuccess={() => handleSetView('superadmin')} />;
       case 'barber_login':

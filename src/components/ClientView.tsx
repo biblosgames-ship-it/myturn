@@ -1240,127 +1240,132 @@ export const ClientView: React.FC<{ initialSlug?: string }> = ({ initialSlug }) 
           {/* Waiting Room Promotions & Sponsors Banner */}
           {(() => {
             const activePromos = (dbBusiness.customPromotions || []).filter(p => p.is_active);
-            if (activePromos.length > 0) {
-              return (
-                <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {activePromos.map(promo => (
-                    <div
-                      key={promo.id}
-                      onClick={() => promo.link && window.open(promo.link, '_blank')}
-                      style={{
-                        padding: '1rem',
-                        borderRadius: 'var(--radius-lg)',
-                        background: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(24,24,27,0.7) 100%)',
-                        border: '1px solid rgba(245,158,11,0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.75rem',
-                        cursor: promo.link ? 'pointer' : 'default',
-                        transition: 'transform 0.2s',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                        {promo.image_url ? (
-                          <img 
-                            src={promo.image_url} 
-                            alt="" 
-                            style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} 
-                          />
-                        ) : (
-                          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(245,158,11,0.2)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Megaphone size={20} />
-                          </div>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.15rem' }}>
-                            <span style={{ 
-                              fontSize: '0.6rem', 
-                              fontWeight: 900, 
-                              background: 'var(--primary)', 
-                              color: '#000', 
-                              padding: '0.1rem 0.35rem', 
-                              borderRadius: '4px' 
-                            }}>
-                              {promo.badge || 'PROMO'}
-                            </span>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {promo.title}
-                            </h4>
-                          </div>
-                          {promo.subtitle && (
-                            <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {promo.subtitle}
-                            </p>
-                          )}
-                        </div>
+            const adsToShow = activePromos.length > 0 
+              ? activePromos.map(p => ({
+                  id: p.id,
+                  title: p.title,
+                  subtitle: p.subtitle,
+                  badge: p.badge || 'PROMO EXCLUSIVA',
+                  link: p.link,
+                  image_url: p.image_url,
+                  isSponsor: false
+                }))
+              : (dbBusiness.showGlobalAds !== false && platformAd) 
+                ? [{
+                    id: platformAd.id,
+                    title: platformAd.title,
+                    subtitle: platformAd.subtitle,
+                    badge: platformAd.badge || 'PATROCINADOR DESTACADO',
+                    link: platformAd.target_url || platformAd.link,
+                    image_url: platformAd.image_url,
+                    isSponsor: true
+                  }]
+                : [];
+
+            if (adsToShow.length === 0) return null;
+
+            return (
+              <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {adsToShow.map(ad => (
+                  <div
+                    key={ad.id}
+                    onClick={() => ad.link && window.open(ad.link, '_blank')}
+                    className="card-ad-animated"
+                    style={{
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: '16px',
+                      padding: '1.1rem',
+                      background: 'linear-gradient(135deg, #111827 0%, #1e1b4b 50%, #0f172a 100%)',
+                      border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                      boxShadow: '0 8px 25px -4px rgba(245, 158, 11, 0.25), 0 4px 10px rgba(0,0,0,0.5)',
+                      cursor: ad.link ? 'pointer' : 'default',
+                      transition: 'all 0.25s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    {/* Top Sponsor Ribbon */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 10px #f59e0b', display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900, letterSpacing: '0.6px', color: '#f59e0b', textTransform: 'uppercase' }}>
+                          {ad.isSponsor ? '✨ ANUNCIO PATROCINADO' : '🔥 PROMOCIÓN ESPECIAL'}
+                        </span>
                       </div>
-                      {promo.link && (
+                      <span style={{ 
+                        fontSize: '0.625rem', 
+                        fontWeight: 900, 
+                        background: 'linear-gradient(135deg, #f59e0b, #ea580c)', 
+                        color: '#000', 
+                        padding: '0.15rem 0.55rem', 
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 8px rgba(245,158,11,0.3)'
+                      }}>
+                        {ad.badge}
+                      </span>
+                    </div>
+
+                    {/* Content Row: Image + Text */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+                      {ad.image_url ? (
+                        <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.18)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>
+                          <img 
+                            src={ad.image_url} 
+                            alt="" 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ width: '64px', height: '64px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(234,88,12,0.2) 100%)', border: '1.5px solid rgba(245,158,11,0.4)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 16px rgba(245,158,11,0.25)' }}>
+                          <Megaphone size={28} />
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, margin: '0 0 0.25rem 0', color: '#ffffff', lineHeight: 1.25, letterSpacing: '-0.2px' }}>
+                          {ad.title}
+                        </h4>
+                        {ad.subtitle && (
+                          <p style={{ fontSize: '0.775rem', color: '#cbd5e1', margin: 0, lineHeight: 1.35 }}>
+                            {ad.subtitle}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    {ad.link && (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '0.2rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <button
                           type="button"
-                          className="btn btn-primary"
-                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          className="btn"
+                          style={{
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+                            color: '#000000',
+                            fontWeight: 900,
+                            fontSize: '0.775rem',
+                            padding: '0.45rem 1rem',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            boxShadow: '0 4px 12px rgba(245,158,11,0.35)'
+                          }}
                         >
-                          Ver <ExternalLink size={12} />
+                          Aprovechar Oferta <ExternalLink size={13} />
                         </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-
-            // Fallback: If no custom business promo, check if global ads are allowed
-            if (dbBusiness.showGlobalAds !== false && platformAd) {
-              return (
-                <div 
-                  onClick={() => platformAd.target_url && window.open(platformAd.target_url, '_blank')}
-                  style={{
-                    marginTop: '1.25rem',
-                    padding: '0.875rem 1rem',
-                    borderRadius: 'var(--radius-lg)',
-                    background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(24,24,27,0.5) 100%)',
-                    border: '1px solid rgba(245,158,11,0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.75rem',
-                    cursor: platformAd.target_url ? 'pointer' : 'default',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
-                    <span style={{ 
-                      fontSize: '0.6rem', 
-                      fontWeight: 900, 
-                      background: 'rgba(245,158,11,0.2)', 
-                      color: 'var(--primary)', 
-                      padding: '0.15rem 0.4rem', 
-                      borderRadius: '4px',
-                      flexShrink: 0
-                    }}>
-                      {platformAd.badge || 'PATROCINADO'}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {platformAd.title}
-                      </p>
-                      {platformAd.subtitle && (
-                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {platformAd.subtitle}
-                        </p>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                  {platformAd.target_url && (
-                    <ExternalLink size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
-                  )}
-                </div>
-              );
-            }
-
-            return null;
+                ))}
+              </div>
+            );
           })()}
         </div>
       ) : isRegisteredUser ? (

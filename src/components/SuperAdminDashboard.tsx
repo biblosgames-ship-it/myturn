@@ -86,12 +86,20 @@ const initialSaasPlans: SaasPlan[] = [
 ];
 
 interface SuperAdminDashboardProps {
-  onSwitchToBarber?: () => void;
+  onSwitchToBarber?: (tenantId?: string) => void;
 }
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwitchToBarber }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'plans' | 'tickets' | 'ads' | 'settings'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const handleEnterTenant = (t: Tenant) => {
+    localStorage.setItem('myturn_superadmin_selected_tenant', t.id);
+    if (t.slug) localStorage.setItem('myturn_active_business_slug', t.slug);
+    if (onSwitchToBarber) {
+      onSwitchToBarber(t.id);
+    }
+  };
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -103,6 +111,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   const [platformAds, setPlatformAds] = useState<PlatformAd[]>([]);
   const [adsLoading, setAdsLoading] = useState(false);
   const [showNewAdModal, setShowNewAdModal] = useState(false);
+  const [editingAd, setEditingAd] = useState<PlatformAd | null>(null);
   const [newAd, setNewAd] = useState({
     title: '',
     subtitle: '',
@@ -112,6 +121,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
     type: 'cintillo' as 'cintillo' | 'banner' | 'popup',
     priority: 10
   });
+
+  const handleOpenEditAd = (ad: PlatformAd) => {
+    setEditingAd(ad);
+    setNewAd({
+      title: ad.title,
+      subtitle: ad.subtitle || '',
+      badge: ad.badge || 'PROMO',
+      target_url: ad.target_url || '',
+      image_url: ad.image_url || '',
+      type: ad.type,
+      priority: ad.priority
+    });
+    setShowNewAdModal(true);
+  };
 
   // Proposal & Claim state
   const [showCreateTenantModal, setShowCreateTenantModal] = useState(false);
@@ -254,30 +277,48 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
     }
   };
 
-  const handleCreateAd = async (e: React.FormEvent) => {
+  const handleSubmitAd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAd.title) return;
     try {
-      const { data, error } = await supabase.from('platform_ads').insert({
-        title: newAd.title,
-        subtitle: newAd.subtitle || null,
-        badge: newAd.badge || 'PROMO',
-        target_url: newAd.target_url || '/',
-        image_url: newAd.image_url || null,
-        type: newAd.type,
-        priority: Number(newAd.priority) || 10,
-        is_active: true
-      }).select().single();
+      if (editingAd) {
+        const { data, error } = await supabase.from('platform_ads').update({
+          title: newAd.title,
+          subtitle: newAd.subtitle || null,
+          badge: newAd.badge || 'PROMO',
+          target_url: newAd.target_url || '/',
+          image_url: newAd.image_url || null,
+          type: newAd.type,
+          priority: Number(newAd.priority) || 10
+        }).eq('id', editingAd.id).select().single();
 
-      if (data && !error) {
-        setPlatformAds([data, ...platformAds]);
-        setShowNewAdModal(false);
-        setNewAd({ title: '', subtitle: '', badge: 'PROMO', target_url: '', image_url: '', type: 'cintillo', priority: 10 });
+        if (error) throw error;
+        if (data) {
+          setPlatformAds(prev => prev.map(a => a.id === editingAd.id ? data : a));
+        }
       } else {
-        alert("Error al crear anuncio: " + (error?.message || 'Verifica la tabla platform_ads'));
+        const { data, error } = await supabase.from('platform_ads').insert({
+          title: newAd.title,
+          subtitle: newAd.subtitle || null,
+          badge: newAd.badge || 'PROMO',
+          target_url: newAd.target_url || '/',
+          image_url: newAd.image_url || null,
+          type: newAd.type,
+          priority: Number(newAd.priority) || 10,
+          is_active: true
+        }).select().single();
+
+        if (error) throw error;
+        if (data) {
+          setPlatformAds([data, ...platformAds]);
+        }
       }
+
+      setShowNewAdModal(false);
+      setEditingAd(null);
+      setNewAd({ title: '', subtitle: '', badge: 'PROMO', target_url: '', image_url: '', type: 'cintillo', priority: 10 });
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert("Error al guardar anuncio: " + (err?.message || 'Verifica la tabla platform_ads'));
     }
   };
 
@@ -594,9 +635,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
             </button>
           ))}
 
-          {userTenantId && onSwitchToBarber && (
+          {onSwitchToBarber && (
             <button
-              onClick={onSwitchToBarber}
+              onClick={() => {
+                const targetId = userTenantId || (tenants.length > 0 ? tenants[0].id : null);
+                if (targetId) {
+                  localStorage.setItem('myturn_superadmin_selected_tenant', targetId);
+                  const matchingTenant = tenants.find(t => t.id === targetId);
+                  if (matchingTenant?.slug) {
+                    localStorage.setItem('myturn_active_business_slug', matchingTenant.slug);
+                  }
+                }
+                onSwitchToBarber(targetId || undefined);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -612,9 +663,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 fontWeight: 700,
                 transition: 'all 0.2s'
               }}
+              title="Abrir el panel de gestión de barbería"
             >
               <Scissors size={20} />
-              Ir a mi Negocio
+              Ir a Panel Negocio
             </button>
           )}
         </nav>
@@ -938,6 +990,32 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                               </button>
                             </>
                           )}
+                          <button 
+                            className="btn btn-outline" 
+                            style={{ 
+                              padding: '0.4rem', 
+                              color: '#10b981', 
+                              borderColor: 'rgba(16,185,129,0.4)', 
+                              background: 'rgba(16,185,129,0.08)' 
+                            }} 
+                            onClick={() => handleEnterTenant(t)}
+                            title="Entrar al Panel Operativo de este Negocio"
+                          >
+                            <Scissors size={14} />
+                          </button>
+                          <button 
+                            className="btn btn-outline" 
+                            style={{ 
+                              padding: '0.4rem', 
+                              color: '#6366f1', 
+                              borderColor: 'rgba(99,102,241,0.4)', 
+                              background: 'rgba(99,102,241,0.08)' 
+                            }} 
+                            onClick={() => window.open(`/${t.slug || t.id}`, '_blank')}
+                            title="Ver Portal Web Público del Negocio"
+                          >
+                            <ExternalLink size={14} />
+                          </button>
                           {!isInvite && (
                             <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setEditingTenant(t)} title="Configuración Avanzada">
                               <Settings size={14} />
@@ -1237,14 +1315,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                             </button>
                           </td>
                           <td style={{ padding: '1rem' }}>
-                            <button
-                              className="btn btn-outline"
-                              onClick={() => handleDeleteAd(ad.id)}
-                              style={{ padding: '0.4rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
-                              title="Eliminar Anuncio"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                              <button
+                                className="btn btn-outline"
+                                onClick={() => handleOpenEditAd(ad)}
+                                style={{ padding: '0.4rem', color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.06)' }}
+                                title="Editar Anuncio / Banner"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                className="btn btn-outline"
+                                onClick={() => handleDeleteAd(ad.id)}
+                                style={{ padding: '0.4rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                                title="Eliminar Anuncio"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1860,18 +1948,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           backdropFilter: 'blur(8px)',
           padding: '1rem'
         }}>
-          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '520px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <header style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ width: '44px', height: '44px', background: 'rgba(245,158,11,0.1)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Megaphone size={24} />
+                {editingAd ? <Edit size={24} /> : <Megaphone size={24} />}
               </div>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>Crear Anuncio o Cintillo</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Se mostrará a clientes en la app y salas de espera.</p>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0 }}>
+                  {editingAd ? 'Editar Anuncio o Cintillo' : 'Crear Anuncio o Cintillo'}
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                  {editingAd ? 'Modifica los textos, enlaces, imágenes o prioridad del anuncio.' : 'Se mostrará a clientes en la app y salas de espera.'}
+                </p>
               </div>
             </header>
 
-            <form onSubmit={handleCreateAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={handleSubmitAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>TIPO DE ANUNCIO</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
@@ -1970,10 +2062,166 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                 />
               </div>
 
+              {/* Live Preview */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                  VISTA PREVIA EN VIVO
+                </label>
+                {newAd.type === 'cintillo' && (
+                  <div style={{
+                    padding: '0.625rem 0.875rem',
+                    background: 'linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(129, 140, 248, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.625rem',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
+                  }}>
+                    <span style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 900,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                      color: '#ffffff',
+                      letterSpacing: '0.05em'
+                    }}>
+                      {newAd.badge || 'PROMO'}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#f8fafc' }}>
+                        {newAd.title || 'Título del anuncio aquí...'}
+                      </span>
+                      {newAd.subtitle && (
+                        <span style={{ fontSize: '0.75rem', color: '#cbd5e1', marginLeft: '0.5rem' }}>
+                          — {newAd.subtitle}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24', flexShrink: 0 }}>
+                      Ver más ↗
+                    </span>
+                  </div>
+                )}
+
+                {newAd.type === 'banner' && (
+                  <div className="card-ad-animated" style={{
+                    padding: '0.875rem 1rem',
+                    background: 'linear-gradient(145deg, #111827 0%, #1e1b4b 60%, #0f172a 100%)',
+                    borderRadius: '12px',
+                    border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.625rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }} />
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900, letterSpacing: '0.08em', color: '#fbbf24', textTransform: 'uppercase' }}>
+                          ✨ ANUNCIO PATROCINADO
+                        </span>
+                      </div>
+                      <span style={{
+                        fontSize: '0.65rem',
+                        fontWeight: 900,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                        color: '#ffffff'
+                      }}>
+                        {newAd.badge || 'PROMO'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      {newAd.image_url ? (
+                        <img
+                          src={newAd.image_url}
+                          alt="Preview"
+                          style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '10px',
+                            objectFit: 'cover',
+                            border: '1.5px solid rgba(255,255,255,0.15)',
+                            flexShrink: 0
+                          }}
+                          onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(99,102,241,0.2))',
+                          border: '1px solid rgba(245,158,11,0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          color: '#fbbf24'
+                        }}>
+                          <Megaphone size={20} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.25 }}>
+                          {newAd.title || 'Título llamativo del anuncio...'}
+                        </div>
+                        {newAd.subtitle && (
+                          <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '0.2rem', lineHeight: 1.3 }}>
+                            {newAd.subtitle}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      alignSelf: 'flex-end',
+                      padding: '0.3rem 0.65rem',
+                      borderRadius: '6px',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      color: '#111827',
+                      fontSize: '0.72rem',
+                      fontWeight: 900,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem'
+                    }}>
+                      Aprovechar Oferta ↗
+                    </div>
+                  </div>
+                )}
+
+                {newAd.type === 'popup' && (
+                  <div style={{
+                    padding: '0.875rem 1rem',
+                    background: 'var(--surface)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', background: 'var(--primary)', color: '#000' }}>
+                        {newAd.badge || 'MODAL'}
+                      </span>
+                      <strong style={{ fontSize: '0.875rem' }}>{newAd.title || 'Título de la Alerta/Modal'}</strong>
+                    </div>
+                    {newAd.subtitle && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{newAd.subtitle}</p>}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem' }}>
                 <button
                   type="button"
-                  onClick={() => setShowNewAdModal(false)}
+                  onClick={() => {
+                    setShowNewAdModal(false);
+                    setEditingAd(null);
+                  }}
                   className="btn btn-outline"
                   style={{ flex: 1 }}
                 >
@@ -1984,7 +2232,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   className="btn btn-primary"
                   style={{ flex: 1 }}
                 >
-                  Publicar Anuncio
+                  {editingAd ? 'Guardar Cambios' : 'Publicar Anuncio'}
                 </button>
               </div>
             </form>
