@@ -355,6 +355,28 @@ input[type="time"]:focus {
     color: black !important;
   }
 
+  .business-qr-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .business-qr-modal-container {
+    max-width: 100% !important;
+    max-height: none !important;
+    gap: 0 !important;
+    display: block !important;
+  }
+
+  .business-qr-poster-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
   #printable-qr-poster {
     display: flex !important;
     position: relative !important;
