@@ -7,9 +7,10 @@ import {
   Briefcase, Heart, Scissors, Stethoscope, ShieldAlert, Clock,
   CheckCircle2, Loader2, LifeBuoy, Send, MessageSquare,
   Download, Printer, Star, Megaphone, Trash2, Edit,
-  Link2, UserPlus, Sparkles, MessageCircle, Upload
+  Link2, UserPlus, Sparkles, MessageCircle, Upload, QrCode
 } from 'lucide-react';
 import { compressImage, formatBytes } from '../lib/imageCompression';
+import { BusinessQrPosterModal } from './BusinessQrPosterModal';
 
 interface SupportTicket {
   id: string;
@@ -76,6 +77,42 @@ const GLOBAL_STATS = {
 };
 
 
+export interface InitialServiceItem {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+}
+
+export const INDUSTRY_SERVICE_PRESETS: Record<string, { name: string; price: number; duration_minutes: number }[]> = {
+  'Barbería': [
+    { name: 'Corte Clásico', price: 15, duration_minutes: 30 },
+    { name: 'Corte y Barba', price: 25, duration_minutes: 45 },
+    { name: 'Perfilado de Barba', price: 10, duration_minutes: 20 },
+    { name: 'Corte Infantil', price: 12, duration_minutes: 25 },
+  ],
+  'Salón': [
+    { name: 'Corte y Peinado', price: 30, duration_minutes: 45 },
+    { name: 'Tinte Completo', price: 50, duration_minutes: 90 },
+    { name: 'Manicura Spa', price: 20, duration_minutes: 40 },
+    { name: 'Pedicura', price: 25, duration_minutes: 45 },
+  ],
+  'Salud': [
+    { name: 'Consulta General', price: 40, duration_minutes: 30 },
+    { name: 'Masaje Terapéutico', price: 50, duration_minutes: 60 },
+    { name: 'Limpieza Facial', price: 35, duration_minutes: 45 },
+  ],
+  'Taller': [
+    { name: 'Cambio de Aceite y Filtro', price: 45, duration_minutes: 40 },
+    { name: 'Revisión General / Frenos', price: 60, duration_minutes: 60 },
+    { name: 'Alineación y Balanceo', price: 35, duration_minutes: 45 },
+  ],
+  'Otro': [
+    { name: 'Servicio Estándar', price: 25, duration_minutes: 30 },
+    { name: 'Servicio Premium', price: 50, duration_minutes: 60 },
+  ]
+};
+
 // No initial mock data anymore
 const initialTenants: Tenant[] = [];
 
@@ -140,19 +177,70 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
   // Proposal & Claim state
   const [showCreateTenantModal, setShowCreateTenantModal] = useState(false);
   const [claimModalTenant, setClaimModalTenant] = useState<Tenant | null>(null);
+  const [qrPosterTenant, setQrPosterTenant] = useState<Tenant | null>(null);
   const [copiedClaimLink, setCopiedClaimLink] = useState(false);
   const [creatingTenant, setCreatingTenant] = useState(false);
-  const [newProposalTenant, setNewProposalTenant] = useState({
+  const [newProposalTenant, setNewProposalTenant] = useState<{
+    name: string;
+    slug: string;
+    industry: 'Barbería' | 'Salón' | 'Salud' | 'Taller' | 'Otro';
+    plan_id: 'Free' | 'Professional' | 'Multi-Professional' | 'Multi-Negocios';
+    professionalName: string;
+    ownerEmail: string;
+    ownerPhone: string;
+    logoUrl: string;
+    slogan: string;
+    services: InitialServiceItem[];
+  }>({
     name: '',
     slug: '',
-    industry: 'Barbería' as any,
-    plan_id: 'Professional' as any,
+    industry: 'Barbería',
+    plan_id: 'Professional',
     professionalName: '',
     ownerEmail: '',
     ownerPhone: '',
     logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
-    slogan: 'Tu mejor experiencia en cada turno'
+    slogan: 'Tu mejor experiencia en cada turno',
+    services: INDUSTRY_SERVICE_PRESETS['Barbería'].map((s, idx) => ({ ...s, id: `svc_${idx + 1}` }))
   });
+
+  const handleAddProposalService = () => {
+    setNewProposalTenant(prev => ({
+      ...prev,
+      services: [
+        ...prev.services,
+        {
+          id: `svc_${Date.now()}`,
+          name: '',
+          price: 15,
+          duration_minutes: 30
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveProposalService = (id: string) => {
+    setNewProposalTenant(prev => ({
+      ...prev,
+      services: prev.services.filter(s => s.id !== id)
+    }));
+  };
+
+  const handleUpdateProposalService = (id: string, field: keyof InitialServiceItem, value: any) => {
+    setNewProposalTenant(prev => ({
+      ...prev,
+      services: prev.services.map(s => s.id === id ? { ...s, [field]: value } : s)
+    }));
+  };
+
+  const handleSelectIndustryAndPresets = (industry: 'Barbería' | 'Salón' | 'Salud' | 'Taller' | 'Otro') => {
+    const presets = INDUSTRY_SERVICE_PRESETS[industry] || INDUSTRY_SERVICE_PRESETS['Barbería'];
+    setNewProposalTenant(prev => ({
+      ...prev,
+      industry,
+      services: presets.map((s, idx) => ({ ...s, id: `svc_${Date.now()}_${idx}` }))
+    }));
+  };
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [uploadCompressionStats, setUploadCompressionStats] = useState<{
@@ -290,15 +378,29 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           }
         }
 
-        // Create starter service and staff member so the proposal is ready
-        await supabase.from('services').insert({
-          tenant_id: createdTenant.id,
-          name: 'Servicio Principal',
-          price: 15,
-          duration_minutes: 30,
-          duration: 30,
-          icon: 'Star'
-        });
+        // Create starter services and staff member so the proposal is ready
+        const validServices = newProposalTenant.services.filter(s => s.name && s.name.trim().length > 0);
+        const servicesPayload = validServices.length > 0
+          ? validServices.map(s => ({
+              tenant_id: createdTenant.id,
+              name: s.name.trim(),
+              price: Number(s.price) || 0,
+              duration_minutes: Number(s.duration_minutes) || 30,
+              duration: Number(s.duration_minutes) || 30,
+              icon: 'Scissors'
+            }))
+          : [
+              {
+                tenant_id: createdTenant.id,
+                name: 'Servicio Principal',
+                price: 15,
+                duration_minutes: 30,
+                duration: 30,
+                icon: 'Star'
+              }
+            ];
+
+        await supabase.from('services').insert(servicesPayload);
 
         await supabase.from('staff_members').insert({
           tenant_id: createdTenant.id,
@@ -316,7 +418,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
           ownerEmail: '',
           ownerPhone: '',
           logoUrl: 'https://images.unsplash.com/photo-1512690196162-7c97262c5a95?w=200&h=200&fit=crop',
-          slogan: 'Tu mejor experiencia en cada turno'
+          slogan: 'Tu mejor experiencia en cada turno',
+          services: INDUSTRY_SERVICE_PRESETS['Barbería'].map((s, idx) => ({ ...s, id: `svc_${idx + 1}` }))
         });
         setUploadCompressionStats(null);
 
@@ -1154,6 +1257,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                                 title="Generar Enlace de Vinculación / Traspaso al Dueño"
                               >
                                 <Link2 size={14} />
+                              </button>
+                              <button 
+                                className="btn btn-outline" 
+                                style={{ 
+                                  padding: '0.4rem', 
+                                  color: '#8b5cf6', 
+                                  borderColor: 'rgba(139,92,246,0.4)',
+                                  background: 'rgba(139,92,246,0.08)'
+                                }} 
+                                onClick={() => setQrPosterTenant(t)}
+                                title="Generar e Imprimir Cartel con Código QR"
+                              >
+                                <QrCode size={14} />
                               </button>
                             </>
                           )}
@@ -2535,7 +2651,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>RUBRO / INDUSTRIA</label>
                   <select
                     value={newProposalTenant.industry}
-                    onChange={(e) => setNewProposalTenant({ ...newProposalTenant, industry: e.target.value as any })}
+                    onChange={(e) => handleSelectIndustryAndPresets(e.target.value as any)}
                     style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
                   >
                     <option value="Barbería">Barbería</option>
@@ -2728,6 +2844,160 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSwit
                   onChange={(e) => setNewProposalTenant({ ...newProposalTenant, slogan: e.target.value })}
                   style={{ width: '100%', padding: '0.75rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
                 />
+              </div>
+
+              {/* SERVICIOS INICIALES / PROPUESTA */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                      <Scissors size={15} style={{ color: 'var(--primary)' }} /> CATÁLOGO DE SERVICIOS INICIALES ({newProposalTenant.services.length})
+                    </label>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                      Configura los servicios y precios para la propuesta del cliente.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddProposalService}
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                  >
+                    <Plus size={14} /> Agregar Servicio
+                  </button>
+                </div>
+
+                {/* Preajustes rápidos según tipo de negocio */}
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', background: 'var(--background)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Cargar preset:</span>
+                  {(['Barbería', 'Salón', 'Salud', 'Taller', 'Otro'] as const).map(ind => (
+                    <button
+                      key={ind}
+                      type="button"
+                      onClick={() => handleSelectIndustryAndPresets(ind)}
+                      style={{
+                        fontSize: '0.68rem',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '999px',
+                        border: '1px solid',
+                        borderColor: newProposalTenant.industry === ind ? 'var(--primary)' : 'var(--border)',
+                        background: newProposalTenant.industry === ind ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                        color: newProposalTenant.industry === ind ? 'var(--primary)' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: newProposalTenant.industry === ind ? 700 : 500
+                      }}
+                    >
+                      {ind}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Lista de servicios */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                  {newProposalTenant.services.map((svc, idx) => (
+                    <div 
+                      key={svc.id || idx} 
+                      style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '1fr 90px 85px 32px', 
+                        gap: '0.5rem', 
+                        alignItems: 'center',
+                        background: 'var(--background)',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}
+                    >
+                      <div>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nombre del servicio"
+                          value={svc.name}
+                          onChange={(e) => handleUpdateProposalService(svc.id, 'name', e.target.value)}
+                          style={{
+                            width: '100%',
+                            fontSize: '0.78rem',
+                            padding: '0.4rem 0.5rem',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text)'
+                          }}
+                        />
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: '0.4rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          placeholder="Precio"
+                          value={svc.price}
+                          onChange={(e) => handleUpdateProposalService(svc.id, 'price', parseFloat(e.target.value) || 0)}
+                          style={{
+                            width: '100%',
+                            fontSize: '0.78rem',
+                            padding: '0.4rem 0.5rem 0.4rem 1rem',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text)'
+                          }}
+                        />
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="number"
+                          min="5"
+                          step="5"
+                          placeholder="Min"
+                          value={svc.duration_minutes}
+                          onChange={(e) => handleUpdateProposalService(svc.id, 'duration_minutes', parseInt(e.target.value, 10) || 15)}
+                          style={{
+                            width: '100%',
+                            fontSize: '0.78rem',
+                            padding: '0.4rem 0.5rem',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text)'
+                          }}
+                        />
+                        <span style={{ position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>m</span>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProposalService(svc.id)}
+                          disabled={newProposalTenant.services.length <= 1}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: newProposalTenant.services.length <= 1 ? 'var(--text-muted)' : '#ef4444',
+                            cursor: newProposalTenant.services.length <= 1 ? 'not-allowed' : 'pointer',
+                            padding: '0.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: newProposalTenant.services.length <= 1 ? 0.4 : 1
+                          }}
+                          title="Eliminar servicio"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2935,6 +3205,28 @@ ${claimUrl}`;
                     Regenerar Token
                   </button>
                 </div>
+
+                {/* Open QR Poster for Physical Handout / Print */}
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setQrPosterTenant(claimModalTenant)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    color: '#c4b5fd',
+                    borderColor: 'rgba(139, 92, 246, 0.4)',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                >
+                  <QrCode size={18} /> 🖨️ Imprimir Cartel con Código QR del Local
+                </button>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
@@ -2951,6 +3243,14 @@ ${claimUrl}`;
           </div>
         );
       })()}
+
+      {/* Printable QR Code Poster Modal */}
+      {qrPosterTenant && (
+        <BusinessQrPosterModal
+          tenant={qrPosterTenant}
+          onClose={() => setQrPosterTenant(null)}
+        />
+      )}
     </div>
   );
 };
