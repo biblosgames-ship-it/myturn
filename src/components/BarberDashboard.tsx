@@ -7,6 +7,7 @@ import { StaffManagement } from './StaffManagement';
 import { WorkStations } from './WorkStations';
 import { MessagingCenter } from './MessagingCenter';
 import { CustomerRetentionCRM } from './CustomerRetentionCRM';
+import { BusinessOnboardingTour } from './BusinessOnboardingTour';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
@@ -285,6 +286,9 @@ interface BarberDashboardProps {
 
 export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmin }) => {
   const [activeTab, setActiveTab] = useState<'queue' | 'agenda' | 'finance' | 'inventory' | 'management' | 'staff' | 'stations' | 'profile' | 'customers' | 'messages' | 'pricing'>('queue');
+  const [showOnboardingTour, setShowOnboardingTour] = useState(() => {
+    return localStorage.getItem('myturn_new_business_onboarding') === 'true';
+  });
   const [userRole, setUserRole] = useState<string | null>(null);
   const [targetAgendaDate, setTargetAgendaDate] = useState<string | null>(null);
 
@@ -2387,6 +2391,22 @@ const getPlanCapabilities = (planName: string) => {
               <span className="hide-on-mobile">{alarmEnabled ? 'SONIDO ON' : 'SONIDO OFF'}</span>
             </button>
 
+            <button
+              onClick={() => setShowOnboardingTour(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--primary)',
+                background: 'rgba(245,158,11,0.08)',
+                color: 'var(--primary)',
+                fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+              title="Asistente interactivo para configurar tu negocio paso a paso"
+            >
+              <Sparkles size={14} />
+              <span>GUÍA CONFIGURACIÓN</span>
+            </button>
+
             <button 
               className={`btn ${isOpen ? 'btn-primary' : 'btn-outline'}`}
               onClick={async () => {
@@ -3544,7 +3564,7 @@ const getPlanCapabilities = (planName: string) => {
               </div>
             </div>
             
-            <button className="btn btn-primary" onClick={() => setShowShareModal(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <button data-tutorial="nav-share" className="btn btn-primary" onClick={() => setShowShareModal(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
               <Share2 size={18} /> Compartir mi negocio
             </button>
 
@@ -3560,6 +3580,7 @@ const getPlanCapabilities = (planName: string) => {
 
         <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: subscription?.status === 'suspended' ? 0.3 : 1 }}>
           <button 
+            data-tutorial="nav-queue"
             onClick={() => handleTabClick('queue')}
             className={`btn ${activeTab === 'queue' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
@@ -3567,6 +3588,7 @@ const getPlanCapabilities = (planName: string) => {
             <Users size={20} /> En Vivo
           </button>
           <button 
+            data-tutorial="nav-agenda"
             onClick={() => handleTabClick('agenda')}
             className={`btn ${activeTab === 'agenda' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
@@ -3589,6 +3611,7 @@ const getPlanCapabilities = (planName: string) => {
             {subscription?.plan === 'Free' && <Lock size={16} />}
           </button>
           <button 
+            data-tutorial="nav-management"
             onClick={() => handleTabClick('management')}
             className={`btn ${activeTab === 'management' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'flex-start', padding: '0.8rem 1.25rem' }}
@@ -3625,12 +3648,32 @@ const getPlanCapabilities = (planName: string) => {
             <Users size={20} /> Clientes
           </button>
           <button 
+            data-tutorial="nav-staff"
             onClick={() => handleTabClick('staff')}
             className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'space-between', padding: '0.8rem 1.25rem', color: !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') ? 'var(--text-muted)' : activeTab === 'staff' ? 'black' : 'var(--text)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Users size={20} /> Equipo</div>
             {!['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '') && <Lock size={16} />}
+          </button>
+
+          <button 
+            onClick={() => setShowOnboardingTour(true)}
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.75rem', 
+              justifyContent: 'flex-start', 
+              padding: '0.8rem 1.25rem',
+              borderColor: 'var(--primary)',
+              color: 'var(--primary)',
+              fontWeight: 800,
+              background: 'rgba(245, 158, 11, 0.05)',
+              marginTop: '0.5rem'
+            }}
+          >
+            <Sparkles size={18} /> Guía de Configuración
           </button>
           <button 
             onClick={() => handleTabClick('stations')}
@@ -4865,6 +4908,16 @@ const getPlanCapabilities = (planName: string) => {
         </div>
       )}
     </div>
+
+    <BusinessOnboardingTour
+      isOpen={showOnboardingTour}
+      onClose={() => setShowOnboardingTour(false)}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      businessName={businessName}
+      shareUrl={shareUrl}
+      onOpenShareModal={() => setShowShareModal(true)}
+    />
     </>
   );
 };

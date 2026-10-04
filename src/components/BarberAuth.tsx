@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Lock, Mail, CheckCircle2, Building2, Chrome } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Lock, Mail, CheckCircle2, Building2, Chrome, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolean }> = ({ onSuccess, isSuperAdmin }) => {
@@ -15,10 +15,20 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const registrationStep = (() => {
+    if (!inviteValid) return 1;
+    if (!businessName.trim()) return 2;
+    if (!email.trim()) return 3;
+    if (!password.trim() || password.length < 6) return 4;
+    return 5;
+  })();
+
   const handleGoogleLogin = async () => {
     setLoading(true);
     if (mode === 'register') {
       localStorage.setItem('myturn_pending_barber_setup', 'true');
+      localStorage.setItem('myturn_new_business_onboarding', 'true');
+      localStorage.removeItem('myturn_business_tour_completed');
       localStorage.setItem('myturn_last_view', 'barber');
     } else if (mode === 'admin' || isSuperAdmin) {
       localStorage.setItem('myturn_last_view', 'superadmin');
@@ -169,6 +179,9 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
             if (userError) throw userError;
           }
 
+          localStorage.setItem('myturn_new_business_onboarding', 'true');
+          localStorage.removeItem('myturn_business_tour_completed');
+
           if (authData.session) {
             onSuccess();
           } else {
@@ -255,6 +268,102 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
           </div>
         )}
 
+        {mode === 'register' && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.07)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1rem',
+            marginBottom: '1.25rem',
+            animation: 'fadeIn 0.3s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
+              <Sparkles size={16} color="var(--primary)" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Asistente de Registro • Paso {registrationStep} de 5
+              </span>
+            </div>
+            
+            {registrationStep === 1 && (
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 800, margin: '0 0 0.3rem 0', color: 'var(--text)' }}>
+                  ¿Tienes código de invitación o quieres empezar Gratis?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 0.6rem 0', lineHeight: 1.4 }}>
+                  Si tienes un código de patrocinio escríbelo abajo. Si eres un negocio nuevo y no tienes código, pulsa el botón para comenzar en el <strong>Plan Free 100% gratis</strong>.
+                </p>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setInviteValid(true);
+                    setInviteCode('FREE-PLAN');
+                    setInviteTenantId(null);
+                  }}
+                  style={{
+                    padding: '0.45rem 0.9rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'var(--primary)',
+                    color: '#000',
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
+                >
+                  <span>👉 Continuar con Plan Free (Gratis)</span>
+                </button>
+              </div>
+            )}
+
+            {registrationStep === 2 && (
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 800, margin: '0 0 0.25rem 0', color: 'var(--text)' }}>
+                  ¿Cómo se llama tu Negocio o Barbería?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Escribe el nombre comercial con el que te identifican tus clientes. Lo usaremos para tu enlace de citas en línea.
+                </p>
+              </div>
+            )}
+
+            {registrationStep === 3 && (
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 800, margin: '0 0 0.25rem 0', color: 'var(--text)' }}>
+                  Tu Correo Electrónico Principal
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Ingresa tu correo. Será tu usuario de acceso como administrador para gestionar citas, horarios y finanzas.
+                </p>
+              </div>
+            )}
+
+            {registrationStep === 4 && (
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 800, margin: '0 0 0.25rem 0', color: 'var(--text)' }}>
+                  Crea una Contraseña Segura
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Define una contraseña de mínimo 6 caracteres para proteger la administración de tu negocio.
+                </p>
+              </div>
+            )}
+
+            {registrationStep === 5 && (
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 800, margin: '0 0 0.25rem 0', color: 'var(--success)' }}>
+                  ✓ ¡Todo completo! Pulsa 'Registrar Negocio'
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Haz clic abajo para crear tu local. Enseguida se abrirá la <strong>Guía Interactiva</strong> para configurar tus servicios, horarios y equipo paso a paso.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <form style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onSubmit={handleSubmit}>
           {errorMsg && (
             <div style={{ padding: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, textAlign: 'center' }}>
@@ -294,10 +403,12 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 2.75rem', 
                     background: 'var(--background)',
-                    border: '1px solid var(--border)',
+                    border: (mode === 'register' && registrationStep === 1) ? '2px solid #f59e0b' : '1px solid var(--border)',
+                    boxShadow: (mode === 'register' && registrationStep === 1) ? '0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(245, 158, 11, 0.2)' : 'none',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--text)',
-                    fontSize: '0.875rem'
+                    fontSize: '0.875rem',
+                    transition: 'all 0.3s ease'
                   }}
                 />
               </div>
@@ -352,10 +463,12 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                         width: '100%', 
                         padding: '0.875rem 1rem 0.875rem 2.75rem', 
                         background: 'var(--background)',
-                        border: '1px solid var(--border)',
+                        border: (mode === 'register' && registrationStep === 2) ? '2px solid #f59e0b' : '1px solid var(--border)',
+                        boxShadow: (mode === 'register' && registrationStep === 2) ? '0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(245, 158, 11, 0.2)' : 'none',
                         borderRadius: 'var(--radius-md)',
                         color: 'var(--text)',
-                        fontSize: '0.875rem'
+                        fontSize: '0.875rem',
+                        transition: 'all 0.3s ease'
                       }}
                     />
                   </div>
@@ -374,10 +487,12 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 2.75rem', 
                     background: 'var(--background)',
-                    border: '1px solid var(--border)',
+                    border: (mode === 'register' && registrationStep === 3) ? '2px solid #f59e0b' : '1px solid var(--border)',
+                    boxShadow: (mode === 'register' && registrationStep === 3) ? '0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(245, 158, 11, 0.2)' : 'none',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--text)',
-                    fontSize: '0.875rem'
+                    fontSize: '0.875rem',
+                    transition: 'all 0.3s ease'
                   }}
                 />
               </div>
@@ -393,14 +508,23 @@ export const BarberAuth: React.FC<{ onSuccess: () => void, isSuperAdmin?: boolea
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 2.75rem', 
                     background: 'var(--background)',
-                    border: '1px solid var(--border)',
+                    border: (mode === 'register' && registrationStep === 4) ? '2px solid #f59e0b' : '1px solid var(--border)',
+                    boxShadow: (mode === 'register' && registrationStep === 4) ? '0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(245, 158, 11, 0.2)' : 'none',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--text)',
-                    fontSize: '0.875rem'
+                    fontSize: '0.875rem',
+                    transition: 'all 0.3s ease'
                   }}
                 />
               </div>
-              <button disabled={loading} type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '0.5rem', opacity: loading ? 0.7 : 1 }}>
+              <button disabled={loading} type="submit" className="btn btn-primary" style={{ 
+                width: '100%', 
+                marginBottom: '0.5rem', 
+                opacity: loading ? 0.7 : 1,
+                border: (mode === 'register' && registrationStep === 5) ? '2px solid #10b981' : undefined,
+                boxShadow: (mode === 'register' && registrationStep === 5) ? '0 0 0 3px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.4)' : undefined,
+                fontWeight: 900
+              }}>
                 {loading ? 'Redirigiendo...' : (mode === 'admin' ? 'Entrar como Admin' : (mode === 'login' ? 'Iniciar Sesión' : 'Registrar Negocio'))}
               </button>
             </>

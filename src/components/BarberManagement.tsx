@@ -498,6 +498,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
         <button 
+          data-tutorial="subtab-brand"
           onClick={() => setActiveTab('brand')}
           style={{ 
             background: 'none', 
@@ -512,6 +513,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           Mi Marca
         </button>
         <button 
+          data-tutorial="subtab-services"
           onClick={() => setActiveTab('services')}
           style={{ 
             background: 'none', 
@@ -526,6 +528,7 @@ export const BarberManagement: React.FC<{ tenantId: string }> = ({ tenantId }) =
           Servicios y Precios
         </button>
         <button 
+          data-tutorial="subtab-schedule"
           onClick={() => setActiveTab('schedule')}
           style={{ 
             background: 'none', 
