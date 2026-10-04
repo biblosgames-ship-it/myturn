@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { AnalyticChart } from './ui/AnalyticChart';
 import { PricingPlans } from './PricingPlans';
-import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap, Sparkles, ShoppingBag } from 'lucide-react';
+import { MessageCircle, Play, Check, X, TrendingUp, LayoutDashboard, Settings, Share2, Copy, QrCode, Plus, Calendar, Package, Wallet, Users, Clock, Scissors, ChevronRight, Search, CheckCircle2, Pause, AlertCircle, LogOut, Printer, HelpCircle, MoreVertical, CreditCard, Shield, ShieldAlert, Lock, User, BarChart2, FileText, Download, Edit, Trash2, LifeBuoy, Send, Building, Layers, Bell, BellOff, Rocket, Star, Crown, Zap, Sparkles, ShoppingBag, Phone } from 'lucide-react';
 
 
 interface Appointment {
@@ -59,7 +59,15 @@ const MOTIVATIONAL_QUOTES = [
 
 // All appointments are now strictly database-driven.
 
-const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], onRemove: (id: string) => void, onEdit: (apt: Appointment) => void, onWhatsAppAlert?: (apt: Appointment) => void, initialTargetDate?: string | null }> = ({ appointments, staff, onRemove, onEdit, onWhatsAppAlert, initialTargetDate }) => {
+const AgendaCalendarView: React.FC<{ 
+  appointments: Appointment[], 
+  staff: any[], 
+  onRemove: (id: string) => void, 
+  onEdit: (apt: Appointment) => void, 
+  onWhatsAppAlert?: (apt: Appointment) => void, 
+  initialTargetDate?: string | null,
+  onScheduleNew?: (date?: string) => void 
+}> = ({ appointments, staff, onRemove, onEdit, onWhatsAppAlert, initialTargetDate, onScheduleNew }) => {
   const [currentMonth, setCurrentMonth] = useState(initialTargetDate ? new Date(initialTargetDate + 'T00:00:00') : new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(initialTargetDate || getTodayStr());
 
@@ -94,12 +102,23 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
 
   return (
     <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(16,185,129,0.1)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
-        <Calendar size={24} color="var(--success)" />
-        <div>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>Agenda a Largo Plazo</h3>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text)' }}>Visualiza e inspecciona todas las citas programadas a futuro.</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(16,185,129,0.1)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)', flex: 1, minWidth: '280px' }}>
+          <Calendar size={24} color="var(--success)" />
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>Agenda a Largo Plazo</h3>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text)' }}>Visualiza, programa e inspecciona todas las citas programadas a futuro.</p>
+          </div>
         </div>
+        {onScheduleNew && (
+          <button 
+            onClick={() => onScheduleNew(selectedDay || getTodayStr())}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', fontWeight: 900, whiteSpace: 'nowrap' }}
+          >
+            <Plus size={18} /> Agendar Cita en Calendario
+          </button>
+        )}
       </div>
 
       <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem', background: 'var(--surface)' }}>
@@ -153,13 +172,33 @@ const AgendaCalendarView: React.FC<{ appointments: Appointment[], staff: any[], 
 
       {selectedDay && (
         <div className="card" style={{ padding: '1.5rem', background: 'var(--surface)' }}>
-          <h4 style={{ marginBottom: '1.5rem', fontWeight: 900, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-            Listado del {new Date(`${selectedDay}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-          </h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <h4 style={{ margin: 0, fontWeight: 900 }}>
+              Listado del {new Date(`${selectedDay}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </h4>
+            {onScheduleNew && (
+              <button 
+                onClick={() => onScheduleNew(selectedDay)}
+                className="btn btn-primary"
+                style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800 }}
+              >
+                <Plus size={14} /> Agendar en este día
+              </button>
+            )}
+          </div>
           {selectedAppointments.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
               <Calendar size={32} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
               <p style={{ margin: 0 }}>No hay citas agendadas para este día.</p>
+              {onScheduleNew && (
+                <button 
+                  onClick={() => onScheduleNew(selectedDay)}
+                  className="btn btn-primary"
+                  style={{ marginTop: '1rem', padding: '0.5rem 1.25rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}
+                >
+                  <Plus size={16} /> Agendar Cita para este día
+                </button>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -261,6 +300,17 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
   // Security & Record Management
   const [showPinModal, setShowPinModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleData, setScheduleData] = useState({
+    clientName: '',
+    phone: '',
+    service: '',
+    staffId: '',
+    date: getTodayStr(),
+    time: '10:00',
+    adminNotes: ''
+  });
+  const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [targetAptAction, setTargetAptAction] = useState<{ type: 'edit' | 'delete', apt: Appointment } | null>(null);
   const [showDeleteAptModal, setShowDeleteAptModal] = useState<Appointment | null>(null);
@@ -1133,6 +1183,116 @@ const getPlanCapabilities = (planName: string) => {
       time: '' 
     });
     setShowAddForm(false);
+  };
+
+  const handleOpenScheduleModal = (targetDate?: string) => {
+    const defaultDate = targetDate || selectedDate || getTodayStr();
+    let defaultTime = '10:00';
+    if (defaultDate === getTodayStr()) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 15);
+      defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+    setScheduleData({
+      clientName: '',
+      phone: '',
+      service: dbServices.length > 0 ? dbServices[0].name : '',
+      staffId: staff.length > 0 ? staff[0].id : '',
+      date: defaultDate,
+      time: defaultTime,
+      adminNotes: ''
+    });
+    setShowScheduleModal(true);
+  };
+
+  const handleSaveCalendarAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleData.clientName.trim()) {
+      alert("Por favor, ingresa el nombre del cliente.");
+      return;
+    }
+    if (!scheduleData.date) {
+      alert("Por favor, selecciona una fecha para la cita.");
+      return;
+    }
+    if (!scheduleData.time) {
+      alert("Por favor, selecciona una hora para la cita.");
+      return;
+    }
+
+    // SaaS Plan Limits Validation
+    const caps = getPlanCapabilities(subscription?.plan || 'Free');
+    const monthlyLimit = caps.maxAppointments === 'Unlimited' ? Infinity : Number(caps.maxAppointments);
+    if (appointments.length >= monthlyLimit) {
+      alert(`⚠️ Límite de Plan Alcanzado\n\nTu plan ${subscription?.plan || 'Free'} permite un máximo de ${caps.maxAppointments} citas por mes. Has llegado al tope.`);
+      setShowScheduleModal(false);
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    setIsSubmittingSchedule(true);
+    try {
+      const [year, month, day] = scheduleData.date.split('-').map(Number);
+      const [hStr, mStr] = scheduleData.time.split(':').map(Number);
+      const aptDate = new Date(year, month - 1, day, hStr, mStr, 0, 0);
+
+      const serviceObj = dbServices.find(s => s.name === scheduleData.service) || dbServices[0];
+      if (!serviceObj) {
+        alert("Por favor, selecciona o crea un servicio primero.");
+        setIsSubmittingSchedule(false);
+        return;
+      }
+
+      const cleanPhone = scheduleData.phone.trim();
+      const customFormResponses = cleanPhone ? { 'Teléfono': cleanPhone } : {};
+
+      const dbPayload = {
+        tenant_id: tenantId,
+        client_name: scheduleData.clientName.trim(),
+        service_id: serviceObj.id,
+        date_time: aptDate.toISOString(),
+        status: 'waiting',
+        staff_id: scheduleData.staffId || null,
+        source: 'calendar',
+        admin_notes: scheduleData.adminNotes.trim() || null,
+        custom_form_responses: customFormResponses
+      };
+
+      const { data, error } = await supabase.from('appointments').insert(dbPayload).select('*, services(name)').single();
+
+      if (error) {
+        console.error("Supabase Calendar Insert Error:", error);
+        alert("Error al agendar la cita en la base de datos: " + error.message);
+      } else {
+        const dObj = new Date(data.date_time);
+        const y = dObj.getFullYear();
+        const m = String(dObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dObj.getDate()).padStart(2, '0');
+        const localDateStr = `${y}-${m}-${d}`;
+
+        const newApt: Appointment = {
+          id: data.id,
+          clientName: data.client_name,
+          service: data.services?.name || serviceObj.name,
+          time: dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+          date: localDateStr,
+          status: 'waiting',
+          arrived: false,
+          staffId: data.staff_id || undefined,
+          adminNotes: data.admin_notes || '',
+          customFormResponses: data.custom_form_responses || customFormResponses
+        };
+
+        setAppointments(prev => [...prev, newApt]);
+        setShowScheduleModal(false);
+        setTargetAgendaDate(localDateStr);
+      }
+    } catch (err: any) {
+      console.error("Error al guardar cita de calendario:", err);
+      alert("Ocurrió un error inesperado al agendar la cita.");
+    } finally {
+      setIsSubmittingSchedule(false);
+    }
   };
 
   const moveUp = async (idx: number) => {
@@ -2630,8 +2790,16 @@ const getPlanCapabilities = (planName: string) => {
 
         {activeTab === 'queue' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => handleOpenScheduleModal(selectedDate)}
+                  style={{ padding: '0.5rem 1.1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.45rem', borderColor: 'var(--primary)', color: 'var(--primary)', background: 'rgba(245,158,11,0.08)', fontWeight: 800 }}
+                  title="Agendar cita para hoy o cualquier fecha futura en el calendario"
+                >
+                  <Calendar size={16} /> Agendar en Calendario
+                </button>
                 <button 
                   className="btn btn-primary" 
                   onClick={() => {
@@ -2644,17 +2812,17 @@ const getPlanCapabilities = (planName: string) => {
                     }));
                     setShowAddForm(!showAddForm);
                   }}
-                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.875rem' }}
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 800 }}
                 >
-                  <Plus size={16} />{showAddForm ? 'Cancelar' : 'Agregar Cita'}
+                  <Plus size={16} />{showAddForm ? 'Cancelar' : 'Turno en Vivo (Walk-in)'}
                 </button>
               </div>
             </div>
 
             {showAddForm && (
               <form onSubmit={addWalkIn} className="card animate-fade-in" style={{ background: 'var(--surface-hover)', border: '1px dashed var(--primary)', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 2 }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 2, minWidth: '180px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>NOMBRE DEL CLIENTE</label>
                     <input 
                       type="text" 
@@ -2665,7 +2833,7 @@ const getPlanCapabilities = (planName: string) => {
                       autoFocus
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>SERVICIO</label>
                     <select 
                       value={newClient.service}
@@ -2683,7 +2851,7 @@ const getPlanCapabilities = (planName: string) => {
                       )}
                     </select>
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: '110px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>HORA</label>
                     <input 
                       type="time" 
@@ -2692,7 +2860,7 @@ const getPlanCapabilities = (planName: string) => {
                       style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text)' }}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: '140px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>PROFESIONAL</label>
                     <select 
                       value={newClient.staffId}
@@ -2703,7 +2871,21 @@ const getPlanCapabilities = (planName: string) => {
                       {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ padding: '0.6rem 1.5rem' }}>Añadir</button>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '0.6rem 1.5rem', fontWeight: 800 }}>Añadir</button>
+                </div>
+
+                <div style={{ width: '100%', marginTop: '0.75rem', paddingTop: '0.6rem', borderTop: '1px dashed var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>📍 Registro rápido para clientes presentes en el local ({selectedDate === getTodayStr() ? 'Hoy' : selectedDate}).</span>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowAddForm(false);
+                      handleOpenScheduleModal(selectedDate);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Calendar size={13} /> ¿Agendar para otra fecha futura? Hazlo en el Calendario
+                  </button>
                 </div>
               </form>
             )}
@@ -3115,6 +3297,7 @@ const getPlanCapabilities = (planName: string) => {
             onRemove={removeApt} 
             onWhatsAppAlert={sendWhatsAppAlert}
             initialTargetDate={targetAgendaDate}
+            onScheduleNew={handleOpenScheduleModal}
             onEdit={(apt) => {
               setEditingApt(apt);
               setShowEditModal(true);
@@ -4541,6 +4724,208 @@ const getPlanCapabilities = (planName: string) => {
                 {verifiedPin ? 'Verificar' : 'Registrar PIN'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Calendar Appointment Modal */}
+      {showScheduleModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="card animate-scale-in" style={{ width: '100%', maxWidth: '480px', padding: '1.75rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <Calendar size={20} color="var(--primary)" />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0 }}>Agendar Cita en Calendario</h3>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Programa una cita para cualquier día y hora futura desde el negocio.
+                </p>
+              </div>
+              <button 
+                type="button"
+                className="btn btn-outline" 
+                style={{ padding: '0.35rem', borderRadius: '50%' }} 
+                onClick={() => setShowScheduleModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCalendarAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Selector de Fecha con atajos */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>FECHA DE LA CITA</label>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button 
+                      type="button"
+                      onClick={() => setScheduleData(prev => ({ ...prev, date: getTodayStr() }))}
+                      style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid var(--border)', background: scheduleData.date === getTodayStr() ? 'var(--primary)' : 'var(--background)', color: scheduleData.date === getTodayStr() ? 'black' : 'var(--text)', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      Hoy
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const tStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+                        setScheduleData(prev => ({ ...prev, date: tStr }));
+                      }}
+                      style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      Mañana
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const nextWeek = new Date();
+                        nextWeek.setDate(nextWeek.getDate() + 7);
+                        const nwStr = `${nextWeek.getFullYear()}-${String(nextWeek.getMonth() + 1).padStart(2, '0')}-${String(nextWeek.getDate()).padStart(2, '0')}`;
+                        setScheduleData(prev => ({ ...prev, date: nwStr }));
+                      }}
+                      style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text)', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      +7 Días
+                    </button>
+                  </div>
+                </div>
+                <input 
+                  type="date" 
+                  min={getTodayStr()}
+                  value={scheduleData.date}
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, date: e.target.value }))}
+                  className="input"
+                  style={{ width: '100%', padding: '0.6rem' }}
+                  required
+                />
+              </div>
+
+              {/* Selector de Hora */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>HORA PROGRAMADA</label>
+                <input 
+                  type="time" 
+                  value={scheduleData.time}
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, time: e.target.value }))}
+                  className="input"
+                  style={{ width: '100%', padding: '0.6rem' }}
+                  required
+                />
+              </div>
+
+              {/* Nombre del Cliente */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NOMBRE DEL CLIENTE</label>
+                <input 
+                  type="text" 
+                  placeholder="Ej: Roberto Pérez"
+                  value={scheduleData.clientName}
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, clientName: e.target.value }))}
+                  className="input"
+                  style={{ width: '100%', padding: '0.6rem' }}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {/* Teléfono / WhatsApp (Opcional) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Phone size={13} color="#25D366" /> TELÉFONO / WHATSAPP <span style={{ opacity: 0.6, fontWeight: 400 }}>(OPCIONAL)</span>
+                </label>
+                <input 
+                  type="tel" 
+                  placeholder="Ej: +1 809 555 1234"
+                  value={scheduleData.phone}
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="input"
+                  style={{ width: '100%', padding: '0.6rem' }}
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  Te permitirá avisarle o enviarle recordatorio por WhatsApp con 1 solo clic.
+                </span>
+              </div>
+
+              {/* Servicio y Profesional */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>SERVICIO</label>
+                  <select 
+                    value={scheduleData.service}
+                    onChange={(e) => setScheduleData(prev => ({ ...prev, service: e.target.value }))}
+                    className="input"
+                    style={{ width: '100%', padding: '0.6rem' }}
+                    required
+                  >
+                    {dbServices.length > 0 ? (
+                      dbServices.map(s => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} (${s.price})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Corte Clásico">Corte Clásico</option>
+                        <option value="Barba Completa">Barba Completa</option>
+                        <option value="Corte + Barba">Corte + Barba</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>PROFESIONAL</label>
+                  <select 
+                    value={scheduleData.staffId}
+                    onChange={(e) => setScheduleData(prev => ({ ...prev, staffId: e.target.value }))}
+                    className="input"
+                    style={{ width: '100%', padding: '0.6rem' }}
+                  >
+                    <option value="">Cualquiera</option>
+                    {staff.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Notas internas / Observaciones */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NOTAS U OBSERVACIONES (OPCIONAL)</label>
+                <textarea 
+                  rows={2}
+                  value={scheduleData.adminNotes}
+                  placeholder="Ej: Solicitó degradado alto, cliente referido por Juan..."
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, adminNotes: e.target.value }))}
+                  className="input"
+                  style={{ width: '100%', padding: '0.6rem', resize: 'none' }}
+                />
+              </div>
+
+              {/* Botones de acción */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                <button 
+                  type="button"
+                  className="btn btn-outline" 
+                  style={{ flex: 1 }} 
+                  onClick={() => setShowScheduleModal(false)}
+                  disabled={isSubmittingSchedule}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="btn btn-primary" 
+                  style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 900 }}
+                  disabled={isSubmittingSchedule}
+                >
+                  <Check size={18} />
+                  {isSubmittingSchedule ? 'Agendando...' : 'Confirmar Cita'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
