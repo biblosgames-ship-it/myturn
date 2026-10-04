@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { BarberManagement } from './BarberManagement';
 import { InventoryManagement } from './InventoryManagement';
@@ -962,31 +962,50 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
   const [customersSubTab, setCustomersSubTab] = useState<'retention' | 'activity'>('retention');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Load Transactions
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-      if (data) {
-        setTransactions(data.map(t => ({
+  // Load Transactions & Realtime Listener
+  const fetchTransactions = useCallback(async () => {
+    if (!tenantId) return;
+    const { data } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+    if (data) {
+      setTransactions(data.map(t => {
+        const txDate = new Date(t.created_at);
+        const localDateStr = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}-${String(txDate.getDate()).padStart(2, '0')}`;
+        return {
           id: t.id,
           type: t.type,
-          amount: t.amount,
+          amount: Number(t.amount) || 0,
           method: t.payment_method,
-          category: t.category,
+          category: t.category || 'General',
           description: t.description || t.notes || 'Servicio',
-          subtotal: t.subtotal || t.amount,
-          discountPercent: t.discount_percent || 0,
-          date: new Date(t.created_at).toISOString().split('T')[0],
+          subtotal: Number(t.subtotal) || Number(t.amount) || 0,
+          discountPercent: Number(t.discount_percent) || 0,
+          date: localDateStr,
           staffId: t.staff_id
-        })));
-      }
-    };
-    fetchTransactions();
+        };
+      }));
+    }
   }, [tenantId]);
+
+  useEffect(() => {
+    fetchTransactions();
+
+    if (!tenantId) return;
+
+    // Realtime channel for live synchronization of transactions
+    const txChannel = supabase.channel(`realtime:transactions:${tenantId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `tenant_id=eq.${tenantId}` }, () => {
+        fetchTransactions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(txChannel);
+    };
+  }, [tenantId, fetchTransactions]);
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
@@ -1042,6 +1061,10 @@ export const BarberDashboard: React.FC<BarberDashboardProps> = ({ onSwitchToAdmi
     if (tabId === 'stations' && !['Multi-Professional', 'Multi-Negocios'].includes(subscription?.plan || '')) {
       setShowUpgradeModal(true);
       return;
+    }
+
+    if (tabId === 'finance') {
+      fetchTransactions();
     }
 
     setActiveTab(tabId as any);
@@ -3304,7 +3327,10 @@ const getPlanCapabilities = (planName: string) => {
             }} 
           />
         ) : activeTab === 'inventory' ? (
-          <InventoryManagement tenantId={tenantId || undefined} />
+          <InventoryManagement 
+            tenantId={tenantId || undefined} 
+            onTransactionCreated={() => fetchTransactions()}
+          />
         ) : activeTab === 'finance' ? (
           <div className="animate-fade-in">
              <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>

@@ -26,9 +26,10 @@ export interface Product {
 
 interface InventoryManagementProps {
   tenantId?: string;
+  onTransactionCreated?: (tx?: any) => void;
 }
 
-export const InventoryManagement: React.FC<InventoryManagementProps> = ({ tenantId: propTenantId }) => {
+export const InventoryManagement: React.FC<InventoryManagementProps> = ({ tenantId: propTenantId, onTransactionCreated }) => {
   const [tenantId, setTenantId] = useState<string | null>(propTenantId || null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -348,22 +349,72 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ tenant
         0
       );
 
+      // 1. Record transaction in finance with robust schema fallback
       const itemsSummary = quickSaleCart
         .map(i => `${i.product.name} (x${i.quantity})`)
         .join(', ');
 
-      // 1. Record transaction in finance
-      const txPayload: any = {
+      let insertedTx: any = null;
+      let txError: any = null;
+
+      // Primary attempt: standard schema
+      const primaryPayload: any = {
         amount: totalAmount,
+        subtotal: totalAmount,
         type: 'ingreso',
         payment_method: quickSaleMethod,
         category: 'Venta de Tienda',
         description: `Venta Mostrador: ${itemsSummary}`
       };
-      if (tenantId) txPayload.tenant_id = tenantId;
+      if (tenantId) primaryPayload.tenant_id = tenantId;
 
-      const { error: txErr } = await supabase.from('transactions').insert(txPayload);
-      if (txErr) console.warn("Notice: Transaction logged with default schema:", txErr.message);
+      const resPrimary = await supabase.from('transactions').insert(primaryPayload).select().single();
+      if (!resPrimary.error) {
+        insertedTx = resPrimary.data;
+      } else {
+        txError = resPrimary.error;
+        console.warn("Fallo insert primario de transacción, probando con 'notes'...", txError.message);
+
+        // Fallback 1: notes column
+        const notesPayload: any = {
+          amount: totalAmount,
+          subtotal: totalAmount,
+          type: 'ingreso',
+          payment_method: quickSaleMethod,
+          category: 'Venta de Tienda',
+          notes: `Venta Mostrador: ${itemsSummary}`
+        };
+        if (tenantId) notesPayload.tenant_id = tenantId;
+
+        const resNotes = await supabase.from('transactions').insert(notesPayload).select().single();
+        if (!resNotes.error) {
+          insertedTx = resNotes.data;
+          txError = null;
+        } else {
+          // Fallback 2: minimal base table payload
+          const minimalPayload: any = {
+            amount: totalAmount,
+            type: 'ingreso',
+            payment_method: quickSaleMethod
+          };
+          if (tenantId) minimalPayload.tenant_id = tenantId;
+
+          const resMinimal = await supabase.from('transactions').insert(minimalPayload).select().single();
+          if (!resMinimal.error) {
+            insertedTx = resMinimal.data;
+            txError = null;
+          } else {
+            txError = resMinimal.error;
+          }
+        }
+      }
+
+      if (txError) {
+        console.error("Error crítico al registrar transacción en finanzas:", txError);
+        alert(`Atención: No se pudo registrar la venta en Finanzas: ${txError.message}`);
+      } else if (onTransactionCreated) {
+        onTransactionCreated(insertedTx);
+      }
 
       // 2. Decrement stock for each item
       for (const item of quickSaleCart) {
@@ -374,7 +425,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ tenant
           .eq('id', item.product.id);
       }
 
-      setQuickSaleSuccess(`¡Venta completada por $${totalAmount.toFixed(2)}! Se descontó el inventario.`);
+      setQuickSaleSuccess(`¡Venta completada por $${totalAmount.toFixed(2)}! Registrada en Finanzas.`);
       setQuickSaleCart([]);
       await fetchProducts();
 
